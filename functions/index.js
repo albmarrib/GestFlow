@@ -4,15 +4,7 @@ const fetch = require("node-fetch");
 
 admin.initializeApp();
 
-// Secretos y variables de configuración
-const mySecrets = [
-    "MICROSOFT_TENANT_ID",
-    "MICROSOFT_CLIENT_ID",
-    "MICROSOFT_CLIENT_SECRET"
-];
-
 exports.enviarNotificacionExpediente = functions
-    .runWith({ secrets: mySecrets })
     .firestore
     .document("expedientes/{expedienteId}")
     .onWrite(async (change, context) => {
