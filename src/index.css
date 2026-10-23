@@ -2,7 +2,60 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Estilo base para que se vea bien en toda la pantalla */
-body {
-  @apply bg-slate-50;
+@layer base {
+  html {
+    font-family: 'Plus Jakarta Sans', Inter, system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-900;
+    background-color: #f8fafc;
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.04) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(59, 130, 246, 0.04) 0px, transparent 50%),
+      radial-gradient(at 50% 100%, rgba(139, 92, 246, 0.03) 0px, transparent 50%);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+
+  ::selection {
+    @apply bg-indigo-500/15 text-indigo-900;
+  }
+}
+
+/* Scrollbar refinada estilo Legaltech / Linear */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.6);
+}
+
+/* Efectos de microinteracción y elevación */
+.hover-card-elevate {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+}
+
+.hover-card-elevate:hover {
+  transform: translateY(-2px);
+}
+
+/* Badges con efecto glass / border tenue */
+.badge-glass {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }

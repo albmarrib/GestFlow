@@ -36,8 +36,12 @@ import {
   LayoutList, PieChart, Database, Trash2, AlertTriangle, Monitor, Bell, X, 
   Paperclip, FileText, Download, Loader2, XCircle, ExternalLink, Pencil, Save, Map, 
   Activity, PauseCircle, BookOpen, Link as LinkIcon, File, Menu, Copy, Target, Eye, EyeOff,
-  Building2, Scale, UserCheck, CalendarCheck
+  Building2, Scale, UserCheck, CalendarCheck, RefreshCw
 } from 'lucide-react';
+import ClientAutocomplete from './components/ClientAutocomplete';
+import ClientesView from './components/ClientesView';
+import ClassificationManager from './components/ClassificationManager';
+import DynamicClassificationSelect from './components/DynamicClassificationSelect';
 
 // --- MAESTROS DE DATOS PARA GESTORÍA Y ASESORÍA ---
 const MASTERS = {
@@ -70,7 +74,8 @@ const MASTERS = {
     'Urgente / Próximo a Vencer',
     'Presentado / Tramitado',
     'Trámite Periódico',
-    'En Pausa / Suspendido'
+    'En Pausa / Suspendido',
+    'Cerrado'
   ]
 };
 
@@ -91,6 +96,8 @@ const normalizeStatus = (status) => {
     case 'No Meet Goal': return 'Urgente / Próximo a Vencer';
     case 'Completed': return 'Presentado / Tramitado';
     case 'On Hold': return 'En Pausa / Suspendido';
+    case 'Closed':
+    case 'Cerrado': return 'Cerrado';
     default: return status || 'En Plazo';
   }
 };
@@ -101,7 +108,7 @@ const normalizeDepartment = (dept) => {
   if (dept.includes('Systems') || dept.includes('CLEO') || dept.includes('Chemistry')) return 'Fiscal / Tributario';
   if (dept.includes('Financials') || dept.includes('Hematology')) return 'Contable';
   if (dept.includes('Employee') || dept.includes('Parasitology')) return 'Laboral y Seguridad Social';
-  return MASTERS.departments.includes(dept) ? dept : 'Fiscal / Tributario';
+  return dept;
 };
 
 const normalizeType = (type) => {
@@ -112,7 +119,7 @@ const normalizeType = (type) => {
   if (type === 'Employee Focused') return 'Nóminas y Seg. Social';
   if (type === 'Communication') return 'Consultoría y Asesoramiento';
   if (type === 'Other') return 'Trámite Administrativo';
-  return MASTERS.types.includes(type) ? type : 'Vencimiento Fiscal';
+  return type;
 };
 
 // --- UTILIDADES ---
@@ -140,7 +147,7 @@ const TextWithLinks = ({ text }) => {
 const getDelayDays = (task) => {
     if (!task || !task.originalDueDate || !task.dueDate) return 0;
     const currentStatus = normalizeStatus(task.status);
-    if (currentStatus === 'Trámite Periódico' || currentStatus === 'Presentado / Tramitado') return 0; 
+    if (currentStatus === 'Trámite Periódico' || currentStatus === 'Presentado / Tramitado' || currentStatus === 'Cerrado') return 0; 
     if (task.originalDueDate === task.dueDate) return 0;
     const original = new Date(task.originalDueDate);
     const current = new Date(task.dueDate);
@@ -149,20 +156,61 @@ const getDelayDays = (task) => {
     return diffDays > 0 ? diffDays : 0; 
 };
 
-// --- COMPONENTES UI ---
 const Badge = ({ text, size = 'xs' }) => {
   const norm = normalizeStatus(text);
-  let colorClass = 'bg-slate-100 text-slate-700 border-slate-200';
+  let colorClass = 'bg-slate-100 text-slate-700 border-slate-200/80';
+  let dotColor = 'bg-slate-400';
+
   switch (norm) {
-    case 'En Plazo': colorClass = 'bg-emerald-100 text-emerald-800 border-emerald-200'; break;
-    case 'Trámite Periódico': colorClass = 'bg-indigo-100 text-indigo-800 border-indigo-200'; break;
-    case 'Pendiente Documentación': colorClass = 'bg-amber-100 text-amber-800 border-amber-200'; break;
-    case 'En Revisión': colorClass = 'bg-purple-100 text-purple-800 border-purple-200'; break;
-    case 'Urgente / Próximo a Vencer': colorClass = 'bg-rose-100 text-rose-800 border-rose-200'; break;
-    case 'Presentado / Tramitado': colorClass = 'bg-blue-100 text-blue-800 border-blue-200'; break;
-    case 'En Pausa / Suspendido': colorClass = 'bg-slate-200 text-slate-600 border-slate-300'; break;
+    case 'En Plazo': 
+      colorClass = 'bg-emerald-50/90 text-emerald-800 border-emerald-200/80'; 
+      dotColor = 'bg-emerald-500';
+      break;
+    case 'Trámite Periódico': 
+      colorClass = 'bg-indigo-50/90 text-indigo-800 border-indigo-200/80'; 
+      dotColor = 'bg-indigo-500';
+      break;
+    case 'Pendiente Documentación': 
+      colorClass = 'bg-amber-50/90 text-amber-800 border-amber-200/80'; 
+      dotColor = 'bg-amber-500';
+      break;
+    case 'En Revisión': 
+      colorClass = 'bg-purple-50/90 text-purple-800 border-purple-200/80'; 
+      dotColor = 'bg-purple-500';
+      break;
+    case 'Urgente / Próximo a Vencer': 
+      colorClass = 'bg-rose-50/90 text-rose-800 border-rose-200/80'; 
+      dotColor = 'bg-rose-500 animate-pulse';
+      break;
+    case 'Presentado / Tramitado': 
+      colorClass = 'bg-blue-50/90 text-blue-800 border-blue-200/80'; 
+      dotColor = 'bg-blue-500';
+      break;
+    case 'En Pausa / Suspendido': 
+      colorClass = 'bg-slate-100 text-slate-700 border-slate-200'; 
+      dotColor = 'bg-slate-400';
+      break;
+    case 'Cerrado': 
+      colorClass = 'bg-slate-800 text-slate-200 border-slate-700'; 
+      dotColor = 'bg-slate-400';
+      break;
+    default:
+      colorClass = 'bg-slate-100 text-slate-700 border-slate-200/80';
+      dotColor = 'bg-slate-400';
   }
-  return <span className={`px-2 py-0.5 rounded-full text-${size} font-semibold border ${colorClass} whitespace-nowrap`}>{norm}</span>;
+
+  const isStatus = [
+    'En Plazo', 'Trámite Periódico', 'Pendiente Documentación', 
+    'En Revisión', 'Urgente / Próximo a Vencer', 'Presentado / Tramitado', 
+    'En Pausa / Suspendido', 'Cerrado'
+  ].includes(norm);
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-${size} font-bold border ${colorClass} whitespace-nowrap shadow-2xs tracking-tight`}>
+      {isStatus && <span className={`w-1.5 h-1.5 rounded-full ${dotColor} shrink-0`}></span>}
+      <span>{norm}</span>
+    </span>
+  );
 };
 
 const SvgDonutChart = ({ data }) => {
@@ -223,26 +271,58 @@ const MultiSelectDropdown = ({ label, options, selected, onChange, icon: Icon, f
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [wrapperRef]);
-  const toggleOption = (option) => { selected.includes(option) ? onChange(selected.filter(item => item !== option)) : onChange([...selected, option]); };
+
+  const toggleOption = (option) => { 
+    selected.includes(option) ? onChange(selected.filter(item => item !== option)) : onChange([...selected, option]); 
+  };
+
   return (
-    <div className={`relative ${fullWidth ? 'w-full' : ''}`} ref={wrapperRef}>
-      <button type="button" onClick={() => setIsOpen(!isOpen)} className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-sm transition-colors ${fullWidth ? 'w-full bg-white border-slate-300' : ''} ${!fullWidth && selected.length > 0 ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-medium' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-        <div className="flex items-center gap-2 overflow-hidden">{Icon && <Icon className="w-4 h-4 shrink-0" />}<span className="truncate">{selected.length === 0 ? label : `${label} (${selected.length})`}</span></div>
-        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+    <div className={`relative ${isOpen ? 'z-50' : 'z-10'} ${fullWidth ? 'w-full' : ''}`} ref={wrapperRef}>
+      <button 
+        type="button" 
+        onClick={() => setIsOpen(!isOpen)} 
+        className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition-all shadow-2xs ${
+          fullWidth ? 'w-full bg-white border-slate-200' : ''
+        } ${
+          !fullWidth && selected.length > 0 
+            ? 'bg-indigo-50/90 border-indigo-200 text-indigo-700 shadow-indigo-100/50' 
+            : 'bg-white/90 hover:bg-slate-50 border-slate-200/90 text-slate-700'
+        }`}
+      >
+        <div className="flex items-center gap-2 overflow-hidden">
+          {Icon && <Icon className={`w-3.5 h-3.5 shrink-0 ${selected.length > 0 ? 'text-indigo-600' : 'text-slate-400'}`} />}
+          <span className="truncate">{selected.length === 0 ? label : `${label} (${selected.length})`}</span>
+        </div>
+        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180 text-indigo-600' : ''}`} />
       </button>
+
       {isOpen && (
-        <div className="absolute top-full mt-1 left-0 w-full min-w-[200px] bg-white rounded-xl shadow-xl border border-slate-100 z-50 animate-in fade-in zoom-in-95 duration-100 max-h-60 overflow-y-auto">
-          <div className="p-2 space-y-1">
-            {options.map(option => {
+        <div className="absolute top-full mt-1.5 left-0 w-full min-w-[220px] bg-white rounded-2xl shadow-2xl border border-slate-200 z-[999] animate-in fade-in zoom-in-95 duration-150 max-h-64 overflow-y-auto p-1.5 space-y-0.5">
+          {options.length === 0 ? (
+            <div className="p-3 text-center text-xs text-slate-400">Sin opciones disponibles</div>
+          ) : (
+            options.map(option => {
               const isSelected = selected.includes(option);
               return (
-                <div key={option} onClick={() => toggleOption(option)} className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-sm transition-colors ${isSelected ? 'bg-indigo-50 text-indigo-700 font-medium' : 'hover:bg-slate-50 text-slate-700'}`}>
-                  <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'}`}>{isSelected && <Check className="w-3 h-3 text-white" />}</div>
+                <div 
+                  key={option} 
+                  onClick={() => toggleOption(option)} 
+                  className={`flex items-center gap-2.5 px-3 py-2 rounded-xl cursor-pointer text-xs transition-colors ${
+                    isSelected 
+                      ? 'bg-indigo-50/90 text-indigo-800 font-bold' 
+                      : 'hover:bg-slate-50 text-slate-700 font-medium'
+                  }`}
+                >
+                  <div className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-colors ${
+                    isSelected ? 'bg-indigo-600 border-indigo-600 shadow-xs' : 'border-slate-300 bg-white'
+                  }`}>
+                    {isSelected && <Check className="w-3 h-3 text-white stroke-[3]" />}
+                  </div>
                   <span className="truncate">{option}</span>
                 </div>
               );
-            })}
-          </div>
+            })
+          )}
         </div>
       )}
     </div>
@@ -266,7 +346,7 @@ const NotificationDropdown = ({ tasks, currentUser, onOpenTask }) => {
       const isAssigned = isMainOwner || isInAssigneesList;
       if (!isAssigned) return false;
       const normStatus = normalizeStatus(t.status);
-      if (normStatus === 'Presentado / Tramitado' || normStatus === 'En Pausa / Suspendido' || normStatus === 'Trámite Periódico') return false; 
+      if (normStatus === 'Presentado / Tramitado' || normStatus === 'En Pausa / Suspendido' || normStatus === 'Trámite Periódico' || normStatus === 'Cerrado') return false; 
       if (!t.dueDate) return false;
       const today = new Date();
       today.setHours(0,0,0,0);
@@ -288,32 +368,47 @@ const NotificationDropdown = ({ tasks, currentUser, onOpenTask }) => {
   }, [tasks, currentUser]);
   return (
     <div className="relative" ref={wrapperRef}>
-      <button onClick={() => setIsOpen(!isOpen)} className="relative p-2 text-slate-300 hover:text-white transition-colors rounded-full hover:bg-slate-800" title="Vencimientos Próximos">
+      <button 
+        onClick={() => setIsOpen(!isOpen)} 
+        className="relative p-2 text-slate-300 hover:text-white transition-all rounded-xl hover:bg-slate-800/80 border border-transparent hover:border-slate-700/50" 
+        title="Vencimientos Próximos"
+      >
         <Bell className="w-5 h-5" />
         {notifications.length > 0 && (
-          <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-slate-900 flex items-center justify-center text-[8px] font-bold text-white">
+          <span className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 bg-rose-500 rounded-full border-2 border-slate-900 flex items-center justify-center text-[9px] font-black text-white shadow-xs">
             {notifications.length > 9 ? '9+' : notifications.length}
           </span>
         )}
       </button>
+
       {isOpen && (
-        <div className="absolute top-full right-0 mt-2 w-84 bg-white rounded-xl shadow-2xl border border-slate-200 z-50 overflow-hidden animate-in fade-in zoom-in-95">
-          <div className="bg-slate-50 p-3 border-b border-slate-200 flex justify-between items-center">
-            <h3 className="font-bold text-slate-700 text-sm flex items-center gap-2"><Clock className="w-4 h-4 text-indigo-600"/> Vencimientos Próximos</h3>
-            <span className="bg-indigo-100 text-indigo-700 text-xs px-2 py-0.5 rounded-full font-bold">{notifications.length}</span>
+        <div className="absolute top-full right-0 mt-2 w-84 bg-white/95 backdrop-blur-md rounded-2xl shadow-premium border border-slate-200/90 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-slate-50/90 p-3.5 border-b border-slate-100 flex justify-between items-center">
+            <h3 className="font-bold text-slate-800 text-xs tracking-wide uppercase flex items-center gap-2">
+              <Clock className="w-4 h-4 text-indigo-600"/> 
+              <span>Vencimientos Próximos</span>
+            </h3>
+            <span className="bg-indigo-100 text-indigo-700 text-[11px] px-2 py-0.5 rounded-full font-bold">
+              {notifications.length}
+            </span>
           </div>
+
           <div className="max-h-80 overflow-y-auto">
             {notifications.length === 0 ? (
-              <div className="p-8 text-center text-slate-400 text-sm"><CheckCircle2 className="w-8 h-8 mx-auto mb-2 opacity-20 text-emerald-500"/>¡Todo al día! Sin vencimientos pendientes inmediatos.</div>
+              <div className="p-8 text-center text-slate-400 text-xs">
+                <CheckCircle2 className="w-8 h-8 mx-auto mb-2 opacity-25 text-emerald-500"/>
+                <p className="font-medium text-slate-600">¡Todo al día!</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">Sin vencimientos pendientes inmediatos.</p>
+              </div>
             ) : (
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-slate-100/80">
                 {notifications.map(n => (
-                  <div key={n.id} onClick={() => { onOpenTask(n); setIsOpen(false); }} className="p-3 hover:bg-indigo-50 cursor-pointer transition-colors group">
+                  <div key={n.id} onClick={() => { onOpenTask(n); setIsOpen(false); }} className="p-3 hover:bg-indigo-50/60 cursor-pointer transition-colors group">
                     <div className="flex items-start gap-3">
-                      <div className={`mt-1 w-2.5 h-2.5 rounded-full shrink-0 ${n.alertType === 'overdue' ? 'bg-rose-500' : n.alertType === 'urgent' ? 'bg-amber-500' : 'bg-blue-400'}`}></div>
+                      <div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${n.alertType === 'overdue' ? 'bg-rose-500 shadow-xs shadow-rose-500/50' : n.alertType === 'urgent' ? 'bg-amber-500 shadow-xs shadow-amber-500/50' : 'bg-blue-400'}`}></div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-slate-800 group-hover:text-indigo-700 truncate leading-tight">{n.title}</p>
-                        {n.client && <p className="text-xs text-indigo-600 font-medium truncate mt-0.5">{n.client}</p>}
+                        <p className="text-xs font-bold text-slate-800 group-hover:text-indigo-600 truncate leading-tight transition-colors">{n.title}</p>
+                        {n.client && <p className="text-[11px] text-indigo-600 font-semibold truncate mt-0.5">{n.client}</p>}
                         <div className="flex items-center gap-2 mt-1">
                             <span className={`text-[10px] font-bold ${n.alertType === 'overdue' ? 'text-rose-600' : n.alertType === 'urgent' ? 'text-amber-600' : 'text-slate-500'}`}>
                                 {n.daysLeft < 0 ? `Vencido hace ${Math.abs(n.daysLeft)} d` : n.daysLeft === 0 ? 'Vence Hoy' : `Quedan ${n.daysLeft} días`}
@@ -367,7 +462,7 @@ const GTDView = ({ tasks, currentUser, onEditParent }) => {
 
     tasks.forEach(task => {
       const normStatus = normalizeStatus(task.status);
-      if (!task.actions || task.actions.length === 0 || normStatus === 'Presentado / Tramitado') return;
+      if (!task.actions || task.actions.length === 0 || normStatus === 'Presentado / Tramitado' || normStatus === 'Cerrado') return;
       task.actions.forEach(action => {
         if (action.isCompleted) return;
         const matchesSearch = (task.title || '').toLowerCase().includes(s) || 
@@ -637,7 +732,7 @@ const RoadmapView = ({ tasks, onEdit }) => {
             if (normStatus === 'Trámite Periódico') return;
             if (!task.dueDate) return;
             const due = new Date(task.dueDate);
-            const isCompleted = normStatus === 'Presentado / Tramitado';
+            const isCompleted = normStatus === 'Presentado / Tramitado' || normStatus === 'Cerrado';
             if (due < startOfCurrentMonth && !isCompleted) { acc.overdue.push(task); } 
             else if (due >= startOfCurrentMonth && due < startOfNextMonth) { acc.current.push(task); } 
             else if (due >= startOfNextMonth && due < startOfFuture) { acc.next.push(task); } 
@@ -650,16 +745,21 @@ const RoadmapView = ({ tasks, onEdit }) => {
     const RoadmapCard = ({ task }) => {
         const delay = getDelayDays(task);
         return (
-            <div onClick={() => onEdit(task)} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-300 cursor-pointer group transition-all">
-                <div className="flex justify-between items-start mb-1">
+            <div onClick={() => onEdit(task)} className="hover-card-elevate bg-white/95 backdrop-blur-xs p-3.5 rounded-xl border border-slate-200/80 shadow-xs hover:border-indigo-200/80 cursor-pointer group transition-all">
+                <div className="flex justify-between items-start mb-1.5">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{normalizeDepartment(task.department)}</span>
                     <Badge text={task.status} size="[10px]"/>
                 </div>
-                <h4 className="font-bold text-sm text-slate-800 leading-tight mb-1 group-hover:text-indigo-700">{task.title}</h4>
-                {task.client && <div className="text-xs text-indigo-600 font-semibold mb-2 flex items-center gap-1"><Building2 className="w-3 h-3"/> {task.client}</div>}
-                <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <Clock className="w-3 h-3"/> 
-                    <span className={delay > 0 ? "text-rose-600 font-bold" : ""}>
+                <h4 className="font-bold text-sm text-slate-800 leading-tight mb-1 group-hover:text-indigo-600 transition-colors line-clamp-2">{task.title}</h4>
+                {task.client && (
+                    <div className="inline-flex items-center gap-1 text-[11px] text-indigo-700 font-semibold px-2 py-0.5 rounded-md bg-indigo-50/70 border border-indigo-100/60 mb-2 max-w-full truncate">
+                        <Building2 className="w-3 h-3 text-indigo-500 shrink-0"/> 
+                        <span className="truncate">{task.client}</span>
+                    </div>
+                )}
+                <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
+                    <Clock className="w-3.5 h-3.5 text-slate-400"/> 
+                    <span className={delay > 0 ? "text-rose-600 font-bold bg-rose-50 px-1 rounded border border-rose-100 text-[11px]" : "font-medium"}>
                         {new Date(task.dueDate).toLocaleDateString('es-ES', {month: 'short', day: 'numeric'})}
                         {delay > 0 && ` (+${delay}d demora)`}
                     </span>
@@ -670,29 +770,57 @@ const RoadmapView = ({ tasks, onEdit }) => {
 
     return (
         <div className="space-y-4 animate-in fade-in duration-300">
-            <div className="flex items-center gap-2 mb-2">
-                <CalendarCheck className="w-6 h-6 text-indigo-600"/>
-                <div>
-                  <h2 className="text-xl font-bold text-slate-800">Cronograma de Vencimientos</h2>
-                  <p className="text-xs text-slate-500">Visualización de plazos fiscales y fechas límite de expedientes</p>
+            <div className="flex items-center justify-between pb-2">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-2xs">
+                        <CalendarCheck className="w-5 h-5"/>
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-slate-900 tracking-tight">Cronograma de Vencimientos</h2>
+                      <p className="text-xs text-slate-500">Visualización temporal de plazos fiscales y expedientes por fase</p>
+                    </div>
                 </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 min-h-[500px]">
-                <div className="flex flex-col bg-rose-50/50 rounded-xl border border-rose-100">
-                    <div className="p-3 border-b border-rose-100 bg-rose-100/50 rounded-t-xl flex justify-between items-center"><h3 className="font-bold text-rose-800 text-sm flex items-center gap-2"><AlertTriangle className="w-4 h-4"/> Fuera de Plazo</h3><span className="bg-white text-rose-600 text-xs font-bold px-2 py-0.5 rounded-full">{buckets.overdue.length}</span></div>
-                    <div className="flex-1 overflow-y-auto p-3 space-y-2">{buckets.overdue.map(t => <RoadmapCard key={t.id} task={t}/>)}</div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 min-h-[520px]">
+                {/* Fuera de Plazo */}
+                <div className="flex flex-col bg-rose-50/40 backdrop-blur-xs rounded-2xl border border-rose-200/70 shadow-xs overflow-hidden">
+                    <div className="p-3.5 border-b border-rose-200/60 bg-rose-100/40 flex justify-between items-center">
+                        <h3 className="font-bold text-rose-900 text-xs uppercase tracking-wide flex items-center gap-1.5">
+                            <AlertTriangle className="w-4 h-4 text-rose-600"/> Fuera de Plazo
+                        </h3>
+                        <span className="bg-white/90 text-rose-700 text-xs font-bold px-2 py-0.5 rounded-full border border-rose-200 shadow-2xs">{buckets.overdue.length}</span>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-3 space-y-2.5">{buckets.overdue.map(t => <RoadmapCard key={t.id} task={t}/>)}</div>
                 </div>
-                <div className="flex flex-col bg-slate-100 rounded-xl border border-slate-200">
-                    <div className="p-3 border-b border-slate-200 bg-slate-200 rounded-t-xl flex justify-between items-center"><h3 className="font-bold text-slate-700 text-sm flex items-center gap-2"><CalendarDays className="w-4 h-4"/> {currentMonthName} (Mes Actual)</h3><span className="bg-white text-slate-600 text-xs font-bold px-2 py-0.5 rounded-full">{buckets.current.length}</span></div>
-                    <div className="flex-1 overflow-y-auto p-3 space-y-2">{buckets.current.map(t => <RoadmapCard key={t.id} task={t}/>)}</div>
+
+                {/* Mes Actual */}
+                <div className="flex flex-col bg-slate-100/70 backdrop-blur-xs rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+                    <div className="p-3.5 border-b border-slate-200/80 bg-slate-200/50 flex justify-between items-center">
+                        <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wide flex items-center gap-1.5">
+                            <CalendarDays className="w-4 h-4 text-indigo-600"/> {currentMonthName} (Mes Actual)
+                        </h3>
+                        <span className="bg-white text-slate-700 text-xs font-bold px-2 py-0.5 rounded-full border border-slate-200 shadow-2xs">{buckets.current.length}</span>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-3 space-y-2.5">{buckets.current.map(t => <RoadmapCard key={t.id} task={t}/>)}</div>
                 </div>
-                <div className="flex flex-col bg-slate-50/50 rounded-xl border border-slate-200">
-                    <div className="p-3 border-b border-slate-200 bg-slate-100/50 rounded-t-xl flex justify-between items-center"><h3 className="font-bold text-slate-600 text-sm">{nextMonthName} (Próximo)</h3><span className="bg-white text-slate-500 text-xs font-bold px-2 py-0.5 rounded-full">{buckets.next.length}</span></div>
-                    <div className="flex-1 overflow-y-auto p-3 space-y-2">{buckets.next.map(t => <RoadmapCard key={t.id} task={t}/>)}</div>
+
+                {/* Próximo Mes */}
+                <div className="flex flex-col bg-slate-50/70 backdrop-blur-xs rounded-2xl border border-slate-200/70 shadow-xs overflow-hidden">
+                    <div className="p-3.5 border-b border-slate-200/70 bg-slate-100/50 flex justify-between items-center">
+                        <h3 className="font-bold text-slate-700 text-xs uppercase tracking-wide">{nextMonthName} (Próximo)</h3>
+                        <span className="bg-white text-slate-600 text-xs font-bold px-2 py-0.5 rounded-full border border-slate-200 shadow-2xs">{buckets.next.length}</span>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-3 space-y-2.5">{buckets.next.map(t => <RoadmapCard key={t.id} task={t}/>)}</div>
                 </div>
-                <div className="flex flex-col bg-slate-50/30 rounded-xl border border-slate-100">
-                    <div className="p-3 border-b border-slate-100 bg-slate-50 rounded-t-xl flex justify-between items-center"><h3 className="font-bold text-slate-400 text-sm">Horizonte Posterior</h3><span className="bg-slate-100 text-slate-400 text-xs font-bold px-2 py-0.5 rounded-full">{buckets.future.length}</span></div>
-                    <div className="flex-1 overflow-y-auto p-3 space-y-2">{buckets.future.map(t => <RoadmapCard key={t.id} task={t}/>)}</div>
+
+                {/* Horizonte Posterior */}
+                <div className="flex flex-col bg-slate-50/40 backdrop-blur-xs rounded-2xl border border-slate-200/50 shadow-xs overflow-hidden">
+                    <div className="p-3.5 border-b border-slate-200/50 bg-slate-100/30 flex justify-between items-center">
+                        <h3 className="font-bold text-slate-500 text-xs uppercase tracking-wide">Horizonte Posterior</h3>
+                        <span className="bg-slate-100 text-slate-500 text-xs font-bold px-2 py-0.5 rounded-full">{buckets.future.length}</span>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-3 space-y-2.5">{buckets.future.map(t => <RoadmapCard key={t.id} task={t}/>)}</div>
                 </div>
             </div>
         </div>
@@ -700,7 +828,16 @@ const RoadmapView = ({ tasks, onEdit }) => {
 };
 
 // --- VISTA ADMIN: GESTIÓN Y AUDITORÍA DEL DESPACHO ---
-const AdminView = ({ tasks, currentAdmin, logAction }) => {
+const AdminView = ({ 
+  tasks, 
+  currentAdmin, 
+  logAction, 
+  onNavigateToClientes, 
+  clientesCount = 0,
+  areas = [],
+  tramos = [],
+  currentUser
+}) => {
   const [selectedTasks, setSelectedTasks] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [newAdminEmail, setNewAdminEmail] = useState('');
@@ -789,7 +926,39 @@ const AdminView = ({ tasks, currentAdmin, logAction }) => {
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in duration-300">
       
-      {/* SECCIÓN 1: GESTIÓN DE ADMINISTRADORES */}
+      {/* SECCIÓN 0: GESTIÓN DE CLIENTES Y CARTERA */}
+      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+            <Building2 className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-slate-800">Cartera de Clientes y Empresas</h2>
+            <p className="text-xs text-slate-500">
+              Actualmente hay <span className="font-bold text-indigo-600">{clientesCount}</span> clientes registrados. Gestiona altas, edición y carga masiva por CSV.
+            </p>
+          </div>
+        </div>
+        {onNavigateToClientes && (
+          <button
+            onClick={onNavigateToClientes}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md shadow-indigo-100 flex items-center gap-1.5 transition-all shrink-0"
+          >
+            <Building2 className="w-4 h-4" /> Ir al Módulo de Clientes
+          </button>
+        )}
+      </div>
+
+      {/* SECCIÓN 1: CLASIFICACIÓN DINÁMICA DE EXPEDIENTES (ÁREAS Y TRAMOS) */}
+      <ClassificationManager 
+        areas={areas}
+        tramos={tramos}
+        tasks={tasks}
+        currentUser={currentUser}
+        logAction={logAction}
+      />
+
+      {/* SECCIÓN 2: GESTIÓN DE ADMINISTRADORES */}
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2 mb-4"><Lock className="text-indigo-600"/> Gestión del Equipo y Privilegios</h2>
           <div className="flex flex-col md:flex-row gap-6">
@@ -891,6 +1060,7 @@ const AnalyticsView = ({ tasks }) => {
     const projectTasks = annualTasks.filter(t => normalizeStatus(t.status) !== 'Trámite Periódico'); 
     const projectCount = projectTasks.length;
     const completed = projectTasks.filter(t => normalizeStatus(t.status) === 'Presentado / Tramitado').length;
+    const closed = projectTasks.filter(t => normalizeStatus(t.status) === 'Cerrado').length;
     const onTrack = projectTasks.filter(t => normalizeStatus(t.status) === 'En Plazo').length;
     const behind = projectTasks.filter(t => normalizeStatus(t.status) === 'Pendiente Documentación').length;
     const urgent = projectTasks.filter(t => normalizeStatus(t.status) === 'Urgente / Próximo a Vencer').length;
@@ -904,6 +1074,7 @@ const AnalyticsView = ({ tasks }) => {
 
     const byStatus = [
         { name: 'Presentado', value: completed, color: 'bg-blue-500', hexColor: '#3b82f6' },
+        { name: 'Cerrado', value: closed, color: 'bg-slate-700', hexColor: '#334155' },
         { name: 'En Plazo', value: onTrack, color: 'bg-emerald-500', hexColor: '#10b981' },
         { name: 'Pendiente Doc.', value: behind, color: 'bg-amber-400', hexColor: '#facc15' },
         { name: 'En Revisión', value: inReview, color: 'bg-purple-500', hexColor: '#a855f7' },
@@ -916,6 +1087,7 @@ const AnalyticsView = ({ tasks }) => {
       const userTasks = annualTasks.filter(t => (t.assignees && t.assignees.includes(email)) || t.assigneeEmail === email);
       const statusCounts = { 
           Completed: userTasks.filter(t => normalizeStatus(t.status) === 'Presentado / Tramitado').length, 
+          Closed: userTasks.filter(t => normalizeStatus(t.status) === 'Cerrado').length,
           OnTrack: userTasks.filter(t => normalizeStatus(t.status) === 'En Plazo').length, 
           Behind: userTasks.filter(t => normalizeStatus(t.status) === 'Pendiente Documentación').length, 
           Urgent: userTasks.filter(t => normalizeStatus(t.status) === 'Urgente / Próximo a Vencer').length, 
@@ -925,7 +1097,10 @@ const AnalyticsView = ({ tasks }) => {
     }).sort((a, b) => b.total - a.total);
 
     const delayByType = DELAY_METRICS_TYPES.map(type => {
-        const typeTasks = annualTasks.filter(t => normalizeType(t.type) === type && normalizeStatus(t.status) !== 'Trámite Periódico');
+        const typeTasks = annualTasks.filter(t => {
+            const s = normalizeStatus(t.status);
+            return normalizeType(t.type) === type && s !== 'Trámite Periódico' && s !== 'Presentado / Tramitado' && s !== 'Cerrado';
+        });
         const typeDelayed = typeTasks.filter(t => getDelayDays(t) > 0);
         const typeTotalDelay = typeDelayed.reduce((acc, t) => acc + getDelayDays(t), 0);
         return {
@@ -937,7 +1112,7 @@ const AnalyticsView = ({ tasks }) => {
         };
     });
 
-    return { totalCount, projectCount, periodicCount, completed, onTrack, behind, urgent, inReview, onHold, byDept, byStatus, byUser, delayByType };
+    return { totalCount, projectCount, periodicCount, completed, closed, onTrack, behind, urgent, inReview, onHold, byDept, byStatus, byUser, delayByType };
   }, [annualTasks]);
 
   return (
@@ -954,7 +1129,7 @@ const AnalyticsView = ({ tasks }) => {
           </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-3">
           <div className="bg-slate-800 text-white p-4 rounded-xl shadow-sm flex flex-col justify-between min-h-[100px]">
               <div className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Carga Total</div>
               <div className="text-3xl font-bold">{stats.totalCount}</div>
@@ -964,6 +1139,11 @@ const AnalyticsView = ({ tasks }) => {
               <div className="text-slate-500 text-[10px] uppercase font-bold">Presentados</div>
               <div className="text-3xl font-bold text-blue-600">{stats.completed}</div>
               <div className="text-[10px] text-slate-400 mt-1">{Math.round((stats.completed/(stats.projectCount || 1))*100)}% de Éxito</div>
+          </div>
+          <div className="bg-white p-4 rounded-xl border-l-4 border-l-slate-700 border border-slate-200 shadow-sm min-h-[100px]">
+              <div className="text-slate-500 text-[10px] uppercase font-bold">Cerrados</div>
+              <div className="text-3xl font-bold text-slate-700">{stats.closed}</div>
+              <div className="text-[10px] text-slate-400 mt-1">{Math.round((stats.closed/(stats.projectCount || 1))*100)}% Definitivos</div>
           </div>
           <div className="bg-white p-4 rounded-xl border-l-4 border-l-emerald-500 border border-slate-200 shadow-sm min-h-[100px]"><div className="text-slate-500 text-[10px] uppercase font-bold">En Plazo</div><div className="text-3xl font-bold text-emerald-600">{stats.onTrack}</div></div>
           <div className="bg-white p-4 rounded-xl border-l-4 border-l-amber-400 border border-slate-200 shadow-sm min-h-[100px]"><div className="text-slate-500 text-[10px] uppercase font-bold">Pendiente Doc.</div><div className="text-3xl font-bold text-amber-600">{stats.behind}</div></div>
@@ -1011,11 +1191,12 @@ const AnalyticsView = ({ tasks }) => {
                   <div key={u.email} className="flex items-center gap-3 text-sm">
                       <div className="w-28 sm:w-48 font-medium text-slate-600 truncate text-right text-xs" title={u.email}>{u.email.split('@')[0]}</div>
                       <div className="flex-1 h-4 bg-slate-100 rounded-full overflow-hidden flex">
-                          <div className="bg-blue-500 h-full transition-all" style={{width: `${(u.statusCounts.Completed/u.total)*100}%`}}></div>
-                          <div className="bg-emerald-500 h-full transition-all" style={{width: `${(u.statusCounts.OnTrack/u.total)*100}%`}}></div>
-                          <div className="bg-amber-400 h-full transition-all" style={{width: `${(u.statusCounts.Behind/u.total)*100}%`}}></div>
-                          <div className="bg-rose-500 h-full transition-all" style={{width: `${(u.statusCounts.Urgent/u.total)*100}%`}}></div>
-                          <div className="bg-slate-400 h-full transition-all" style={{width: `${(u.statusCounts.OnHold/u.total)*100}%`}}></div>
+                          <div className="bg-blue-500 h-full transition-all" title="Presentados" style={{width: `${(u.statusCounts.Completed/u.total)*100}%`}}></div>
+                          <div className="bg-slate-700 h-full transition-all" title="Cerrados" style={{width: `${(u.statusCounts.Closed/u.total)*100}%`}}></div>
+                          <div className="bg-emerald-500 h-full transition-all" title="En Plazo" style={{width: `${(u.statusCounts.OnTrack/u.total)*100}%`}}></div>
+                          <div className="bg-amber-400 h-full transition-all" title="Pendiente Doc." style={{width: `${(u.statusCounts.Behind/u.total)*100}%`}}></div>
+                          <div className="bg-rose-500 h-full transition-all" title="Urgente" style={{width: `${(u.statusCounts.Urgent/u.total)*100}%`}}></div>
+                          <div className="bg-slate-400 h-full transition-all" title="En Pausa" style={{width: `${(u.statusCounts.OnHold/u.total)*100}%`}}></div>
                       </div>
                       <div className="w-8 font-bold text-slate-700 text-xs text-center">{u.total}</div>
                   </div>
@@ -1225,13 +1406,27 @@ const ListView = ({ tasks, onEdit }) => {
   
   if (tasks.length === 0) {
     if (!showEmpty) {
-      return <div className="text-center py-20"><div className="text-slate-400 mb-2 animate-pulse">Cargando expedientes del despacho...</div></div>;
+      return (
+        <div className="text-center py-20">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-50 text-indigo-600 text-xs font-semibold animate-pulse">
+            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Cargando expedientes del despacho...
+          </div>
+        </div>
+      );
     }
-    return <div className="text-center py-20 bg-white rounded-xl border border-dashed border-slate-300"><div className="text-slate-400 mb-2 font-medium">No se han encontrado expedientes con los filtros aplicados.</div></div>;
+    return (
+      <div className="text-center py-20 bg-white/70 backdrop-blur-xs rounded-2xl border border-dashed border-slate-300 p-8">
+        <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
+          <Briefcase className="w-6 h-6" />
+        </div>
+        <h4 className="text-sm font-bold text-slate-700">Sin expedientes coincidentes</h4>
+        <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">No se han encontrado expedientes con los filtros aplicados en este momento.</p>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-3 animate-in fade-in duration-300">
+    <div className="space-y-2.5 animate-in fade-in duration-300">
       {tasks.map(task => {
         const delay = getDelayDays(task);
         const normStatus = normalizeStatus(task.status);
@@ -1239,32 +1434,41 @@ const ListView = ({ tasks, onEdit }) => {
         const normDept = normalizeDepartment(task.department);
 
         return (
-        <div key={task.id} onClick={() => onEdit(task)} className="group bg-white rounded-xl p-4 border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all cursor-pointer relative overflow-hidden">
-          <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${
+        <div 
+          key={task.id} 
+          onClick={() => onEdit(task)} 
+          className="group hover-card-elevate bg-white/95 backdrop-blur-xs rounded-2xl p-4 sm:p-4.5 border border-slate-200/80 shadow-xs hover:border-indigo-200/80 transition-all cursor-pointer relative overflow-hidden"
+        >
+          <div className={`absolute left-0 top-0 bottom-0 w-1.5 transition-colors ${
             normStatus === 'Presentado / Tramitado' ? 'bg-blue-500' : 
             normStatus === 'En Plazo' ? 'bg-emerald-500' : 
             normStatus === 'Trámite Periódico' ? 'bg-indigo-500' : 
             normStatus === 'Urgente / Próximo a Vencer' ? 'bg-rose-500' : 
             normStatus === 'Pendiente Documentación' ? 'bg-amber-500' : 
-            normStatus === 'En Revisión' ? 'bg-purple-500' : 'bg-slate-300'
+            normStatus === 'En Revisión' ? 'bg-purple-500' : 
+            normStatus === 'Cerrado' ? 'bg-slate-700' : 'bg-slate-300'
           }`}></div>
-          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between pl-3">
+
+          <div className="flex flex-col md:flex-row gap-3.5 items-start md:items-center justify-between pl-3">
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                <h3 className="font-bold text-slate-800 text-base group-hover:text-indigo-700 transition-colors truncate">{task.title}</h3>
+                <h3 className="font-bold text-slate-900 text-sm sm:text-base group-hover:text-indigo-600 transition-colors tracking-tight truncate">{task.title}</h3>
                 <Badge text={normType} size="xs" />
               </div>
               
               {task.client && (
-                <div className="flex items-center gap-1.5 text-xs text-indigo-700 font-semibold mb-2">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-indigo-50/70 text-indigo-700 font-semibold text-xs border border-indigo-100/70 mb-2">
                   <Building2 className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                  <span className="truncate">Cliente: {task.client}</span>
+                  <span className="truncate max-w-md">{task.client}</span>
                 </div>
               )}
 
-              <div className="flex flex-wrap gap-4 text-xs text-slate-500">
-                <span className="flex items-center gap-1"><Briefcase className="w-3.5 h-3.5 text-slate-400"/> {normDept}</span>
-                <div className="flex items-center gap-1 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">
+              <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-0.5">
+                <span className="flex items-center gap-1.5 text-slate-600 font-medium">
+                  <Briefcase className="w-3.5 h-3.5 text-slate-400"/> {normDept}
+                </span>
+                
+                <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200/70 text-slate-600">
                   <Users className="w-3.5 h-3.5 text-slate-400"/>
                   {task.assignees && task.assignees.length > 0 ? (
                     <span className="truncate max-w-[200px]">{task.assignees.join(', ')}</span>
@@ -1272,22 +1476,35 @@ const ListView = ({ tasks, onEdit }) => {
                     <span>{task.assigneeEmail || 'Sin Asesor Asignado'}</span>
                   )}
                 </div>
+
                 {normStatus !== 'Trámite Periódico' && (
-                  <span className="flex items-center gap-1 font-medium text-slate-600">
+                  <span className="flex items-center gap-1.5 font-medium text-slate-600">
                     <Clock className="w-3.5 h-3.5 text-slate-400"/> Vencimiento: {formatDateLocal(task.dueDate)} 
-                    {delay > 0 && <span className="text-rose-600 font-bold ml-1">(+{delay}d demora)</span>}
+                    {delay > 0 && <span className="text-rose-600 font-bold ml-1 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100">(+{delay}d demora)</span>}
                   </span>
                 )}
-                {normStatus === 'Trámite Periódico' && <span className="flex items-center gap-1 text-indigo-600 font-medium"><Activity className="w-3.5 h-3.5"/> Trámite Continuo</span>}
-                {task.attachments?.length > 0 && <span className="flex items-center gap-1 text-slate-500 font-medium"><Paperclip className="w-3.5 h-3.5"/> {task.attachments.length} archivos</span>}
-                {task.actions?.length > 0 && <span className="flex items-center gap-1 text-emerald-600 font-medium"><Target className="w-3.5 h-3.5"/> {task.actions.filter(a => a.isCompleted).length}/{task.actions.length} pasos</span>}
+                {normStatus === 'Trámite Periódico' && (
+                  <span className="flex items-center gap-1 text-indigo-600 font-semibold bg-indigo-50/50 px-2 py-0.5 rounded-full border border-indigo-100/60">
+                    <Activity className="w-3.5 h-3.5"/> Trámite Continuo
+                  </span>
+                )}
+                {task.attachments?.length > 0 && (
+                  <span className="flex items-center gap-1 text-slate-500 font-medium">
+                    <Paperclip className="w-3.5 h-3.5 text-slate-400"/> {task.attachments.length} archivos
+                  </span>
+                )}
+                {task.actions?.length > 0 && (
+                  <span className="flex items-center gap-1 text-emerald-600 font-semibold bg-emerald-50/50 px-2 py-0.5 rounded-full border border-emerald-100/60">
+                    <Target className="w-3.5 h-3.5"/> {task.actions.filter(a => a.isCompleted).length}/{task.actions.length} pasos
+                  </span>
+                )}
               </div>
             </div>
             
-            <div className="flex flex-col items-end gap-2 shrink-0">
+            <div className="flex flex-col sm:items-end gap-1.5 shrink-0 self-end sm:self-center">
               <Badge text={normStatus} />
-              <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                <CalendarDays className="w-3 h-3"/> Alta: {formatCreationDate(task.createdAt)}
+              <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
+                <CalendarDays className="w-3 h-3 text-slate-400"/> Alta: {formatCreationDate(task.createdAt)}
               </span>
             </div>
           </div>
@@ -1297,8 +1514,24 @@ const ListView = ({ tasks, onEdit }) => {
   );
 };
 
-// --- MODAL DE EXPEDIENTE / TRÁMITE ---
-const ExpedienteModal = ({ tasks, show, onClose, task, formData, setFormData, onSave, usersList, currentUser, onAddUpdate, newUpdateText, setNewUpdateText, setEditingTask }) => {
+const ExpedienteModal = ({ 
+  tasks, 
+  show, 
+  onClose, 
+  task, 
+  formData, 
+  setFormData, 
+  onSave, 
+  usersList, 
+  currentUser, 
+  onAddUpdate, 
+  newUpdateText, 
+  setNewUpdateText, 
+  setEditingTask, 
+  clientes = [],
+  areas = [],
+  tramos = []
+}) => {
   const suggestedAssignees = useMemo(() => {
     const result = [];
     const lowerSet = new Set();
@@ -1317,6 +1550,33 @@ const ExpedienteModal = ({ tasks, show, onClose, task, formData, setFormData, on
 
     return result.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
   }, [tasks, usersList, currentUser]);
+
+  // Validación estricta: Comprobar si el cliente seleccionado existe en la colección de clientes
+  const isValidClientSelected = useMemo(() => {
+    if (!formData.client && !formData.clientNif) return false;
+    if (!clientes || clientes.length === 0) return false;
+    return clientes.some(c => {
+      const cNif = (c.nif || '').toUpperCase().trim();
+      const cRazon = (c.razonSocial || '').toLowerCase().trim();
+      const formClient = (formData.client || '').toLowerCase().trim();
+      const formNif = (formData.clientNif || '').toUpperCase().trim();
+
+      if (formNif && formNif === cNif) return true;
+      if (cNif && formClient.includes(cNif.toLowerCase())) return true;
+      if (cRazon && formClient === cRazon) return true;
+      if (`${cRazon} (${cNif.toLowerCase()})` === formClient) return true;
+      return false;
+    });
+  }, [clientes, formData.client, formData.clientNif]);
+
+  const handleSubmitForm = (e) => {
+    e.preventDefault();
+    if (!isValidClientSelected) {
+      alert("⚠️ Bloqueo de seguridad: No se puede crear ni actualizar el expediente sin asociarlo a un cliente existente en la base de datos.");
+      return;
+    }
+    onSave(e);
+  };
 
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
@@ -1475,146 +1735,193 @@ const ExpedienteModal = ({ tasks, show, onClose, task, formData, setFormData, on
   const fileAttachments = task?.attachments?.filter(a => a.type === 'file') || [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col md:flex-row overflow-hidden animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-md p-2 sm:p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[88vh] flex flex-col md:flex-row overflow-hidden border border-slate-200/80 animate-in zoom-in-95 duration-200">
         
-        {/* COLUMNA IZQUIERDA: FORMULARIO DEL EXPEDIENTE */}
-        <div className="w-full md:w-1/2 p-6 border-r border-slate-100 overflow-y-auto bg-white">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              {task ? <Scale className="w-5 h-5 text-indigo-600"/> : <Plus className="w-5 h-5 text-indigo-600"/>} 
-              {task ? 'Ficha de Expediente' : 'Nuevo Expediente / Trámite'}
-            </h3>
-            <div className="flex gap-2">
-                {task && (<button type="button" onClick={handleDuplicate} className="text-xs bg-slate-100 hover:bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full font-bold flex items-center gap-1 transition-colors" title="Duplicar Expediente"><Copy className="w-3 h-3"/> Duplicar</button>)}
-                <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+        {/* COLUMNA IZQUIERDA: FORMULARIO DEL EXPEDIENTE (ULTRA-CONDENSADO) */}
+        <div className="w-full md:w-1/2 p-4 sm:p-5 border-r border-slate-100 overflow-y-auto bg-white flex flex-col justify-between">
+          <div>
+            <div className="flex justify-between items-center mb-2.5 pb-2 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-2xs">
+                  {task ? <Scale className="w-3.5 h-3.5"/> : <Plus className="w-3.5 h-3.5"/>} 
+                </div>
+                <span>{task ? 'Ficha de Expediente' : 'Nuevo Expediente / Trámite'}</span>
+              </h3>
+              <div className="flex items-center gap-2">
+                  {task && (
+                    <button type="button" onClick={handleDuplicate} className="text-[11px] bg-slate-50 hover:bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-full font-semibold border border-slate-200 hover:border-indigo-200 flex items-center gap-1 transition-all" title="Duplicar Expediente">
+                      <Copy className="w-3 h-3"/> Duplicar
+                    </button>
+                  )}
+                  <button type="button" onClick={onClose} className="w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-colors text-xs font-bold">✕</button>
+              </div>
             </div>
+
+            <form onSubmit={handleSubmitForm} className="space-y-2">
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-0.5">Título del Expediente / Trámite</label>
+                <input required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="Ej: Presentación Modelo 303 1T - IVA" className="w-full border border-slate-300 py-1.5 px-3 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-xs text-slate-800" />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide flex items-center justify-between mb-0.5">
+                  <span>Cliente / Empresa <span className="text-rose-500">*</span></span>
+                </label>
+                <ClientAutocomplete
+                  clientes={clientes}
+                  value={formData.client || ''}
+                  selectedNif={formData.clientNif || ''}
+                  onChange={(selected) => {
+                    if (selected) {
+                      setFormData({
+                        ...formData,
+                        client: `${selected.razonSocial} (${selected.nif})`,
+                        clientNif: selected.nif,
+                        clientRazonSocial: selected.razonSocial
+                      });
+                    } else {
+                      setFormData({
+                        ...formData,
+                        client: '',
+                        clientNif: '',
+                        clientRazonSocial: ''
+                      });
+                    }
+                  }}
+                  error={!isValidClientSelected && Boolean(formData.client)}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                 <div>
+                    <DynamicClassificationSelect 
+                      label="Tramo"
+                      icon={Tag}
+                      value={formData.type || formData.tramo}
+                      onChange={(val) => setFormData({ ...formData, type: val, tramo: val })}
+                      items={tramos}
+                      fallbackOptions={MASTERS.types}
+                      placeholder="Selecciona tramo..."
+                      name="tramo"
+                    />
+                 </div>
+                 <div>
+                    <DynamicClassificationSelect 
+                      label="Área"
+                      icon={Briefcase}
+                      value={formData.department || formData.area}
+                      onChange={(val) => setFormData({ ...formData, department: val, area: val })}
+                      items={areas}
+                      fallbackOptions={MASTERS.departments}
+                      placeholder="Selecciona área..."
+                      name="area"
+                    />
+                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-0.5">Estado</label>
+                  <select value={normalizeStatus(formData.status)} onChange={e => setFormData({...formData, status: e.target.value, dueDate: e.target.value === 'Trámite Periódico' ? '' : formData.dueDate })} className="w-full border border-slate-300 py-1.5 px-2.5 rounded-lg bg-white font-medium text-xs text-slate-700 outline-none">
+                    {MASTERS.status.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div>
+                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-0.5">Vencimiento Plazo</label>
+                    <input type="date" disabled={isOngoing} value={isOngoing ? '' : formData.dueDate} onChange={e => setFormData({...formData, dueDate: e.target.value})} className={`w-full border border-slate-300 py-1.5 px-2.5 rounded-lg text-xs outline-none ${isOngoing ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : ''}`} />
+                    {isOngoing && <div className="mt-0.5 text-[9px] text-indigo-600 flex items-center gap-1 font-medium"><PauseCircle className="w-2.5 h-2.5"/> Trámite continuo</div>}
+                    {!isOngoing && currentDelay > 0 && (<div className="mt-0.5 text-[9px] text-rose-600 bg-rose-50 border border-rose-100 px-1 py-0.5 rounded font-bold flex items-center gap-1"><AlertTriangle className="w-2.5 h-2.5"/> Aplazado {currentDelay}d</div>)}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide mb-0.5 block">Gestores Asignados</label>
+                <MultiSelectDropdown label="Seleccionar gestores..." icon={UserCheck} options={usersList.map(u => u.email)} selected={formData.assignees} onChange={(newAssignees) => setFormData({...formData, assignees: newAssignees})} fullWidth={true} />
+                {formData.assignees?.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {formData.assignees.map(email => (
+                      <span key={email} className="bg-indigo-50 text-indigo-700 border border-indigo-100 px-1.5 py-0.2 rounded text-[10px] flex items-center gap-1 font-medium">
+                        {email}
+                        <button type="button" onClick={() => setFormData(prev => ({...prev, assignees: prev.assignees.filter(e => e !== email)}))} className="hover:text-red-500 font-bold ml-0.5">✕</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-0.5">Observaciones</label>
+                <textarea placeholder="Detalles del cliente, requerimientos o notas para la gestión..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full border border-slate-300 p-2 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-xs text-slate-800 resize-none" rows="2"></textarea>
+              </div>
+
+              {task && (
+                <div className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs">
+                  <span className="text-slate-500 text-[11px] font-medium flex items-center gap-1.5">
+                    <Paperclip className="w-3.5 h-3.5 text-slate-400" />
+                    {(resourceLinks.length + fileAttachments.length)} archivos y enlaces
+                  </span>
+                  <button 
+                    type="button" 
+                    onClick={() => setRightTab('docs')}
+                    className="text-xs text-indigo-600 hover:text-indigo-700 font-bold hover:underline"
+                  >
+                    Ver en panel lateral →
+                  </button>
+                </div>
+              )}
+
+              <div className="pt-2 flex gap-2">
+                <button type="button" onClick={onClose} className="flex-1 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium transition-colors text-xs">Cancelar</button>
+                <button 
+                  type="submit" 
+                  disabled={!isValidClientSelected}
+                  className={`flex-1 py-2 rounded-lg font-bold transition-all shadow-sm text-xs flex items-center justify-center gap-1.5 ${
+                    isValidClientSelected 
+                      ? 'bg-indigo-600 text-white hover:bg-indigo-700 cursor-pointer shadow-indigo-100' 
+                      : 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
+                  }`}
+                  title={!isValidClientSelected ? "Selecciona un cliente válido registrado en la base de datos para habilitar el guardado" : ""}
+                >
+                  {!isValidClientSelected && <Lock className="w-3 h-3 text-slate-400" />}
+                  {task ? 'Guardar Cambios' : 'Crear Expediente'}
+                </button>
+              </div>
+            </form>
           </div>
-
-          <form onSubmit={onSave} className="space-y-4">
-            <div>
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Título del Expediente / Trámite</label>
-              <input required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="Ej: Presentación Modelo 303 1T - IVA" className="w-full mt-1 border border-slate-300 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-slate-800" />
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Cliente / Empresa / NIF</label>
-              <div className="relative mt-1">
-                <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"/>
-                <input value={formData.client || ''} onChange={e => setFormData({...formData, client: e.target.value})} placeholder="Ej: Transportes García S.L. (B12345678)" className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-slate-800 text-sm" />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-               <div>
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Tipo de Trámite</label>
-                  <select value={normalizeType(formData.type)} onChange={e => setFormData({...formData, type: e.target.value})} className="w-full mt-1 border border-slate-300 p-2.5 rounded-lg bg-white text-xs font-medium text-slate-700">
-                    {MASTERS.types.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-               </div>
-               <div>
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Área / Departamento</label>
-                  <select value={normalizeDepartment(formData.department)} onChange={e => setFormData({...formData, department: e.target.value})} className="w-full mt-1 border border-slate-300 p-2.5 rounded-lg bg-white text-xs font-medium text-slate-700">
-                    {MASTERS.departments.map(d => <option key={d} value={d}>{d}</option>)}
-                  </select>
-               </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Estado de Tramitación</label>
-                <select value={normalizeStatus(formData.status)} onChange={e => setFormData({...formData, status: e.target.value, dueDate: e.target.value === 'Trámite Periódico' ? '' : formData.dueDate })} className="w-full mt-1 border border-slate-300 p-2.5 rounded-lg bg-white font-medium text-xs text-slate-700">
-                  {MASTERS.status.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-              <div>
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Vencimiento Fiscal / Plazo</label>
-                  <input type="date" disabled={isOngoing} value={isOngoing ? '' : formData.dueDate} onChange={e => setFormData({...formData, dueDate: e.target.value})} className={`w-full mt-1 border border-slate-300 p-2.5 rounded-lg text-sm ${isOngoing ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : ''}`} />
-                  {isOngoing && <div className="mt-1 text-[10px] text-indigo-600 flex items-center gap-1 font-medium"><PauseCircle className="w-3 h-3"/> No aplica para trámites continuos</div>}
-                  {!isOngoing && currentDelay > 0 && (<div className="mt-1 text-[10px] text-rose-600 bg-rose-50 border border-rose-100 p-1 rounded font-bold flex items-center gap-1"><AlertTriangle className="w-3 h-3"/> Vencimiento aplazado {currentDelay} días</div>)}
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-1 block">Gestores / Asesores Asignados</label>
-              <MultiSelectDropdown label="Seleccionar gestores..." icon={UserCheck} options={usersList.map(u => u.email)} selected={formData.assignees} onChange={(newAssignees) => setFormData({...formData, assignees: newAssignees})} fullWidth={true} />
-              <div className="flex flex-wrap gap-2 mt-2">{formData.assignees.map(email => (<span key={email} className="bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-1 rounded text-xs flex items-center gap-1">{email}<button type="button" onClick={() => setFormData(prev => ({...prev, assignees: prev.assignees.filter(e => e !== email)}))} className="hover:text-red-500">✕</button></span>))}</div>
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Observaciones y Antecedentes</label>
-              <div className="w-full mt-1 border border-slate-300 p-2.5 rounded-lg focus-within:ring-2 focus-within:ring-indigo-500 bg-white min-h-[90px] text-sm whitespace-pre-wrap">
-                 <textarea placeholder="Detalles del cliente, requerimientos o notas para la gestión..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full h-full outline-none resize-none bg-transparent" rows="3"></textarea>
-              </div>
-            </div>
-            
-            {/* DOCUMENTACIÓN Y ENLACES OFICIALES */}
-            <div className="pt-2">
-                <div className="flex justify-between items-center mb-2 bg-indigo-50 p-2 rounded-t-lg border-b border-indigo-100">
-                    <label className="text-xs font-bold text-indigo-900 uppercase tracking-wide flex items-center gap-2"><BookOpen className="w-4 h-4 text-indigo-600"/> Enlaces y Sedes Electrónicas</label>
-                    {task ? (<button type="button" onClick={handleAddLinkAttachment} className="text-xs bg-white hover:bg-indigo-100 text-indigo-700 px-2 py-1 rounded border border-indigo-200 flex items-center gap-1 transition-colors"><Plus className="w-3 h-3"/> Añadir Enlace</button>) : <span className="text-[10px] text-slate-400">Guarda el expediente para añadir enlaces</span>}
-                </div>
-                <div className="space-y-2 mb-4 bg-indigo-50/30 p-2 rounded-b-lg min-h-[40px]">
-                    {resourceLinks.length === 0 && <div className="text-xs text-slate-400 italic text-center py-1">Sin enlaces oficiales vinculados (AEAT, DGT, Cloud, etc.).</div>}
-                    {resourceLinks.map((item, idx) => (
-                        <div key={idx} className="flex justify-between items-center bg-white p-2 rounded border border-indigo-100 text-sm shadow-sm">
-                            <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-indigo-700 hover:underline truncate max-w-[300px] font-medium text-xs">
-                                <Globe className="w-3.5 h-3.5 shrink-0 text-slate-400"/> {item.name}
-                            </a>
-                            <button type="button" onClick={() => handleDeleteAttachment(item)} className="text-slate-400 hover:text-rose-500"><XCircle className="w-4 h-4"/></button>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* ARCHIVOS Y JUSTIFICANTES ADJUNTOS */}
-            <div>
-                <div className="flex justify-between items-center mb-2">
-                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wide flex items-center gap-2"><Paperclip className="w-3.5 h-3.5 text-slate-500"/> Documentación y Modelos Adjuntos</label>
-                    {task && (<><input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} /><button type="button" onClick={() => fileInputRef.current.click()} disabled={isUploading} className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded border border-slate-200 flex items-center gap-1 transition-colors">{isUploading ? <Loader2 className="w-3 h-3 animate-spin"/> : <Plus className="w-3 h-3"/>} Adjuntar Archivo</button></>)}
-                </div>
-                <div className="space-y-2">
-                    {fileAttachments.length === 0 && <div className="text-xs text-slate-400 italic">No hay documentos adjuntos.</div>}
-                    {fileAttachments.map((item, idx) => (
-                        <div key={idx} className="flex justify-between items-center bg-slate-50 p-2 rounded border border-slate-200 text-xs">
-                            <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-slate-700 hover:underline truncate max-w-[200px] font-medium"><File className="w-4 h-4 shrink-0 text-indigo-500"/> {item.name}</a>
-                            <div className="flex items-center gap-2"><span className="text-[10px] text-slate-400 hidden sm:inline">{new Date(item.uploadedAt).toLocaleDateString('es-ES')}</span><button type="button" onClick={() => handleDeleteAttachment(item)} className="text-slate-400 hover:text-rose-500"><XCircle className="w-4 h-4"/></button></div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            <div className="pt-4 flex gap-3">
-              <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium transition-colors text-sm">Cancelar</button>
-              <button type="submit" className="flex-1 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold transition-colors shadow-sm text-sm">{task ? 'Guardar Cambios' : 'Crear Expediente'}</button>
-            </div>
-          </form>
         </div>
 
-        {/* COLUMNA DERECHA: NOTAS DE SEGUIMIENTO / PASOS GTD */}
+        {/* COLUMNA DERECHA: NOTAS DE SEGUIMIENTO / PASOS GTD / ADJUNTOS */}
         {task ? (
           <div className="w-full md:w-1/2 bg-slate-50 flex flex-col h-[500px] md:h-auto border-t md:border-t-0">
             <div className="flex border-b border-slate-200 bg-white">
                 <button 
                     type="button"
                     onClick={() => setRightTab('activity')}
-                    className={`flex-1 py-3 text-xs font-bold flex items-center justify-center gap-2 transition-colors border-b-2 ${rightTab === 'activity' ? 'text-indigo-600 border-indigo-600 bg-indigo-50/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
+                    className={`flex-1 py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${rightTab === 'activity' ? 'text-indigo-600 border-indigo-600 bg-indigo-50/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
                 >
-                    <MessageSquare className="w-4 h-4"/> Bitácora de Seguimiento
+                    <MessageSquare className="w-3.5 h-3.5"/> Bitácora <span className="bg-slate-100 text-slate-600 px-1.5 rounded-full text-[10px] border border-slate-200">{task.updates?.length || 0}</span>
                 </button>
                 <button 
                     type="button"
                     onClick={() => setRightTab('gtd')}
-                    className={`flex-1 py-3 text-xs font-bold flex items-center justify-center gap-2 transition-colors border-b-2 ${rightTab === 'gtd' ? 'text-emerald-600 border-emerald-600 bg-emerald-50/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
+                    className={`flex-1 py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${rightTab === 'gtd' ? 'text-emerald-600 border-emerald-600 bg-emerald-50/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
                 >
-                    <Target className="w-4 h-4"/> Pasos y Trámites <span className="bg-slate-100 text-slate-600 px-1.5 rounded-full text-[10px] border border-slate-200">{formData.actions?.length || 0}</span>
+                    <Target className="w-3.5 h-3.5"/> Pasos GTD <span className="bg-slate-100 text-slate-600 px-1.5 rounded-full text-[10px] border border-slate-200">{formData.actions?.length || 0}</span>
+                </button>
+                <button 
+                    type="button"
+                    onClick={() => setRightTab('docs')}
+                    className={`flex-1 py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${rightTab === 'docs' ? 'text-blue-600 border-blue-600 bg-blue-50/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
+                >
+                    <Paperclip className="w-3.5 h-3.5"/> Adjuntos <span className="bg-slate-100 text-slate-600 px-1.5 rounded-full text-[10px] border border-slate-200">{(resourceLinks?.length || 0) + (fileAttachments?.length || 0)}</span>
                 </button>
             </div>
 
-            {/* PESTAÑA: BITÁCORA */}
+            {/* PESTAÑA 1: BITÁCORA */}
             {rightTab === 'activity' && (
                 <>
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
                     {(!task.updates || task.updates.length === 0) && <div className="text-center text-slate-400 py-10 text-xs">Sin notas de seguimiento registradas.</div>}
                     {task.updates?.map((update, idx) => (
                         <div key={idx} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
@@ -1631,40 +1938,40 @@ const ExpedienteModal = ({ tasks, show, onClose, task, formData, setFormData, on
                         </div>
                     ))}
                     </div>
-                    <div className="p-4 bg-white border-t border-slate-200">
-                        <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Añadir Nota de Seguimiento</label>
-                        <div className="flex gap-2 mt-2 relative">
-                            <textarea value={newUpdateText} onChange={(e) => setNewUpdateText(e.target.value)} placeholder="Escribe un avance, llamada con el cliente o estado de la presentación..." className="flex-1 border border-slate-300 rounded-lg p-2.5 text-xs focus:ring-2 focus:ring-indigo-500 outline-none resize-none pr-8" rows="2"></textarea>
+                    <div className="p-3 bg-white border-t border-slate-200">
+                        <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-1">Añadir Nota de Seguimiento</label>
+                        <div className="flex gap-2 relative">
+                            <textarea value={newUpdateText} onChange={(e) => setNewUpdateText(e.target.value)} placeholder="Escribe un avance o notas..." className="flex-1 border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-indigo-500 outline-none resize-none pr-8" rows="2"></textarea>
                             <button type="button" onClick={handlePasteLinkInChat} className="absolute right-14 top-2 text-slate-400 hover:text-indigo-600 p-1 rounded transition-colors" title="Pegar enlace web"><LinkIcon className="w-4 h-4"/></button>
-                            <button type="button" onClick={onAddUpdate} disabled={!newUpdateText.trim()} className="bg-indigo-600 disabled:bg-slate-300 text-white px-4 rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center"><Send className="w-4 h-4" /></button>
+                            <button type="button" onClick={onAddUpdate} disabled={!newUpdateText.trim()} className="bg-indigo-600 disabled:bg-slate-300 text-white px-3.5 rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center"><Send className="w-3.5 h-3.5" /></button>
                         </div>
                     </div>
                 </>
             )}
 
-            {/* PESTAÑA: PASOS GTD */}
+            {/* PESTAÑA 2: PASOS GTD */}
             {rightTab === 'gtd' && (
                  <div className="flex-1 flex flex-col bg-slate-50">
-                     <div className="p-3 bg-emerald-50/50 border-b border-emerald-100">
-                         <p className="text-xs text-emerald-800 text-center font-medium">Divide este expediente en pasos claros (pedir documentación, validar borradores, presentar en sede).</p>
+                     <div className="p-2.5 bg-emerald-50/50 border-b border-emerald-100">
+                         <p className="text-[11px] text-emerald-800 text-center font-medium">Divide este expediente en pasos claros (solicitar datos, validar borradores, presentar en sede).</p>
                      </div>
                      
-                     <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                     <div className="flex-1 overflow-y-auto p-3 space-y-2">
                         {(formData.actions || []).map(action => (
-                            <div key={action.id} className={`flex items-center gap-2 p-3 rounded-xl border shadow-sm transition-all ${action.isCompleted ? 'bg-slate-100 border-slate-200 opacity-60' : 'bg-white border-slate-200 hover:border-emerald-300'}`}>
-                                <button type="button" onClick={() => toggleAction(action.id)} className={`w-6 h-6 rounded-full border flex items-center justify-center transition-colors shrink-0 ${action.isCompleted ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 hover:border-emerald-400 bg-slate-50'}`}>
-                                    {action.isCompleted && <Check className="w-3.5 h-3.5 text-white"/>}
+                            <div key={action.id} className={`flex items-center gap-2 p-2.5 rounded-xl border shadow-2xs transition-all ${action.isCompleted ? 'bg-slate-100 border-slate-200 opacity-60' : 'bg-white border-slate-200 hover:border-emerald-300'}`}>
+                                <button type="button" onClick={() => toggleAction(action.id)} className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors shrink-0 ${action.isCompleted ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 hover:border-emerald-400 bg-slate-50'}`}>
+                                    {action.isCompleted && <Check className="w-3 h-3 text-white"/>}
                                 </button>
-                                <div className="flex-1 text-xs">
-                                    <span className={`block leading-tight font-medium ${action.isCompleted ? 'line-through text-slate-500' : 'text-slate-800'}`}>{action.text}</span>
-                                    <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-1">
-                                        <User className="w-3 h-3"/> 
+                                <div className="flex-1 text-xs min-w-0">
+                                    <span className={`block leading-tight font-medium truncate ${action.isCompleted ? 'line-through text-slate-500' : 'text-slate-800'}`}>{action.text}</span>
+                                    <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-0.5">
+                                        <User className="w-2.5 h-2.5"/> 
                                         <span className={action.assignee === currentUser.email ? 'text-indigo-600 font-bold' : ''}>
                                             {action.assignee === currentUser.email ? 'Yo' : action.assignee}
                                         </span>
                                     </div>
                                 </div>
-                                <button type="button" onClick={() => deleteAction(action.id)} className="text-slate-300 hover:text-rose-500 p-2"><Trash2 className="w-4 h-4"/></button>
+                                <button type="button" onClick={() => deleteAction(action.id)} className="text-slate-300 hover:text-rose-500 p-1"><Trash2 className="w-3.5 h-3.5"/></button>
                             </div>
                         ))}
                         {(!formData.actions || formData.actions.length === 0) && (
@@ -1675,19 +1982,19 @@ const ExpedienteModal = ({ tasks, show, onClose, task, formData, setFormData, on
                         )}
                      </div>
 
-                     <div className="p-4 bg-white border-t border-slate-200">
-                        <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Añadir Paso o Trámite</label>
-                        <div className="flex gap-2 mt-2 items-center">
+                     <div className="p-3 bg-white border-t border-slate-200">
+                        <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-1">Añadir Paso o Trámite</label>
+                        <div className="flex gap-2 items-center">
                             <input 
                                 type="text" 
                                 placeholder="¿Cuál es el siguiente paso?" 
                                 value={newActionText}
                                 onChange={e => setNewActionText(e.target.value)}
                                 onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddAction())}
-                                className="flex-1 text-xs border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-emerald-500"
+                                className="flex-1 text-xs border border-slate-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-emerald-500"
                             />
                             
-                            <div className="relative w-[150px] shrink-0">
+                            <div className="relative w-[130px] shrink-0">
                                 <input 
                                     type="text" 
                                     placeholder="Asignar a..."
@@ -1707,7 +2014,7 @@ const ExpedienteModal = ({ tasks, show, onClose, task, formData, setFormData, on
                                         setTimeout(() => setShowSuggestions(false), 200);
                                         if (!newActionAssignee.trim()) setNewActionAssignee('Yo');
                                     }}
-                                    className="w-full text-xs border border-slate-300 rounded-lg p-2.5 bg-white outline-none focus:ring-2 focus:ring-emerald-500"
+                                    className="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-emerald-500"
                                 />
                                 
                                 {showSuggestions && newActionAssignee && (
@@ -1739,18 +2046,77 @@ const ExpedienteModal = ({ tasks, show, onClose, task, formData, setFormData, on
                                 )}
                             </div>
 
-                            <button type="button" onClick={handleAddAction} className="bg-slate-800 text-white p-2.5 rounded-lg hover:bg-emerald-600 transition-colors shadow-sm"><Plus className="w-4 h-4"/></button>
+                            <button type="button" onClick={handleAddAction} className="bg-slate-800 text-white p-2 rounded-lg hover:bg-emerald-600 transition-colors shadow-sm"><Plus className="w-4 h-4"/></button>
                         </div>
                     </div>
                  </div>
             )}
+
+            {/* PESTAÑA 3: DOCUMENTACIÓN Y ENLACES OFICIALES */}
+            {rightTab === 'docs' && (
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
+                    {/* ENLACES Y SEDES */}
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+                        <div className="flex justify-between items-center mb-2.5 pb-2 border-b border-slate-100">
+                            <label className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                                <BookOpen className="w-3.5 h-3.5 text-indigo-600"/> Enlaces y Sedes Electrónicas
+                            </label>
+                            <button type="button" onClick={handleAddLinkAttachment} className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-lg border border-indigo-200 flex items-center gap-1 transition-colors font-semibold">
+                                <Plus className="w-3 h-3"/> Añadir Enlace
+                            </button>
+                        </div>
+                        <div className="space-y-1.5">
+                            {resourceLinks.length === 0 && <div className="text-xs text-slate-400 italic text-center py-2">Sin enlaces oficiales vinculados (AEAT, DGT, Cloud, etc.).</div>}
+                            {resourceLinks.map((item, idx) => (
+                                <div key={idx} className="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-200 text-xs">
+                                    <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-indigo-700 hover:underline truncate max-w-[280px] font-medium">
+                                        <Globe className="w-3.5 h-3.5 shrink-0 text-slate-400"/> {item.name}
+                                    </a>
+                                    <button type="button" onClick={() => handleDeleteAttachment(item)} className="text-slate-400 hover:text-rose-500 p-0.5"><XCircle className="w-3.5 h-3.5"/></button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* ARCHIVOS Y MODELOS */}
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+                        <div className="flex justify-between items-center mb-2.5 pb-2 border-b border-slate-100">
+                            <label className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                                <Paperclip className="w-3.5 h-3.5 text-slate-500"/> Documentación y Modelos Adjuntos
+                            </label>
+                            <div>
+                                <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
+                                <button type="button" onClick={() => fileInputRef.current.click()} disabled={isUploading} className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200 flex items-center gap-1 transition-colors font-semibold">
+                                    {isUploading ? <Loader2 className="w-3 h-3 animate-spin"/> : <Plus className="w-3 h-3"/>} Adjuntar Archivo
+                                </button>
+                            </div>
+                        </div>
+                        <div className="space-y-1.5">
+                            {fileAttachments.length === 0 && <div className="text-xs text-slate-400 italic text-center py-2">No hay documentos adjuntos.</div>}
+                            {fileAttachments.map((item, idx) => (
+                                <div key={idx} className="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-200 text-xs">
+                                    <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-slate-700 hover:underline truncate max-w-[240px] font-medium">
+                                        <File className="w-3.5 h-3.5 shrink-0 text-indigo-500"/> {item.name}
+                                    </a>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] text-slate-400">{new Date(item.uploadedAt).toLocaleDateString('es-ES')}</span>
+                                        <button type="button" onClick={() => handleDeleteAttachment(item)} className="text-slate-400 hover:text-rose-500 p-0.5"><XCircle className="w-3.5 h-3.5"/></button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
           </div>
         ) : (
-          <div className="hidden md:flex w-1/2 bg-slate-50 items-center justify-center p-10 text-center">
-            <div>
-              <Layers className="w-16 h-16 text-slate-200 mx-auto mb-4"/>
-              <h3 className="text-slate-600 font-bold">Alta de Nuevo Expediente</h3>
-              <p className="text-xs text-slate-400 mt-2 max-w-xs">Guarda el expediente inicial para poder registrar notas de seguimiento, adjuntar modelos oficiales y añadir trámites.</p>
+          <div className="hidden md:flex w-1/2 bg-slate-50 items-center justify-center p-8 text-center">
+            <div className="max-w-xs">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center mx-auto mb-3 shadow-2xs">
+                <Layers className="w-6 h-6"/>
+              </div>
+              <h3 className="text-slate-800 font-bold text-sm">Alta de Nuevo Expediente</h3>
+              <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">Guarda el expediente inicial con sus datos principales. Una vez creado, podrás gestionar su bitácora de seguimiento, desglosar pasos GTD y adjuntar documentación o enlaces oficiales.</p>
             </div>
           </div>
         )}
@@ -1763,6 +2129,9 @@ const ExpedienteModal = ({ tasks, show, onClose, task, formData, setFormData, on
 const ExpedienteManager = ({ currentUser }) => {
   const [currentView, setCurrentView] = useState('list');
   const [tasks, setTasks] = useState([]);
+  const [clientes, setClientes] = useState([]);
+  const [areas, setAreas] = useState([]);
+  const [tramos, setTramos] = useState([]);
   const [usersList, setUsersList] = useState([]); 
   const [filterScope, setFilterScope] = useState('all'); 
   const [selectedDepts, setSelectedDepts] = useState([]);
@@ -1776,12 +2145,27 @@ const ExpedienteManager = ({ currentUser }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); 
   const [isAdmin, setIsAdmin] = useState(false);
 
+  // Derivación dinámica de opciones para filtros a partir de Firestore
+  const dynamicDepartments = useMemo(() => {
+    if (areas.length > 0) return areas.map(a => a.nombre || a.name).filter(Boolean);
+    return MASTERS.departments;
+  }, [areas]);
+
+  const dynamicTypes = useMemo(() => {
+    if (tramos.length > 0) return tramos.map(t => t.nombre || t.name).filter(Boolean);
+    return MASTERS.types;
+  }, [tramos]);
+
   const initialFormState = {
     title: '', 
     client: '',
+    clientNif: '',
+    clientRazonSocial: '',
     description: '', 
     department: MASTERS.departments[0],
+    area: MASTERS.departments[0],
     type: MASTERS.types[0], 
+    tramo: MASTERS.types[0],
     status: MASTERS.status[0], 
     assignees: [],
     dueDate: new Date().toISOString().split('T')[0],
@@ -1800,6 +2184,27 @@ const ExpedienteManager = ({ currentUser }) => {
     const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
       setUsersList(snap.docs.map(d => d.data()));
     }, (err) => console.warn("Error cargando usuarios:", err));
+
+    // Escuchar colección clientes en tiempo real
+    const unsubClientes = onSnapshot(collection(db, 'clientes'), (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      data.sort((a, b) => (a.razonSocial || '').localeCompare(b.razonSocial || ''));
+      setClientes(data);
+    }, (err) => console.warn("Error cargando clientes:", err));
+
+    // Escuchar colección areas en tiempo real
+    const unsubAreas = onSnapshot(collection(db, 'areas'), (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      data.sort((a, b) => (a.nombre || a.name || '').localeCompare(b.nombre || b.name || ''));
+      setAreas(data);
+    }, (err) => console.warn("Error cargando areas:", err));
+
+    // Escuchar colección tramos en tiempo real
+    const unsubTramos = onSnapshot(collection(db, 'tramos'), (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      data.sort((a, b) => (a.nombre || a.name || '').localeCompare(b.nombre || b.name || ''));
+      setTramos(data);
+    }, (err) => console.warn("Error cargando tramos:", err));
 
     // Escuchar expedientes (primaria) y tasks (compatibilidad)
     const unsubExpedientes = onSnapshot(collection(db, 'expedientes'), (snap) => {
@@ -1827,7 +2232,7 @@ const ExpedienteManager = ({ currentUser }) => {
         }
     }, () => setIsAdmin(true));
 
-    return () => { unsubUsers(); unsubExpedientes(); unsubAdmin(); };
+    return () => { unsubUsers(); unsubExpedientes(); unsubAdmin(); unsubClientes(); unsubAreas(); unsubTramos(); };
   }, [currentUser]);
 
   const logAction = async (action, details) => { 
@@ -1873,7 +2278,7 @@ const ExpedienteManager = ({ currentUser }) => {
     const normDept = normalizeDepartment(task.department);
     const normType = normalizeType(task.type);
 
-    if (hideCompleted && currentView !== 'analytics' && normStatus === 'Presentado / Tramitado') return false;
+    if (hideCompleted && currentView !== 'analytics' && (normStatus === 'Presentado / Tramitado' || normStatus === 'Cerrado')) return false;
     if (selectedDepts.length > 0 && !selectedDepts.includes(normDept)) return false;
     if (selectedTypes.length > 0 && !selectedTypes.includes(normType)) return false;
     if (selectedStatus.length > 0 && !selectedStatus.includes(normStatus)) return false; 
@@ -1889,18 +2294,36 @@ const ExpedienteManager = ({ currentUser }) => {
 
   const handleOpenNew = () => { 
     setEditingTask(null); 
-    setFormData({...initialFormState, assignees: [currentUser.email]}); 
+    const defaultDept = areas[0]?.nombre || MASTERS.departments[0];
+    const defaultType = tramos[0]?.nombre || MASTERS.types[0];
+    setFormData({
+      ...initialFormState,
+      client: '',
+      clientNif: '',
+      clientRazonSocial: '',
+      department: defaultDept,
+      area: defaultDept,
+      type: defaultType,
+      tramo: defaultType,
+      assignees: [currentUser.email]
+    }); 
     setShowModal(true); 
   };
 
   const handleOpenEdit = (task) => {
     setEditingTask(task);
+    const dept = task.department || task.area || normalizeDepartment(task.department);
+    const typ = task.type || task.tramo || normalizeType(task.type);
     setFormData({
       title: task.title, 
       client: task.client || '',
+      clientNif: task.clientNif || '',
+      clientRazonSocial: task.clientRazonSocial || '',
       description: task.description || '', 
-      department: normalizeDepartment(task.department), 
-      type: normalizeType(task.type), 
+      department: dept, 
+      area: dept,
+      type: typ, 
+      tramo: typ,
       status: normalizeStatus(task.status),
       assignees: task.assignees || (task.assigneeEmail ? [task.assigneeEmail] : []), 
       dueDate: task.dueDate || '',
@@ -1913,6 +2336,26 @@ const ExpedienteManager = ({ currentUser }) => {
 
   const handleSaveTask = async (e) => {
     e.preventDefault();
+
+    // Verificación estricta: El cliente debe existir en la base de datos de Clientes
+    const clientExists = clientes.some(c => {
+      const cNif = (c.nif || '').toUpperCase().trim();
+      const cRazon = (c.razonSocial || '').toLowerCase().trim();
+      const formClient = (formData.client || '').toLowerCase().trim();
+      const formNif = (formData.clientNif || '').toUpperCase().trim();
+
+      if (formNif && formNif === cNif) return true;
+      if (cNif && formClient.includes(cNif.toLowerCase())) return true;
+      if (cRazon && formClient === cRazon) return true;
+      if (`${cRazon} (${cNif.toLowerCase()})` === formClient) return true;
+      return false;
+    });
+
+    if (!clientExists) {
+      alert("⚠️ Operación bloqueada: No se puede crear ni actualizar el expediente sin asociarlo a un cliente existente en la base de datos de Clientes.");
+      return;
+    }
+
     try {
       if (editingTask) { 
           const payload = { 
@@ -1978,69 +2421,75 @@ const ExpedienteManager = ({ currentUser }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 font-sans text-slate-900 pb-20">
+    <div className="min-h-screen font-sans text-slate-900 pb-24 antialiased selection:bg-indigo-500 selection:text-white">
       
-      {/* HEADER PRINCIPAL DE GESTORÍA */}
-      <header className="bg-slate-900 text-white shadow-lg sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-4 py-3.5 relative">
-          <div className="flex justify-between items-center">
+      {/* HEADER PRINCIPAL DE GESTORÍA (SaaS Elegante & Equilibrado) */}
+      <header className="bg-slate-950/95 backdrop-blur-xl text-white border-b border-slate-800/80 sticky top-0 z-40 shadow-xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 relative">
+          <div className="flex justify-between items-center gap-4">
             
             {/* Logo y Marca */}
-            <div className="flex items-center gap-3">
-              <div className="bg-gradient-to-br from-indigo-600 to-blue-700 p-2 rounded-xl shadow-md flex items-center justify-center shrink-0">
-                  <Briefcase className="w-5 h-5 text-white" />
+            <div className="flex items-center gap-2.5 shrink-0">
+              <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-500 text-white shadow-sm ring-1 ring-white/10 shrink-0">
+                <Briefcase className="w-4.5 h-4.5 text-white drop-shadow-xs" />
               </div>
-              <div>
-                <h1 className="font-extrabold text-base sm:text-lg leading-tight tracking-tight text-white flex items-center gap-2">
-                  Gestoría & Asesoría
-                  <span className="bg-indigo-500/30 text-indigo-300 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border border-indigo-400/20">v8.0</span>
+              <div className="leading-tight">
+                <h1 className="font-bold text-base tracking-tight text-white flex items-center">
+                  <span>GestFlow</span>
                 </h1>
-                <p className="text-[10px] text-slate-400 tracking-wider uppercase font-semibold">Portal de Expedientes y Vencimientos</p>
+                <p className="text-[10px] text-slate-400 font-medium">Despacho & Asesoría</p>
               </div>
             </div>
 
             {/* Menú de Navegación de Vistas */}
-            <div className="hidden md:flex items-center gap-4">
-               <div className="flex bg-slate-800 rounded-xl p-1 border border-slate-700/50">
-                  <button onClick={() => setCurrentView('list')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${currentView === 'list' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-300 hover:text-white'}`}><LayoutList className="w-3.5 h-3.5"/> Expedientes</button>
-                  <button onClick={() => setCurrentView('plan')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${currentView === 'plan' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-300 hover:text-white'}`}><BarChart3 className="w-3.5 h-3.5"/> Plan Trimestral</button>
-                  <button onClick={() => setCurrentView('roadmap')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${currentView === 'roadmap' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-300 hover:text-white'}`}><CalendarCheck className="w-3.5 h-3.5"/> Vencimientos</button>
-                  <button onClick={() => setCurrentView('gtd')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${currentView === 'gtd' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-300 hover:text-white'}`}><Target className="w-3.5 h-3.5"/> Trámites GTD</button>
-                  <button onClick={() => setCurrentView('analytics')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${currentView === 'analytics' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-300 hover:text-white'}`}><PieChart className="w-3.5 h-3.5"/> Cuadro Mando</button>
-                  {isAdmin && (<button onClick={() => setCurrentView('admin')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${currentView === 'admin' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-300 hover:text-white'}`}><Database className="w-3.5 h-3.5"/> Admin</button>)}
+            <div className="hidden lg:flex items-center gap-3">
+               <div className="flex bg-slate-900/90 rounded-xl p-1 border border-slate-800/80 shadow-inner gap-0.5">
+                  <button onClick={() => setCurrentView('list')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'list' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><LayoutList className="w-3.5 h-3.5"/> Expedientes</button>
+                  <button onClick={() => setCurrentView('plan')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'plan' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><BarChart3 className="w-3.5 h-3.5"/> Plan Fiscal</button>
+                  <button onClick={() => setCurrentView('roadmap')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'roadmap' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><CalendarCheck className="w-3.5 h-3.5"/> Vencimientos</button>
+                  <button onClick={() => setCurrentView('gtd')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'gtd' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><Target className="w-3.5 h-3.5"/> Trámites GTD</button>
+                  <button onClick={() => setCurrentView('analytics')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'analytics' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><PieChart className="w-3.5 h-3.5"/> Informes</button>
+                  {isAdmin && (<button onClick={() => setCurrentView('admin')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'admin' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><Database className="w-3.5 h-3.5"/> Admin</button>)}
                </div>
 
                <NotificationDropdown tasks={tasks} currentUser={currentUser} onOpenTask={handleOpenEdit} />
                
-               <div className="text-right border-l border-slate-700 pl-4">
-                 <div className="text-xs font-semibold text-slate-200">{currentUser.email}</div>
+               {/* User Avatar Pill */}
+               <div className="flex items-center gap-2 pl-2 border-l border-slate-800 shrink-0">
+                 <div className="flex items-center gap-2 bg-slate-900/80 px-2.5 py-1 rounded-full border border-slate-800 shadow-inner">
+                   <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center text-[10px] font-bold text-white uppercase ring-1 ring-white/20">
+                     {currentUser?.email ? currentUser.email.charAt(0) : 'U'}
+                   </div>
+                   <span className="text-xs font-medium text-slate-300 max-w-[130px] truncate">{currentUser?.email}</span>
+                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" title="En línea"></span>
+                 </div>
+                 
+                 <button onClick={() => signOut(auth)} className="bg-slate-900/80 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 p-2 rounded-xl border border-slate-800 hover:border-rose-500/30 transition-all" title="Cerrar Sesión">
+                   <LogOut className="w-4 h-4"/>
+                 </button>
                </div>
-               
-               <button onClick={() => signOut(auth)} className="bg-slate-800 hover:bg-rose-600 p-2 rounded-xl text-slate-300 hover:text-white transition-colors" title="Cerrar Sesión">
-                 <LogOut className="w-4 h-4"/>
-               </button>
             </div>
 
             {/* Menú Móvil */}
-            <div className="md:hidden flex items-center gap-3">
+            <div className="lg:hidden flex items-center gap-2">
                 <NotificationDropdown tasks={tasks} currentUser={currentUser} onOpenTask={handleOpenEdit} />
-                <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-white hover:bg-slate-800 rounded-lg">{isMobileMenuOpen ? <X className="w-6 h-6"/> : <Menu className="w-6 h-6"/>}</button>
+                <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-xl border border-slate-800">{isMobileMenuOpen ? <X className="w-5 h-5"/> : <Menu className="w-5 h-5"/>}</button>
             </div>
           </div>
 
           {isMobileMenuOpen && (
-              <div className="md:hidden absolute top-full left-0 w-full bg-white shadow-xl border-b border-slate-200 z-50 animate-in slide-in-from-top-5 duration-200">
-                  <div className="p-4 flex flex-col gap-2">
-                      <button onClick={() => navigateTo('list')} className={`p-3 rounded-lg flex items-center gap-3 text-sm font-bold ${currentView === 'list' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700'}`}><LayoutList className="w-5 h-5"/> Expedientes</button>
-                      <button onClick={() => navigateTo('plan')} className={`p-3 rounded-lg flex items-center gap-3 text-sm font-bold ${currentView === 'plan' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700'}`}><BarChart3 className="w-5 h-5"/> Plan Trimestral</button>
-                      <button onClick={() => navigateTo('roadmap')} className={`p-3 rounded-lg flex items-center gap-3 text-sm font-bold ${currentView === 'roadmap' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700'}`}><CalendarCheck className="w-5 h-5"/> Vencimientos</button>
-                      <button onClick={() => navigateTo('gtd')} className={`p-3 rounded-lg flex items-center gap-3 text-sm font-bold ${currentView === 'gtd' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700'}`}><Target className="w-5 h-5"/> Trámites GTD</button>
-                      <button onClick={() => navigateTo('analytics')} className={`p-3 rounded-lg flex items-center gap-3 text-sm font-bold ${currentView === 'analytics' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700'}`}><PieChart className="w-5 h-5"/> Cuadro de Mando</button>
-                      {isAdmin && (<button onClick={() => navigateTo('admin')} className={`p-3 rounded-lg flex items-center gap-3 text-sm font-bold ${currentView === 'admin' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700'}`}><Database className="w-5 h-5"/> Panel Admin</button>)}
-                      <div className="h-px bg-slate-100 my-2"></div>
-                      <div className="flex justify-between items-center p-2 text-xs text-slate-500">
-                        <span>{currentUser.email}</span>
-                        <button onClick={() => signOut(auth)} className="text-rose-600 font-bold flex items-center gap-1">Salir <LogOut className="w-3.5 h-3.5"/></button>
+              <div className="lg:hidden absolute top-full left-0 w-full bg-slate-900/95 backdrop-blur-xl shadow-2xl border-b border-slate-800 z-50 animate-in slide-in-from-top-3 duration-200">
+                  <div className="p-4 flex flex-col gap-1.5">
+                      <button onClick={() => navigateTo('list')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'list' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><LayoutList className="w-4 h-4"/> Expedientes</button>
+                      <button onClick={() => navigateTo('plan')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'plan' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><BarChart3 className="w-4 h-4"/> Plan Fiscal</button>
+                      <button onClick={() => navigateTo('roadmap')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'roadmap' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><CalendarCheck className="w-4 h-4"/> Vencimientos</button>
+                      <button onClick={() => navigateTo('gtd')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'gtd' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><Target className="w-4 h-4"/> Trámites GTD</button>
+                      <button onClick={() => navigateTo('analytics')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'analytics' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><PieChart className="w-4 h-4"/> Informes</button>
+                      {isAdmin && (<button onClick={() => navigateTo('admin')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'admin' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><Database className="w-4 h-4"/> Panel Admin</button>)}
+                      <div className="h-px bg-slate-800 my-2"></div>
+                      <div className="flex justify-between items-center p-2 text-xs text-slate-400">
+                        <span className="truncate max-w-[200px]">{currentUser?.email}</span>
+                        <button onClick={() => signOut(auth)} className="text-rose-400 font-semibold flex items-center gap-1 hover:text-rose-300">Salir <LogOut className="w-3.5 h-3.5"/></button>
                       </div>
                   </div>
               </div>
@@ -2049,58 +2498,81 @@ const ExpedienteManager = ({ currentUser }) => {
       </header>
 
       {/* CONTENIDO PRINCIPAL */}
-      <main className="max-w-7xl mx-auto px-4 py-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         {currentView === 'admin' ? (
-             isAdmin ? <AdminView tasks={tasks} currentAdmin={currentUser.email} logAction={logAction} /> : <div className="text-center p-10 text-rose-500 font-bold">Acceso Denegado</div>
+             isAdmin ? (
+               <AdminView 
+                 tasks={tasks} 
+                 currentAdmin={currentUser.email} 
+                 logAction={logAction} 
+                 onNavigateToClientes={() => setCurrentView('clientes')} 
+                 clientesCount={clientes.length} 
+                 areas={areas}
+                 tramos={tramos}
+                 currentUser={currentUser}
+               />
+             ) : <div className="text-center p-10 text-rose-500 font-bold">Acceso Denegado</div>
+        ) : currentView === 'clientes' ? (
+             <ClientesView 
+                clientes={clientes} 
+                tasks={tasks} 
+                currentUser={currentUser} 
+                logAction={logAction} 
+                onBackToAdmin={() => setCurrentView('admin')}
+                onNavigateToClientExpedientes={(nifOrName) => {
+                  setSearchTerm(nifOrName);
+                  setCurrentView('list');
+                }}
+             />
         ) : (
           <>
             {/* BARRA DE FILTROS Y BÚSQUEDA */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-6">
+            <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-premium border border-slate-200/80 p-3.5 mb-6 relative z-20">
               <div className="flex flex-col lg:flex-row gap-3 justify-between items-center w-full">
                 
                 {/* Ámbito */}
-                <div className="flex bg-slate-100 p-1 rounded-xl shrink-0 border border-slate-200">
-                  <button onClick={() => setFilterScope('mine')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${filterScope === 'mine' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>Mis Expedientes</button>
-                  <button onClick={() => setFilterScope('all')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${filterScope === 'all' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>Todos</button>
+                <div className="flex bg-slate-100/80 p-1 rounded-xl shrink-0 border border-slate-200/70">
+                  <button onClick={() => setFilterScope('mine')} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${filterScope === 'mine' ? 'bg-white text-indigo-700 shadow-2xs border border-slate-200/50' : 'text-slate-500 hover:text-slate-900'}`}>Mis Expedientes</button>
+                  <button onClick={() => setFilterScope('all')} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${filterScope === 'all' ? 'bg-white text-indigo-700 shadow-2xs border border-slate-200/50' : 'text-slate-500 hover:text-slate-900'}`}>Todos</button>
                 </div>
 
-                {/* Filtros Dropdowns y Buscador */}
+                {/* Filtros Dropdowns y Buscador Dinámicos */}
                 <div className="flex flex-wrap items-center gap-2 flex-1 w-full">
-                  <MultiSelectDropdown label="Áreas" icon={Briefcase} options={MASTERS.departments} selected={selectedDepts} onChange={setSelectedDepts} />
-                  <MultiSelectDropdown label="Trámites" icon={Tag} options={MASTERS.types} selected={selectedTypes} onChange={setSelectedTypes} />
+                  <MultiSelectDropdown label="Áreas" icon={Briefcase} options={dynamicDepartments} selected={selectedDepts} onChange={setSelectedDepts} />
+                  <MultiSelectDropdown label="Trámites" icon={Tag} options={dynamicTypes} selected={selectedTypes} onChange={setSelectedTypes} />
                   <MultiSelectDropdown label="Estados" icon={Filter} options={MASTERS.status} selected={selectedStatus} onChange={setSelectedStatus} />
                   
                   {currentView !== 'analytics' && (
                     <button
                       onClick={() => setHideCompleted(!hideCompleted)}
-                      className={`p-2 rounded-xl border flex items-center justify-center transition-colors shadow-sm ${hideCompleted ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white border-slate-200 text-slate-400 hover:bg-slate-50'}`}
-                      title={hideCompleted ? "Mostrar Presentados / Completados" : "Ocultar Presentados / Completados"}
+                      className={`p-2 rounded-xl border flex items-center justify-center transition-all ${hideCompleted ? 'bg-indigo-50/80 border-indigo-200 text-indigo-600 shadow-2xs' : 'bg-white border-slate-200/80 text-slate-400 hover:text-slate-700 hover:bg-slate-50'}`}
+                      title={hideCompleted ? "Mostrar Presentados / Cerrados" : "Ocultar Presentados / Cerrados"}
                     >
                       {hideCompleted ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   )}
 
-                  <div className="relative flex-1 min-w-[180px]">
+                  <div className="relative flex-1 min-w-[200px]">
                     <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400"/>
-                    <input type="text" placeholder="Buscar por expediente o cliente..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"/>
+                    <input type="text" placeholder="Buscar por expediente o cliente..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full pl-9 pr-3 py-2 bg-slate-50/80 border border-slate-200/80 rounded-xl text-xs outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-slate-800 placeholder-slate-400"/>
                   </div>
                 </div>
 
                 {/* Botones de Acción */}
                 <div className="flex items-center gap-2 shrink-0">
-                  <button onClick={() => exportToExcel(filteredTasks)} className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 px-3.5 py-2 rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5 transition-colors">
+                  <button onClick={() => exportToExcel(filteredTasks)} className="bg-white hover:bg-emerald-50/60 text-emerald-700 border border-emerald-200/80 px-3.5 py-2 rounded-xl text-xs font-semibold shadow-2xs hover:shadow-xs flex items-center gap-1.5 transition-all">
                     <FileSpreadsheet className="w-4 h-4 text-emerald-600" /> <span className="hidden sm:inline">Exportar Excel</span>
                   </button>
-                  <button onClick={handleOpenNew} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md shadow-indigo-100 hover:shadow-lg flex items-center gap-1.5 transition-all">
+                  <button onClick={handleOpenNew} className="bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs hover:shadow-premium-hover flex items-center gap-1.5 transition-all transform active:scale-95">
                     <Plus className="w-4 h-4" /> <span>Nuevo Expediente</span>
                   </button>
                 </div>
               </div>
 
               {(selectedDepts.length > 0 || selectedTypes.length > 0 || selectedStatus.length > 0 || searchTerm) && (
-                <div className="mt-3 flex items-center gap-2 text-xs pt-2 border-t border-slate-100">
+                <div className="mt-3 flex items-center gap-2 text-xs pt-2.5 border-t border-slate-100">
                   <span className="text-slate-400 font-medium">Filtros activos:</span>
-                  <button onClick={clearAllFilters} className="text-rose-600 hover:underline font-bold">Limpiar todos</button>
+                  <button onClick={clearAllFilters} className="text-rose-600 hover:text-rose-700 hover:underline font-bold transition-colors">Limpiar todos</button>
                 </div>
               )}
             </div>
@@ -2130,6 +2602,9 @@ const ExpedienteManager = ({ currentUser }) => {
         newUpdateText={newUpdateText} 
         setNewUpdateText={setNewUpdateText} 
         setEditingTask={setEditingTask} 
+        clientes={clientes}
+        areas={areas}
+        tramos={tramos}
       />
     </div>
   );

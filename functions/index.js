@@ -1,92 +1,140 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
-const fetch = require("node-fetch");
+const nodemailer = require("nodemailer");
 
 admin.initializeApp();
 
+// Configuración del transporte Nodemailer para Gmail
+const transporter = nodemailer.createTransport({
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS
+  }
+});
+
 exports.enviarNotificacionExpediente = functions
-    .firestore
-    .document("expedientes/{expedienteId}")
-    .onWrite(async (change, context) => {
+  .firestore
+  .document("expedientes/{expedienteId}")
+  .onWrite(async (change, context) => {
+    const datosNuevos = change.after.exists ? change.after.data() : null;
+    const datosViejos = change.before.exists ? change.before.data() : null;
 
-        const TENANT_ID = process.env.MICROSOFT_TENANT_ID;
-        const CLIENT_ID = process.env.MICROSOFT_CLIENT_ID;
-        const CLIENT_SECRET = process.env.MICROSOFT_CLIENT_SECRET;
-        const SENDER_EMAIL = process.env.NOTIFICATION_SENDER_EMAIL || "";
+    // Si el expediente fue eliminado, no enviamos notificación
+    if (!datosNuevos) return null;
 
-        const datosNuevos = change.after.exists ? change.after.data() : null;
-        const datosViejos = change.before.exists ? change.before.data() : null;
+    const smtpUser = process.env.SMTP_USER;
+    const smtpPass = process.env.SMTP_PASS;
 
-        if (!datosNuevos || !datosViejos) return null; 
+    if (!smtpUser || !smtpPass) {
+      console.warn("Notificaciones desactivadas: faltan variables SMTP_USER o SMTP_PASS en el entorno.");
+      return null;
+    }
 
-        // 1. Evaluar cambios relevantes en el expediente
-        const cambioType = datosNuevos.type !== datosViejos.type;
-        const cambioDept = datosNuevos.department !== datosViejos.department;
-        const cambioStatus = datosNuevos.status !== datosViejos.status;
-        const cambioDueDate = datosNuevos.dueDate !== datosViejos.dueDate;
-        const cambioCliente = datosNuevos.client !== datosViejos.client;
-        const cambioActivity = JSON.stringify(datosNuevos.updates || []) !== JSON.stringify(datosViejos.updates || []);
-        const cambioGtd = JSON.stringify(datosNuevos.actions || []) !== JSON.stringify(datosViejos.actions || []);
+    const esCreacion = !change.before.exists;
+    let asunto = "";
+    let contenido = "";
+    let autor = "";
 
-        if (!cambioType && !cambioDept && !cambioStatus && !cambioDueDate && !cambioCliente && !cambioActivity && !cambioGtd) {
-            return null;
-        }
+    // 1. Evaluar si es Creación o Modificación
+    if (esCreacion) {
+      autor = datosNuevos.createdBy || "Sistema";
+      asunto = `Nuevo expediente asignado: ${datosNuevos.title || "Sin título"}`;
+      contenido = `Hola,\n\nSe te ha asignado un nuevo expediente o trámite en GestFlow:\n\n` +
+        `• Expediente: ${datosNuevos.title || "Sin título"}\n` +
+        `• Cliente: ${datosNuevos.client || "No especificado"}\n` +
+        `• Área / Departamento: ${datosNuevos.department || "-"}\n` +
+        `• Tipo de Trámite: ${datosNuevos.type || "-"}\n` +
+        `• Estado Inicial: ${datosNuevos.status || "-"}\n` +
+        `• Vencimiento Fiscal / Plazo: ${datosNuevos.dueDate || "Sin fecha"}\n` +
+        (datosNuevos.description ? `• Observaciones: ${datosNuevos.description}\n` : "") +
+        `\nCreado por: ${autor}\n\n` +
+        `Accede al portal de GestFlow para consultar la ficha completa y comenzar la gestión.`;
+    } else {
+      // Modificación
+      autor = datosNuevos.updatedBy || "Sistema";
 
-        // 2. Destinatarios asignados
-        const asignados = Array.isArray(datosNuevos.assignees) ? datosNuevos.assignees : [];
-        const autorDelCambio = datosNuevos.updatedBy || "";
+      // Detectar cambios en campos relevantes
+      const cambios = [];
+      if (datosNuevos.title !== datosViejos.title) {
+        cambios.push(`Título: "${datosViejos.title || "-"}" ➔ "${datosNuevos.title || "-"}"`);
+      }
+      if (datosNuevos.client !== datosViejos.client) {
+        cambios.push(`Cliente: "${datosViejos.client || "-"}" ➔ "${datosNuevos.client || "-"}"`);
+      }
+      if (datosNuevos.status !== datosViejos.status) {
+        cambios.push(`Estado: "${datosViejos.status || "-"}" ➔ "${datosNuevos.status || "-"}"`);
+      }
+      if (datosNuevos.dueDate !== datosViejos.dueDate) {
+        cambios.push(`Vencimiento: "${datosViejos.dueDate || "Sin fecha"}" ➔ "${datosNuevos.dueDate || "Sin fecha"}"`);
+      }
+      if (datosNuevos.department !== datosViejos.department) {
+        cambios.push(`Área: "${datosViejos.department || "-"}" ➔ "${datosNuevos.department || "-"}"`);
+      }
+      if (datosNuevos.type !== datosViejos.type) {
+        cambios.push(`Tipo de trámite: "${datosViejos.type || "-"}" ➔ "${datosNuevos.type || "-"}"`);
+      }
 
-        const destinatariosFinales = asignados.filter(email => email && email.toLowerCase() !== autorDelCambio.toLowerCase());
+      const updatesNuevos = (datosNuevos.updates || []).length;
+      const updatesViejos = (datosViejos.updates || []).length;
+      if (updatesNuevos > updatesViejos) {
+        const ultimaNota = datosNuevos.updates[0]?.text || "Nueva nota registrada";
+        cambios.push(`Nueva nota en bitácora: "${ultimaNota}"`);
+      } else if (JSON.stringify(datosNuevos.updates || []) !== JSON.stringify(datosViejos.updates || [])) {
+        cambios.push(`Actualización en bitácora de seguimiento`);
+      }
 
-        if (destinatariosFinales.length === 0) {
-            return null;
-        }
+      const actionsNuevas = JSON.stringify(datosNuevos.actions || []);
+      const actionsViejas = JSON.stringify(datosViejos.actions || []);
+      if (actionsNuevas !== actionsViejas) {
+        cambios.push(`Cambios en los pasos o trámites GTD`);
+      }
 
-        if (!TENANT_ID || !CLIENT_ID || !CLIENT_SECRET || !SENDER_EMAIL) {
-            console.log("Notificaciones desactivadas: faltan credenciales de correo.");
-            return null;
-        }
-
-        console.log(`Enviando notificación de expediente a: ${destinatariosFinales.join(', ')}`);
-
-        // 3. Envío vía Microsoft Graph
-        try {
-            const params = new URLSearchParams();
-            params.append('client_id', CLIENT_ID);
-            params.append('scope', 'https://graph.microsoft.com/.default');
-            params.append('client_secret', CLIENT_SECRET);
-            params.append('grant_type', 'client_credentials');
-
-            const tokenRes = await fetch(`https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token`, {
-                method: 'POST', body: params
-            });
-            const tokenData = await tokenRes.json();
-
-            const toRecipientsGraph = destinatariosFinales.map(email => ({
-                emailAddress: { address: email }
-            }));
-
-            await fetch(`https://graph.microsoft.com/v1.0/users/${SENDER_EMAIL}/sendMail`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${tokenData.access_token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    message: {
-                        subject: `Gestoría: Actualización en expediente "${datosNuevos.title || 'Sin título'}"`,
-                        body: {
-                            contentType: "Text",
-                            content: `Hola,\n\nSe ha actualizado un expediente o trámite asignado a tu gestión:\n\nExpediente: ${datosNuevos.title || 'Sin título'}\nCliente: ${datosNuevos.client || 'No especificado'}\nÁrea: ${datosNuevos.department || '-'}\nEstado: ${datosNuevos.status || '-'}\nVencimiento: ${datosNuevos.dueDate || 'Sin fecha'}\n\nModificado por: ${autorDelCambio}\n\nAccede al gestor de la asesoría para consultar los detalles.`
-                        },
-                        toRecipients: toRecipientsGraph
-                    }
-                })
-            });
-            
-            console.log("Email de notificación enviado con éxito.");
-        } catch (error) {
-            console.error("Error al enviar el email:", error);
-        }
+      // Si no hubo ningún cambio relevante, no se envía email
+      if (cambios.length === 0) {
         return null;
-    });
+      }
+
+      asunto = `Actualización en expediente: ${datosNuevos.title || "Sin título"}`;
+      contenido = `Hola,\n\nSe ha actualizado un expediente o trámite asignado a tu gestión:\n\n` +
+        `• Expediente: ${datosNuevos.title || "Sin título"}\n` +
+        `• Cliente: ${datosNuevos.client || "No especificado"}\n` +
+        `• Estado actual: ${datosNuevos.status || "-"}\n` +
+        `• Vencimiento: ${datosNuevos.dueDate || "Sin fecha"}\n\n` +
+        `Modificaciones realizadas por ${autor}:\n` +
+        cambios.map(c => `  - ${c}`).join("\n") +
+        `\n\nAccede al portal de GestFlow para revisar los detalles actualizados.`;
+    }
+
+    // 2. Destinatarios asignados (excluyendo al autor del cambio)
+    const asignados = Array.isArray(datosNuevos.assignees) ? datosNuevos.assignees : [];
+    const destinatariosFinales = asignados
+      .map(email => (typeof email === "string" ? email.trim() : ""))
+      .filter(email => email && email.toLowerCase() !== autor.toLowerCase());
+
+    if (destinatariosFinales.length === 0) {
+      console.log("No hay destinatarios asignados distintos del autor del cambio. Notificación omitida.");
+      return null;
+    }
+
+    console.log(`Enviando notificación por Gmail a: ${destinatariosFinales.join(", ")} | Asunto: ${asunto}`);
+
+    // 3. Envío vía Nodemailer con Gmail
+    try {
+      const mailOptions = {
+        from: `"GestFlow Notificaciones" <${smtpUser}>`,
+        to: destinatariosFinales.join(", "),
+        subject: asunto,
+        text: contenido
+      };
+
+      const info = await transporter.sendMail(mailOptions);
+      console.log("Email de notificación enviado con éxito. MessageId:", info.messageId);
+    } catch (error) {
+      console.error("Error al enviar el email con Nodemailer:", error);
+    }
+
+    return null;
+  });
