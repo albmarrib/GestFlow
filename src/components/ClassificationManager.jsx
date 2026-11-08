@@ -403,69 +403,72 @@ const ClassificationManager = ({
     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
       
       {/* CABECERA Y SELECTOR DE PESTAÑA */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-slate-100 pb-5">
+      <div className="space-y-4 border-b border-slate-100 pb-5">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 shadow-2xs">
             <Layers className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              Clasificación Dinámica y Estados del Despacho
+            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+              Clasificación Dinámica y Catálogo de Estados
             </h2>
             <p className="text-xs text-slate-500">
-              Administra las colecciones Firestore de <span className="font-semibold text-slate-700">Áreas</span>, <span className="font-semibold text-slate-700">Tramos</span> y <span className="font-semibold text-indigo-600">Estados con colores</span> que alimentan el sistema en tiempo real.
+              Configura las Áreas, Tipos de Trámites y la paleta de Estados con colores semánticos sincronizados en tiempo real.
             </p>
           </div>
         </div>
 
-        {/* Pestañas de Navegación (3 Tabs) */}
-        <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 self-stretch sm:self-auto overflow-x-auto">
+        {/* Pestañas de Navegación fijas en una sola línea */}
+        <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/80 max-w-full overflow-x-auto">
           <button
+            type="button"
             onClick={() => { setActiveTab('areas'); setSearchTerm(''); }}
-            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'areas' 
-                ? 'bg-white text-indigo-600 shadow-sm' 
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-indigo-600 shadow-2xs' 
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
             }`}
           >
-            <Briefcase className="w-3.5 h-3.5" />
+            <Briefcase className="w-3.5 h-3.5 text-indigo-500" />
             <span>Áreas / Departamentos</span>
-            <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-              activeTab === 'areas' ? 'bg-indigo-50 text-indigo-700 font-bold' : 'bg-slate-200 text-slate-600'
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+              activeTab === 'areas' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-200 text-slate-600'
             }`}>
               {areas.length}
             </span>
           </button>
 
           <button
+            type="button"
             onClick={() => { setActiveTab('tramos'); setSearchTerm(''); }}
-            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'tramos' 
-                ? 'bg-white text-indigo-600 shadow-sm' 
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-indigo-600 shadow-2xs' 
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
             }`}
           >
-            <Tag className="w-3.5 h-3.5" />
+            <Tag className="w-3.5 h-3.5 text-indigo-500" />
             <span>Tramos / Trámites</span>
-            <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-              activeTab === 'tramos' ? 'bg-indigo-50 text-indigo-700 font-bold' : 'bg-slate-200 text-slate-600'
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+              activeTab === 'tramos' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-200 text-slate-600'
             }`}>
               {tramos.length}
             </span>
           </button>
 
           <button
+            type="button"
             onClick={() => { setActiveTab('estados'); setSearchTerm(''); }}
-            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'estados' 
-                ? 'bg-white text-indigo-600 shadow-sm' 
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-indigo-600 shadow-2xs' 
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
             }`}
           >
             <Palette className="w-3.5 h-3.5 text-indigo-500" />
             <span>Estados y Colores</span>
-            <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-              activeTab === 'estados' ? 'bg-indigo-50 text-indigo-700 font-bold' : 'bg-slate-200 text-slate-600'
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+              activeTab === 'estados' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-200 text-slate-600'
             }`}>
               {estados.length}
             </span>

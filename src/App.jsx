@@ -39,7 +39,7 @@ import {
   Paperclip, FileText, Download, Loader2, XCircle, ExternalLink, Pencil, Save, Map, 
   Activity, PauseCircle, BookOpen, Link as LinkIcon, File, Menu, Copy, Target, Eye, EyeOff,
   Building2, Scale, UserCheck, CalendarCheck, RefreshCw, Crown, Shield, UserPlus,
-  Coins, Receipt, CreditCard, Sparkles, CheckSquare
+  Coins, Receipt, CreditCard, Sparkles, CheckSquare, Palette
 } from 'lucide-react';
 import ClientAutocomplete from './components/ClientAutocomplete';
 import ClientesView from './components/ClientesView';
@@ -885,6 +885,7 @@ const AdminView = ({
   const [adminList, setAdminList] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
   const [adminSearchTerm, setAdminSearchTerm] = useState('');
+  const [adminTab, setAdminTab] = useState('clasificacion'); // 'clasificacion' | 'plantillas' | 'personal' | 'clientes' | 'mantenimiento'
 
   // Estado para formulario de alta de nuevo empleado
   const [newEmployee, setNewEmployee] = useState({
@@ -1078,309 +1079,512 @@ const AdminView = ({
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in duration-300">
       
-      {/* SECCIÓN 0: GESTIÓN DE CLIENTES Y CARTERA */}
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-            <Building2 className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-slate-800">Cartera de Clientes y Empresas</h2>
-            <p className="text-xs text-slate-500">
-              Actualmente hay <span className="font-bold text-indigo-600">{clientesCount}</span> clientes registrados. Gestiona altas, edición y carga masiva por CSV.
-            </p>
+      {/* CABECERA Y SELECTOR DE PESTAÑAS DEL PANEL DE CONTROL */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-premium space-y-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-slate-900 to-indigo-900 text-white flex items-center justify-center shadow-xs">
+              <Database className="w-5 h-5 text-indigo-400" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-slate-900 tracking-tight">
+                Panel de Administración y Control
+              </h1>
+              <p className="text-xs text-slate-500">
+                Configuración del despacho, catálogo de estados, plantillas operativas y gestión de permisos.
+              </p>
+            </div>
           </div>
         </div>
-        {onNavigateToClientes && (
+
+        {/* BARRA DE PESTAÑAS ADMINISTRATIVAS EN UNA SOLA LÍNEA */}
+        <div className="flex items-center gap-1.5 bg-slate-100/80 p-1.5 rounded-xl border border-slate-200/80 overflow-x-auto">
           <button
-            onClick={onNavigateToClientes}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md shadow-indigo-100 flex items-center gap-1.5 transition-all shrink-0"
+            type="button"
+            onClick={() => setAdminTab('clasificacion')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+              adminTab === 'clasificacion'
+                ? 'bg-white text-indigo-600 shadow-2xs ring-1 ring-slate-200/50'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+            }`}
           >
-            <Building2 className="w-4 h-4" /> Ir al Módulo de Clientes
+            <Palette className="w-3.5 h-3.5 text-indigo-500" />
+            <span>Áreas, Trámites y Estados</span>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+              adminTab === 'clasificacion' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-200 text-slate-600'
+            }`}>
+              {estados.length}
+            </span>
           </button>
-        )}
+
+          <button
+            type="button"
+            onClick={() => setAdminTab('plantillas')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+              adminTab === 'plantillas'
+                ? 'bg-white text-indigo-600 shadow-2xs ring-1 ring-slate-200/50'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5 text-amber-500" />
+            <span>Plantillas de Trámites GTD</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setAdminTab('personal')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+              adminTab === 'personal'
+                ? 'bg-white text-indigo-600 shadow-2xs ring-1 ring-slate-200/50'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5 text-indigo-500" />
+            <span>Equipo y Asesores</span>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+              adminTab === 'personal' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-200 text-slate-600'
+            }`}>
+              {usersList.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setAdminTab('clientes')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+              adminTab === 'clientes'
+                ? 'bg-white text-indigo-600 shadow-2xs ring-1 ring-slate-200/50'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+            }`}
+          >
+            <Building2 className="w-3.5 h-3.5 text-blue-500" />
+            <span>Cartera de Clientes</span>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+              adminTab === 'clientes' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-200 text-slate-600'
+            }`}>
+              {clientesCount}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setAdminTab('mantenimiento')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+              adminTab === 'mantenimiento'
+                ? 'bg-white text-indigo-600 shadow-2xs ring-1 ring-slate-200/50'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+            }`}
+          >
+            <ShieldAlert className="w-3.5 h-3.5 text-rose-500" />
+            <span>Auditoría & Limpieza</span>
+          </button>
+        </div>
       </div>
 
-      {/* SECCIÓN 1: CLASIFICACIÓN DINÁMICA DE EXPEDIENTES (ÁREAS, TRAMOS Y ESTADOS) */}
-      <ClassificationManager 
-        areas={areas}
-        tramos={tramos}
-        estados={estados}
-        tasks={tasks}
-        currentUser={currentUser}
-        logAction={logAction}
-      />
+      {/* PESTAÑA 1: CLASIFICACIÓN DINÁMICA DE EXPEDIENTES (ÁREAS, TRAMOS Y ESTADOS) */}
+      {adminTab === 'clasificacion' && (
+        <ClassificationManager 
+          areas={areas}
+          tramos={tramos}
+          estados={estados}
+          tasks={tasks}
+          currentUser={currentUser}
+          logAction={logAction}
+        />
+      )}
 
-      {/* SECCIÓN 1.5: PLANTILLAS DE TRÁMITES Y TAREAS PREDEFINIDAS GTD */}
-      <TemplateManager 
-        areas={areas}
-        tramos={tramos}
-        usersList={usersList}
-        currentUser={currentUser}
-        logAction={logAction}
-      />
+      {/* PESTAÑA 2: PLANTILLAS DE TRÁMITES Y TAREAS PREDEFINIDAS GTD */}
+      {adminTab === 'plantillas' && (
+        <TemplateManager 
+          areas={areas}
+          tramos={tramos}
+          usersList={usersList}
+          currentUser={currentUser}
+          logAction={logAction}
+        />
+      )}
 
-      {/* SECCIÓN 2: GESTIÓN DE PERSONAL Y PRIVILEGIOS DEL DESPACHO */}
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-4">
-          <div>
-            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <Users className="text-indigo-600 w-5 h-5"/>
-              <span>Gestión del Equipo de Asesores y Empleados</span>
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Controla las altas, permisos y accesos autorizados. Solo el personal registrado aquí podrá acceder a GestFlow.
-            </p>
+      {/* PESTAÑA 3: CARTERA DE CLIENTES Y EMPRESAS */}
+      {adminTab === 'clientes' && (
+        <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-premium space-y-5">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                <Building2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-800">Cartera de Clientes y Empresas</h2>
+                <p className="text-xs text-slate-500">
+                  Actualmente hay <span className="font-bold text-indigo-600">{clientesCount}</span> clientes activos registrados con validación de NIF/CIF.
+                </p>
+              </div>
+            </div>
+            {onNavigateToClientes && (
+              <button
+                type="button"
+                onClick={onNavigateToClientes}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-xs hover:shadow-premium-hover flex items-center gap-2 transition-all shrink-0 cursor-pointer"
+              >
+                <Building2 className="w-4 h-4" /> <span>Abrir Módulo Completo de Clientes</span>
+              </button>
+            )}
           </div>
-          <span className="text-xs font-semibold px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-100">
-            {usersList.length} asesores en plantilla
-          </span>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Total en Cartera</span>
+              <span className="text-2xl font-black text-slate-800">{clientesCount}</span>
+              <p className="text-[11px] text-slate-400 mt-1">Sociedades, autónomos y particulares</p>
+            </div>
+            <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Validación Obligatoria</span>
+              <span className="text-sm font-bold text-emerald-600 flex items-center gap-1 mt-1">
+                <CheckCircle2 className="w-4 h-4" /> NIF / CIF Verificado
+              </span>
+              <p className="text-[11px] text-slate-400 mt-1">Garantiza trazabilidad legal y fiscal en expedientes</p>
+            </div>
+            <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Herramientas</span>
+              <span className="text-sm font-bold text-indigo-600 flex items-center gap-1 mt-1">
+                <FileSpreadsheet className="w-4 h-4" /> Carga Masiva CSV
+              </span>
+              <p className="text-[11px] text-slate-400 mt-1">Importa carteras completas de programas contables</p>
+            </div>
+          </div>
         </div>
+      )}
 
-        {/* Formulario de Alta y Autorización */}
-        <form onSubmit={handleSaveEmployee} className="bg-slate-50/80 p-4 rounded-xl border border-slate-200/80 space-y-3">
-          <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-            <UserPlus className="w-4 h-4 text-indigo-600" />
-            <span>Dar de Alta y Autorizar Nuevo Asesor / Empleado</span>
-          </h3>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* PESTAÑA 4: GESTIÓN DE PERSONAL Y PRIVILEGIOS DEL DESPACHO */}
+      {adminTab === 'personal' && (
+        <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-premium space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-4">
             <div>
-              <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Correo Electrónico *</label>
-              <input
-                type="email"
-                required
-                value={newEmployee.email}
-                onChange={e => setNewEmployee({ ...newEmployee, email: e.target.value })}
-                placeholder="gestor@asesoria.com"
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500"
-              />
+              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <Users className="text-indigo-600 w-5 h-5"/>
+                <span>Gestión del Equipo de Asesores y Empleados</span>
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Controla las altas, permisos y accesos autorizados. Solo el personal registrado aquí podrá acceder a GestFlow.
+              </p>
             </div>
-
-            <div>
-              <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Nombre Completo</label>
-              <input
-                type="text"
-                value={newEmployee.name}
-                onChange={e => setNewEmployee({ ...newEmployee, name: e.target.value })}
-                placeholder="Ej. Carmen Gómez"
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Área / Especialidad</label>
-              <select
-                value={newEmployee.department}
-                onChange={e => setNewEmployee({ ...newEmployee, department: e.target.value })}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                {areas.length > 0 
-                  ? areas.map(a => <option key={a.id || a.nombre} value={a.nombre || a.name}>{a.nombre || a.name}</option>)
-                  : MASTERS.departments.map(d => <option key={d} value={d}>{d}</option>)
-                }
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Rol y Permisos</label>
-              <select
-                value={newEmployee.role}
-                onChange={e => setNewEmployee({ ...newEmployee, role: e.target.value })}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
-              >
-                <option value="gestor">Gestor / Asesor (Solo sus expedientes)</option>
-                <option value="admin">Administrador (Control global)</option>
-              </select>
-            </div>
+            <span className="text-xs font-semibold px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-100">
+              {usersList.length} asesores en plantilla
+            </span>
           </div>
 
-          <div className="flex justify-between items-center pt-2">
-            <div>
-              {empFeedback.text && (
-                <span className={`text-xs font-semibold ${empFeedback.type === 'error' ? 'text-rose-600' : 'text-emerald-600'}`}>
-                  {empFeedback.text}
-                </span>
-              )}
+          {/* Formulario de Alta y Autorización */}
+          <form onSubmit={handleSaveEmployee} className="bg-slate-50/80 p-4 rounded-xl border border-slate-200/80 space-y-3">
+            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+              <UserPlus className="w-4 h-4 text-indigo-600" />
+              <span>Dar de Alta y Autorizar Nuevo Asesor / Empleado</span>
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Correo Electrónico *</label>
+                <input
+                  type="email"
+                  required
+                  value={newEmployee.email}
+                  onChange={e => setNewEmployee({ ...newEmployee, email: e.target.value })}
+                  placeholder="gestor@asesoria.com"
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Nombre Completo</label>
+                <input
+                  type="text"
+                  value={newEmployee.name}
+                  onChange={e => setNewEmployee({ ...newEmployee, name: e.target.value })}
+                  placeholder="Ej. Carmen Gómez"
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Área / Especialidad</label>
+                <select
+                  value={newEmployee.department}
+                  onChange={e => setNewEmployee({ ...newEmployee, department: e.target.value })}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  {areas.length > 0 
+                    ? areas.map(a => <option key={a.id || a.nombre} value={a.nombre || a.name}>{a.nombre || a.name}</option>)
+                    : MASTERS.departments.map(d => <option key={d} value={d}>{d}</option>)
+                  }
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Rol y Permisos</label>
+                <select
+                  value={newEmployee.role}
+                  onChange={e => setNewEmployee({ ...newEmployee, role: e.target.value })}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+                >
+                  <option value="gestor">Gestor / Asesor (Solo sus expedientes)</option>
+                  <option value="admin">Administrador (Control global)</option>
+                </select>
+              </div>
             </div>
-            <button
-              type="submit"
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>Registrar y Autorizar Empleado</span>
-            </button>
-          </div>
-        </form>
 
-        {/* Tabla de Asesores Registrados */}
-        <div className="overflow-x-auto border border-slate-200 rounded-xl">
-          <table className="w-full text-xs text-left">
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase">
-              <tr>
-                <th className="p-3">Asesor / Empleado</th>
-                <th className="p-3">Área / Especialidad</th>
-                <th className="p-3">Rol</th>
-                <th className="p-3">Estado</th>
-                <th className="p-3 text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {usersList.map((user) => {
-                const uEmail = (user.email || user.id || '').toLowerCase().trim();
-                const isSuper = SUPER_ADMINS.includes(uEmail);
-                const isUserAdmin = isSuper || adminList.includes(uEmail) || user.role === 'admin';
-                const isInactive = user.status === 'inactive';
-                const isSelf = uEmail === (currentUser?.email || '').toLowerCase().trim();
+            <div className="flex justify-between items-center pt-2">
+              <div>
+                {empFeedback.text && (
+                  <span className={`text-xs font-semibold ${empFeedback.type === 'error' ? 'text-rose-600' : 'text-emerald-600'}`}>
+                    {empFeedback.text}
+                  </span>
+                )}
+              </div>
+              <button
+                type="submit"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>Registrar y Autorizar Empleado</span>
+              </button>
+            </div>
+          </form>
 
-                return (
-                  <tr key={uEmail} className={`hover:bg-slate-50/80 transition-colors ${isInactive ? 'opacity-60 bg-slate-50/40' : ''}`}>
-                    <td className="p-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-white text-[11px] uppercase ${isSuper ? 'bg-gradient-to-tr from-amber-500 to-amber-600' : isUserAdmin ? 'bg-indigo-600' : 'bg-slate-700'}`}>
-                          {user.name ? user.name.charAt(0) : uEmail.charAt(0)}
+          {/* Tabla de Asesores Registrados */}
+          <div className="overflow-x-auto border border-slate-200 rounded-xl">
+            <table className="w-full text-xs text-left">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase">
+                <tr>
+                  <th className="p-3">Asesor / Empleado</th>
+                  <th className="p-3">Área / Especialidad</th>
+                  <th className="p-3">Rol</th>
+                  <th className="p-3">Estado</th>
+                  <th className="p-3 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {usersList.map((user) => {
+                  const uEmail = (user.email || user.id || '').toLowerCase().trim();
+                  const isSuper = SUPER_ADMINS.includes(uEmail);
+                  const isUserAdmin = isSuper || adminList.includes(uEmail) || user.role === 'admin';
+                  const isInactive = user.status === 'inactive';
+                  const isSelf = uEmail === (currentUser?.email || '').toLowerCase().trim();
+
+                  return (
+                    <tr key={uEmail} className={`hover:bg-slate-50/80 transition-colors ${isInactive ? 'opacity-60 bg-slate-50/40' : ''}`}>
+                      <td className="p-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-white text-[11px] uppercase ${isSuper ? 'bg-gradient-to-tr from-amber-500 to-amber-600' : isUserAdmin ? 'bg-indigo-600' : 'bg-slate-700'}`}>
+                            {user.name ? user.name.charAt(0) : uEmail.charAt(0)}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-slate-800 flex items-center gap-1.5">
+                              <span>{user.name || uEmail.split('@')[0]}</span>
+                              {isSuper && <Crown className="w-3.5 h-3.5 text-amber-500" title="Super Administrador" />}
+                            </p>
+                            <p className="text-[10px] text-slate-400 font-mono">{uEmail}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-semibold text-slate-800 flex items-center gap-1.5">
-                            <span>{user.name || uEmail.split('@')[0]}</span>
-                            {isSuper && <Crown className="w-3.5 h-3.5 text-amber-500" title="Super Administrador" />}
-                          </p>
-                          <p className="text-[10px] text-slate-400 font-mono">{uEmail}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-3 text-slate-600 font-medium">
-                      {user.department || 'General'}
-                    </td>
-                    <td className="p-3">
-                      {isSuper ? (
-                        <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 font-bold text-[10px] flex items-center gap-1 w-fit">
-                          <Crown className="w-3 h-3" /> Super Admin
-                        </span>
-                      ) : isUserAdmin ? (
-                        <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold text-[10px] flex items-center gap-1 w-fit">
-                          <Shield className="w-3 h-3" /> Administrador
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 font-medium text-[10px] flex items-center gap-1 w-fit">
-                          <User className="w-3 h-3 text-slate-500" /> Gestor / Asesor
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-3">
-                      {isInactive ? (
-                        <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 font-semibold text-[10px]">
-                          Acceso Revocado
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold text-[10px]">
-                          Activo
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-3 text-right">
-                      {!isSuper && !isSelf && (
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleToggleUserRole(user)}
-                            className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-semibold transition-colors cursor-pointer"
-                            title={isUserAdmin ? "Degradar a Gestor" : "Hacer Administrador"}
-                          >
-                            {isUserAdmin ? "Quitar Admin" : "Hacer Admin"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleToggleUserStatus(user)}
-                            className={`px-2 py-1 rounded text-[10px] font-semibold transition-colors cursor-pointer ${isInactive ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200' : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'}`}
-                            title={isInactive ? "Permitir Acceso" : "Suspender Acceso"}
-                          >
-                            {isInactive ? "Reactivar" : "Suspender"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteUser(user)}
-                            className="p-1 rounded text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                            title="Eliminar del Despacho"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      )}
+                      </td>
+                      <td className="p-3 text-slate-600 font-medium">
+                        {user.department || 'General'}
+                      </td>
+                      <td className="p-3">
+                        {isSuper ? (
+                          <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 font-bold text-[10px] flex items-center gap-1 w-fit">
+                            <Crown className="w-3 h-3" /> Super Admin
+                          </span>
+                        ) : isUserAdmin ? (
+                          <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold text-[10px] flex items-center gap-1 w-fit">
+                            <Shield className="w-3 h-3" /> Administrador
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 font-medium text-[10px] flex items-center gap-1 w-fit">
+                            <User className="w-3 h-3 text-slate-500" /> Gestor / Asesor
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-3">
+                        {isInactive ? (
+                          <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 font-semibold text-[10px]">
+                            Acceso Revocado
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold text-[10px]">
+                            Activo
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-3 text-right">
+                        {!isSuper && !isSelf && (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleUserRole(user)}
+                              className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-semibold transition-colors cursor-pointer"
+                              title={isUserAdmin ? "Degradar a Gestor" : "Hacer Administrador"}
+                            >
+                              {isUserAdmin ? "Quitar Admin" : "Hacer Admin"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleUserStatus(user)}
+                              className={`px-2 py-1 rounded text-[10px] font-semibold transition-colors cursor-pointer ${isInactive ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200' : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'}`}
+                              title={isInactive ? "Permitir Acceso" : "Suspender Acceso"}
+                            >
+                              {isInactive ? "Reactivar" : "Suspender"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteUser(user)}
+                              className="p-1 rounded text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                              title="Eliminar del Despacho"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {usersList.length === 0 && (
+                  <tr>
+                    <td colSpan="5" className="p-4 text-center text-slate-400">
+                      Sin asesores registrados aún.
                     </td>
                   </tr>
-                );
-              })}
-              {usersList.length === 0 && (
-                <tr>
-                  <td colSpan="5" className="p-4 text-center text-slate-400">
-                    Sin asesores registrados aún.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* SECCIÓN 2: REGISTRO DE ACTIVIDAD Y AUDITORÍA */}
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2"><FileText className="text-indigo-600"/> Registro de Auditoría de Expedientes</h2>
-            <button onClick={exportAuditLogs} className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded border border-slate-200 flex items-center gap-1 transition-colors"><Download className="w-3 h-3"/> Descargar Auditoría</button>
+                )}
+              </tbody>
+            </table>
           </div>
-          <div className="overflow-x-auto max-h-60 border border-slate-100 rounded-lg">
+        </div>
+      )}
+
+      {/* PESTAÑA 5: AUDITORÍA Y LIMPIEZA DE BASE DE DATOS */}
+      {adminTab === 'mantenimiento' && (
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-premium">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <FileText className="text-indigo-600"/> Registro de Auditoría de Expedientes
+              </h2>
+              <button 
+                onClick={exportAuditLogs} 
+                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg border border-slate-200 flex items-center gap-1 transition-colors cursor-pointer font-semibold"
+              >
+                <Download className="w-3.5 h-3.5"/> Descargar Auditoría
+              </button>
+            </div>
+            <div className="overflow-x-auto max-h-72 border border-slate-100 rounded-xl">
               <table className="w-full text-xs text-left">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase sticky top-0">
-                      <tr><th className="p-3">Fecha y Hora</th><th className="p-3">Asesor / Usuario</th><th className="p-3">Acción</th><th className="p-3">Detalles</th></tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                      {auditLogs.map(log => (
-                          <tr key={log.id} className="hover:bg-slate-50">
-                              <td className="p-3 text-slate-400 whitespace-nowrap">{log.timestamp ? new Date(log.timestamp.seconds * 1000).toLocaleString('es-ES') : '-'}</td>
-                              <td className="p-3 font-medium text-slate-700">{log.user}</td>
-                              <td className="p-3"><span className={`px-2 py-0.5 rounded-full border ${log.action && log.action.includes('Eliminado') ? 'bg-rose-50 text-rose-700 border-rose-100' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>{log.action || 'Desconocida'}</span></td>
-                              <td className="p-3 text-slate-500 truncate max-w-xs" title={log.details}>{log.details}</td>
-                          </tr>
-                      ))}
-                      {auditLogs.length === 0 && <tr><td colSpan="4" className="p-4 text-center text-slate-400">Sin actividad registrada todavía.</td></tr>}
-                  </tbody>
-              </table>
-          </div>
-      </div>
-
-      {/* SECCIÓN 3: GESTIÓN Y LIMPIEZA DE EXPEDIENTES */}
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4">
-        <div className="flex justify-between items-center">
-            <div><h2 className="text-xl font-bold text-slate-800 flex items-center gap-2"><Database className="text-indigo-600"/> Gestión de Base de Datos</h2><p className="text-xs text-slate-500">Selecciona expedientes para su eliminación permanente.</p></div>
-            <button onClick={deleteSelected} disabled={selectedTasks.length === 0 || isProcessing} className="bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white border border-rose-200 px-4 py-2 rounded-lg font-bold text-sm transition-colors flex items-center gap-2 disabled:opacity-50"><Trash2 className="w-4 h-4"/> Eliminar Seleccionados ({selectedTasks.length})</button>
-        </div>
-        <div className="relative">
-            <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400"/>
-            <input type="text" placeholder="Buscar expedientes o clientes para eliminar..." value={adminSearchTerm} onChange={e => setAdminSearchTerm(e.target.value)} className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"/>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <table className="w-full text-sm text-left">
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-xs">
-                <tr><th className="p-4 w-10 text-center"><input type="checkbox" onChange={(e) => { if (e.target.checked) setSelectedTasks(filteredAdminTasks.map(t => t.id)); else setSelectedTasks([]); }} checked={filteredAdminTasks.length > 0 && selectedTasks.length === filteredAdminTasks.length} /></th><th className="p-4">Expediente</th><th className="p-4">Cliente</th><th className="p-4">Tipo</th><th className="p-4">Área</th><th className="p-4">Estado</th><th className="p-4">Creado por</th></tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-                {filteredAdminTasks.map(task => (
-                    <tr key={task.id} className={`hover:bg-slate-50 transition-colors ${selectedTasks.includes(task.id) ? 'bg-indigo-50/50' : ''}`}>
-                        <td className="p-4 text-center"><input type="checkbox" checked={selectedTasks.includes(task.id)} onChange={() => toggleSelect(task.id)} /></td>
-                        <td className="p-4 font-semibold text-slate-800">{task.title}</td>
-                        <td className="p-4 text-indigo-600 font-medium">{task.client || '-'}</td>
-                        <td className="p-4 text-slate-500 text-xs">{normalizeType(task.type)}</td>
-                        <td className="p-4 text-slate-500 text-xs">{normalizeDepartment(task.department)}</td>
-                        <td className="p-4"><Badge text={task.status} /></td>
-                        <td className="p-4 text-xs text-slate-400">{task.createdBy}</td>
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase sticky top-0">
+                  <tr>
+                    <th className="p-3">Fecha y Hora</th>
+                    <th className="p-3">Asesor / Usuario</th>
+                    <th className="p-3">Acción</th>
+                    <th className="p-3">Detalles</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {auditLogs.map(log => (
+                    <tr key={log.id} className="hover:bg-slate-50">
+                      <td className="p-3 text-slate-400 whitespace-nowrap">{log.timestamp ? new Date(log.timestamp.seconds * 1000).toLocaleString('es-ES') : '-'}</td>
+                      <td className="p-3 font-medium text-slate-700">{log.user}</td>
+                      <td className="p-3">
+                        <span className={`px-2 py-0.5 rounded-full border ${log.action && log.action.includes('Eliminado') ? 'bg-rose-50 text-rose-700 border-rose-100' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                          {log.action || 'Desconocida'}
+                        </span>
+                      </td>
+                      <td className="p-3 text-slate-500 truncate max-w-xs" title={log.details}>{log.details}</td>
                     </tr>
-                ))}
-            </tbody>
-        </table>
-      </div>
+                  ))}
+                  {auditLogs.length === 0 && (
+                    <tr>
+                      <td colSpan="4" className="p-4 text-center text-slate-400">Sin actividad registrada todavía.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-premium flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div>
+                <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                  <Database className="text-indigo-600"/> Gestión y Depuración de Expedientes
+                </h2>
+                <p className="text-xs text-slate-500">Selecciona expedientes para su eliminación permanente o archivado forzado.</p>
+              </div>
+              <button 
+                onClick={deleteSelected} 
+                disabled={selectedTasks.length === 0 || isProcessing} 
+                className="bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white border border-rose-200 px-4 py-2 rounded-xl font-bold text-xs transition-colors flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4"/> Eliminar Seleccionados ({selectedTasks.length})
+              </button>
+            </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400"/>
+              <input 
+                type="text" 
+                placeholder="Buscar expedientes o clientes para eliminar..." 
+                value={adminSearchTerm} 
+                onChange={e => setAdminSearchTerm(e.target.value)} 
+                className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+              />
+            </div>
+
+            <div className="border border-slate-200 rounded-xl overflow-hidden">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[11px]">
+                  <tr>
+                    <th className="p-3 w-10 text-center">
+                      <input 
+                        type="checkbox" 
+                        onChange={(e) => { 
+                          if (e.target.checked) setSelectedTasks(filteredAdminTasks.map(t => t.id)); 
+                          else setSelectedTasks([]); 
+                        }} 
+                        checked={filteredAdminTasks.length > 0 && selectedTasks.length === filteredAdminTasks.length} 
+                      />
+                    </th>
+                    <th className="p-3">Expediente</th>
+                    <th className="p-3">Cliente</th>
+                    <th className="p-3">Tipo</th>
+                    <th className="p-3">Área</th>
+                    <th className="p-3">Estado</th>
+                    <th className="p-3">Creado por</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredAdminTasks.map(task => (
+                    <tr key={task.id} className={`hover:bg-slate-50 transition-colors ${selectedTasks.includes(task.id) ? 'bg-indigo-50/50' : ''}`}>
+                      <td className="p-3 text-center">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedTasks.includes(task.id)} 
+                          onChange={() => toggleSelect(task.id)} 
+                        />
+                      </td>
+                      <td className="p-3 font-semibold text-slate-800">{task.title}</td>
+                      <td className="p-3 text-indigo-600 font-medium">{task.client || '-'}</td>
+                      <td className="p-3 text-slate-500">{normalizeType(task.type)}</td>
+                      <td className="p-3 text-slate-500">{normalizeDepartment(task.department)}</td>
+                      <td className="p-3"><Badge text={task.status} /></td>
+                      <td className="p-3 text-slate-400 font-mono text-[11px]">{task.createdBy}</td>
+                    </tr>
+                  ))}
+                  {filteredAdminTasks.length === 0 && (
+                    <tr>
+                      <td colSpan="7" className="p-4 text-center text-slate-400">No se encontraron expedientes que coincidan.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
