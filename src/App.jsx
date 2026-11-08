@@ -17,6 +17,8 @@ import {
   addDoc, 
   updateDoc, 
   doc, 
+  getDoc,
+  deleteDoc,
   onSnapshot, 
   serverTimestamp, 
   setDoc, 
@@ -36,12 +38,18 @@ import {
   LayoutList, PieChart, Database, Trash2, AlertTriangle, Monitor, Bell, X, 
   Paperclip, FileText, Download, Loader2, XCircle, ExternalLink, Pencil, Save, Map, 
   Activity, PauseCircle, BookOpen, Link as LinkIcon, File, Menu, Copy, Target, Eye, EyeOff,
-  Building2, Scale, UserCheck, CalendarCheck, RefreshCw
+  Building2, Scale, UserCheck, CalendarCheck, RefreshCw, Crown, Shield, UserPlus
 } from 'lucide-react';
 import ClientAutocomplete from './components/ClientAutocomplete';
 import ClientesView from './components/ClientesView';
 import ClassificationManager from './components/ClassificationManager';
 import DynamicClassificationSelect from './components/DynamicClassificationSelect';
+
+// --- CONFIGURACIÓN DE SEGURIDAD Y SUPER ADMINISTRADORES ---
+export const SUPER_ADMINS = ['albmarrib@gmail.com'];
+export const PRE_AUTHORIZED_USERS = [
+  { email: 'josep@ferrer-assessoria.com', name: 'Josep Ferrer', role: 'admin', department: 'Dirección / General' }
+];
 
 // --- MAESTROS DE DATOS PARA GESTORÍA Y ASESORÍA ---
 const MASTERS = {
@@ -827,6 +835,51 @@ const RoadmapView = ({ tasks, onEdit }) => {
     );
 };
 
+// --- COMPONENTE DE ACCESO DENEGADO (PROTECCIÓN ESTRICTA DEL DESPACHO) ---
+const AccessDeniedView = ({ currentUser, onSignOut }) => {
+  return (
+    <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4 text-white">
+      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center shadow-2xl relative overflow-hidden animate-in fade-in duration-300">
+        <div className="w-16 h-16 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner">
+          <ShieldAlert className="w-8 h-8 text-rose-500" />
+        </div>
+        <h2 className="text-xl font-bold text-white mb-2">Acceso No Autorizado al Despacho</h2>
+        <p className="text-xs text-slate-400 mb-6 leading-relaxed">
+          Has iniciado sesión como <strong className="text-slate-200">{currentUser?.email}</strong>, pero este correo no figura como asesor o empleado autorizado en el despacho.
+        </p>
+        <div className="bg-slate-950/80 rounded-xl p-3.5 border border-slate-800/80 text-left mb-6 text-xs text-slate-400 space-y-2">
+          <p className="font-bold text-slate-300 flex items-center gap-1.5">
+            <Lock className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Medidas de Seguridad y RGPD</span>
+          </p>
+          <p className="text-[11px] leading-normal">
+            Por confidencialidad de los expedientes y clientes, solo el personal dado de alta por el Administrador puede acceder al sistema.
+          </p>
+          <p className="text-[11px] text-slate-500">
+            Contacta con <strong className="text-slate-300">albmarrib@gmail.com</strong> para autorizar tu usuario.
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="flex-1 py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <RefreshCw className="w-3.5 h-3.5" /> Reintentar
+          </button>
+          <button
+            type="button"
+            onClick={onSignOut}
+            className="flex-1 py-2.5 px-4 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 shadow-md shadow-rose-900/30 cursor-pointer"
+          >
+            <LogOut className="w-3.5 h-3.5" /> Cerrar Sesión
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- VISTA ADMIN: GESTIÓN Y AUDITORÍA DEL DESPACHO ---
 const AdminView = ({ 
   tasks, 
@@ -836,14 +889,23 @@ const AdminView = ({
   clientesCount = 0,
   areas = [],
   tramos = [],
-  currentUser
+  currentUser,
+  usersList = []
 }) => {
   const [selectedTasks, setSelectedTasks] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [newAdminEmail, setNewAdminEmail] = useState('');
   const [adminList, setAdminList] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
   const [adminSearchTerm, setAdminSearchTerm] = useState('');
+
+  // Estado para formulario de alta de nuevo empleado
+  const [newEmployee, setNewEmployee] = useState({
+    email: '',
+    name: '',
+    department: areas[0]?.nombre || MASTERS.departments[0],
+    role: 'gestor'
+  });
+  const [empFeedback, setEmpFeedback] = useState({ text: '', type: '' });
 
   useEffect(() => {
     const unsubAdmins = onSnapshot(doc(db, 'settings', 'config'), (docSnap) => { 
@@ -869,7 +931,6 @@ const AdminView = ({
       selectedTasks.forEach(id => { 
           const task = tasks.find(t => t.id === id);
           if (task) { logAction('Eliminado Expediente', `Título: ${task.title} - Cliente: ${task.client || 'N/A'}`); }
-          // Intento borrar en expedientes y tasks
           batch.delete(doc(db, 'expedientes', id)); 
           batch.delete(doc(db, 'tasks', id));
       });
@@ -879,22 +940,125 @@ const AdminView = ({
     setIsProcessing(false);
   };
 
-  const handleAddAdmin = async () => {
-      if(!newAdminEmail.trim()) return;
-      try { 
-          await updateDoc(doc(db, 'settings', 'config'), { admins: arrayUnion(newAdminEmail.toLowerCase().trim()) }); 
-          logAction('Añadido Administrador', newAdminEmail); 
-          setNewAdminEmail(''); 
-      } catch (e) { alert("Error al añadir administrador: " + e.message); }
+  // Alta y autorización de empleado
+  const handleSaveEmployee = async (e) => {
+    e.preventDefault();
+    const cleanEmail = (newEmployee.email || '').toLowerCase().trim();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setEmpFeedback({ text: 'Introduce un correo electrónico válido.', type: 'error' });
+      return;
+    }
+
+    try {
+      // 1. Guardar o actualizar en colección users
+      await setDoc(doc(db, 'users', cleanEmail), {
+        email: cleanEmail,
+        name: newEmployee.name.trim() || cleanEmail.split('@')[0],
+        department: newEmployee.department || 'General',
+        role: newEmployee.role,
+        status: 'active',
+        createdAt: serverTimestamp(),
+        createdBy: currentUser?.email || currentAdmin
+      }, { merge: true });
+
+      // 2. Si el rol es admin, añadirlo a la lista en settings/config
+      if (newEmployee.role === 'admin') {
+        await updateDoc(doc(db, 'settings', 'config'), {
+          admins: arrayUnion(cleanEmail)
+        }).catch(async () => {
+          await setDoc(doc(db, 'settings', 'config'), { admins: [cleanEmail] }, { merge: true });
+        });
+      }
+
+      await logAction('Alta de Empleado', `Email: ${cleanEmail} - Nombre: ${newEmployee.name} - Rol: ${newEmployee.role}`);
+      setEmpFeedback({ text: `Asesor ${cleanEmail} registrado y autorizado con éxito.`, type: 'success' });
+      setNewEmployee({
+        email: '',
+        name: '',
+        department: areas[0]?.nombre || MASTERS.departments[0],
+        role: 'gestor'
+      });
+      setTimeout(() => setEmpFeedback({ text: '', type: '' }), 4000);
+    } catch (err) {
+      setEmpFeedback({ text: 'Error al registrar: ' + err.message, type: 'error' });
+    }
   };
 
-  const handleRemoveAdmin = async (email) => {
-      if(email === currentAdmin) { alert("No puedes revocar tus propios permisos."); return; }
-      if(!confirm(`¿Revocar permisos de administrador a ${email}?`)) return;
-      try { 
-          await updateDoc(doc(db, 'settings', 'config'), { admins: arrayRemove(email) }); 
-          logAction('Revocado Administrador', email); 
-      } catch (e) { alert("Error al revocar: " + e.message); }
+  // Alternar estado activo / suspendido
+  const handleToggleUserStatus = async (user) => {
+    const userEmail = (user.email || user.id || '').toLowerCase().trim();
+    if (SUPER_ADMINS.includes(userEmail)) {
+      alert("No se puede desactivar la cuenta del Super Administrador.");
+      return;
+    }
+    if (userEmail === (currentUser?.email || '').toLowerCase().trim()) {
+      alert("No puedes suspender tu propio acceso.");
+      return;
+    }
+    const newStatus = user.status === 'inactive' ? 'active' : 'inactive';
+    const actionText = newStatus === 'active' ? 'Reactivar acceso' : 'Suspender acceso temporalmente';
+    if (!confirm(`¿${actionText} a ${userEmail}?`)) return;
+
+    try {
+      await updateDoc(doc(db, 'users', userEmail), { status: newStatus });
+      await logAction(`Cambio Estado Empleado (${newStatus})`, userEmail);
+    } catch (e) {
+      alert("Error al actualizar estado: " + e.message);
+    }
+  };
+
+  // Alternar rol Administrador / Gestor
+  const handleToggleUserRole = async (user) => {
+    const userEmail = (user.email || user.id || '').toLowerCase().trim();
+    if (SUPER_ADMINS.includes(userEmail)) {
+      alert("No se puede revocar el rol del Super Administrador.");
+      return;
+    }
+    if (userEmail === (currentUser?.email || '').toLowerCase().trim()) {
+      alert("No puedes revocar tus propios privilegios de administrador.");
+      return;
+    }
+    const isCurrentlyAdmin = adminList.includes(userEmail) || user.role === 'admin';
+    const newRole = isCurrentlyAdmin ? 'gestor' : 'admin';
+    const actionText = isCurrentlyAdmin ? 'Degradar a Gestor / Asesor' : 'Ascender a Administrador del Despacho';
+    if (!confirm(`¿${actionText} a ${userEmail}?`)) return;
+
+    try {
+      await updateDoc(doc(db, 'users', userEmail), { role: newRole });
+      if (newRole === 'admin') {
+        await updateDoc(doc(db, 'settings', 'config'), { admins: arrayUnion(userEmail) }).catch(async () => {
+          await setDoc(doc(db, 'settings', 'config'), { admins: [userEmail] }, { merge: true });
+        });
+        await logAction('Añadido Administrador', userEmail);
+      } else {
+        await updateDoc(doc(db, 'settings', 'config'), { admins: arrayRemove(userEmail) }).catch(console.warn);
+        await logAction('Revocado Administrador', userEmail);
+      }
+    } catch (e) {
+      alert("Error al cambiar rol: " + e.message);
+    }
+  };
+
+  // Eliminar usuario
+  const handleDeleteUser = async (user) => {
+    const userEmail = (user.email || user.id || '').toLowerCase().trim();
+    if (SUPER_ADMINS.includes(userEmail)) {
+      alert("No se puede eliminar la cuenta del Super Administrador.");
+      return;
+    }
+    if (userEmail === (currentUser?.email || '').toLowerCase().trim()) {
+      alert("No puedes eliminar tu propia cuenta.");
+      return;
+    }
+    if (!confirm(`¿Eliminar completamente a ${userEmail} de la plantilla del despacho? Esta acción revocará todos sus accesos.`)) return;
+
+    try {
+      await deleteDoc(doc(db, 'users', userEmail));
+      await updateDoc(doc(db, 'settings', 'config'), { admins: arrayRemove(userEmail) }).catch(console.warn);
+      await logAction('Eliminado Empleado', userEmail);
+    } catch (e) {
+      alert("Error al eliminar usuario: " + e.message);
+    }
   };
 
   const exportAuditLogs = async () => {
@@ -958,29 +1122,207 @@ const AdminView = ({
         logAction={logAction}
       />
 
-      {/* SECCIÓN 2: GESTIÓN DE ADMINISTRADORES */}
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2 mb-4"><Lock className="text-indigo-600"/> Gestión del Equipo y Privilegios</h2>
-          <div className="flex flex-col md:flex-row gap-6">
-              <div className="flex-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase">Añadir Administrador del Despacho</label>
-                  <div className="flex gap-2 mt-2">
-                      <input type="email" value={newAdminEmail} onChange={e=>setNewAdminEmail(e.target.value)} placeholder="gestor@asesoria.com" className="flex-1 border border-slate-300 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"/>
-                      <button onClick={handleAddAdmin} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">Añadir</button>
-                  </div>
-              </div>
-              <div className="flex-1 border-l border-slate-100 pl-0 md:pl-6">
-                  <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Administradores Actuales</label>
-                  <div className="space-y-2 max-h-32 overflow-y-auto">
-                      {adminList.map(email => (
-                          <div key={email} className="flex justify-between items-center bg-slate-50 p-2 rounded border border-slate-100 text-sm">
-                              <span className="text-slate-700 font-medium">{email}</span>
-                              {email !== currentAdmin && (<button onClick={() => handleRemoveAdmin(email)} className="text-rose-400 hover:text-rose-600 px-2" title="Eliminar">✕</button>)}
-                          </div>
-                      ))}
-                  </div>
-              </div>
+      {/* SECCIÓN 2: GESTIÓN DE PERSONAL Y PRIVILEGIOS DEL DESPACHO */}
+      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-4">
+          <div>
+            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+              <Users className="text-indigo-600 w-5 h-5"/>
+              <span>Gestión del Equipo de Asesores y Empleados</span>
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Controla las altas, permisos y accesos autorizados. Solo el personal registrado aquí podrá acceder a GestFlow.
+            </p>
           </div>
+          <span className="text-xs font-semibold px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-100">
+            {usersList.length} asesores en plantilla
+          </span>
+        </div>
+
+        {/* Formulario de Alta y Autorización */}
+        <form onSubmit={handleSaveEmployee} className="bg-slate-50/80 p-4 rounded-xl border border-slate-200/80 space-y-3">
+          <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+            <UserPlus className="w-4 h-4 text-indigo-600" />
+            <span>Dar de Alta y Autorizar Nuevo Asesor / Empleado</span>
+          </h3>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Correo Electrónico *</label>
+              <input
+                type="email"
+                required
+                value={newEmployee.email}
+                onChange={e => setNewEmployee({ ...newEmployee, email: e.target.value })}
+                placeholder="gestor@asesoria.com"
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Nombre Completo</label>
+              <input
+                type="text"
+                value={newEmployee.name}
+                onChange={e => setNewEmployee({ ...newEmployee, name: e.target.value })}
+                placeholder="Ej. Carmen Gómez"
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Área / Especialidad</label>
+              <select
+                value={newEmployee.department}
+                onChange={e => setNewEmployee({ ...newEmployee, department: e.target.value })}
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                {areas.length > 0 
+                  ? areas.map(a => <option key={a.id || a.nombre} value={a.nombre || a.name}>{a.nombre || a.name}</option>)
+                  : MASTERS.departments.map(d => <option key={d} value={d}>{d}</option>)
+                }
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Rol y Permisos</label>
+              <select
+                value={newEmployee.role}
+                onChange={e => setNewEmployee({ ...newEmployee, role: e.target.value })}
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+              >
+                <option value="gestor">Gestor / Asesor (Solo sus expedientes)</option>
+                <option value="admin">Administrador (Control global)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center pt-2">
+            <div>
+              {empFeedback.text && (
+                <span className={`text-xs font-semibold ${empFeedback.type === 'error' ? 'text-rose-600' : 'text-emerald-600'}`}>
+                  {empFeedback.text}
+                </span>
+              )}
+            </div>
+            <button
+              type="submit"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>Registrar y Autorizar Empleado</span>
+            </button>
+          </div>
+        </form>
+
+        {/* Tabla de Asesores Registrados */}
+        <div className="overflow-x-auto border border-slate-200 rounded-xl">
+          <table className="w-full text-xs text-left">
+            <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase">
+              <tr>
+                <th className="p-3">Asesor / Empleado</th>
+                <th className="p-3">Área / Especialidad</th>
+                <th className="p-3">Rol</th>
+                <th className="p-3">Estado</th>
+                <th className="p-3 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {usersList.map((user) => {
+                const uEmail = (user.email || user.id || '').toLowerCase().trim();
+                const isSuper = SUPER_ADMINS.includes(uEmail);
+                const isUserAdmin = isSuper || adminList.includes(uEmail) || user.role === 'admin';
+                const isInactive = user.status === 'inactive';
+                const isSelf = uEmail === (currentUser?.email || '').toLowerCase().trim();
+
+                return (
+                  <tr key={uEmail} className={`hover:bg-slate-50/80 transition-colors ${isInactive ? 'opacity-60 bg-slate-50/40' : ''}`}>
+                    <td className="p-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-white text-[11px] uppercase ${isSuper ? 'bg-gradient-to-tr from-amber-500 to-amber-600' : isUserAdmin ? 'bg-indigo-600' : 'bg-slate-700'}`}>
+                          {user.name ? user.name.charAt(0) : uEmail.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-slate-800 flex items-center gap-1.5">
+                            <span>{user.name || uEmail.split('@')[0]}</span>
+                            {isSuper && <Crown className="w-3.5 h-3.5 text-amber-500" title="Super Administrador" />}
+                          </p>
+                          <p className="text-[10px] text-slate-400 font-mono">{uEmail}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-3 text-slate-600 font-medium">
+                      {user.department || 'General'}
+                    </td>
+                    <td className="p-3">
+                      {isSuper ? (
+                        <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 font-bold text-[10px] flex items-center gap-1 w-fit">
+                          <Crown className="w-3 h-3" /> Super Admin
+                        </span>
+                      ) : isUserAdmin ? (
+                        <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold text-[10px] flex items-center gap-1 w-fit">
+                          <Shield className="w-3 h-3" /> Administrador
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 font-medium text-[10px] flex items-center gap-1 w-fit">
+                          <User className="w-3 h-3 text-slate-500" /> Gestor / Asesor
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-3">
+                      {isInactive ? (
+                        <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 font-semibold text-[10px]">
+                          Acceso Revocado
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold text-[10px]">
+                          Activo
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-3 text-right">
+                      {!isSuper && !isSelf && (
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleUserRole(user)}
+                            className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-semibold transition-colors cursor-pointer"
+                            title={isUserAdmin ? "Degradar a Gestor" : "Hacer Administrador"}
+                          >
+                            {isUserAdmin ? "Quitar Admin" : "Hacer Admin"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleUserStatus(user)}
+                            className={`px-2 py-1 rounded text-[10px] font-semibold transition-colors cursor-pointer ${isInactive ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200' : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'}`}
+                            title={isInactive ? "Permitir Acceso" : "Suspender Acceso"}
+                          >
+                            {isInactive ? "Reactivar" : "Suspender"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteUser(user)}
+                            className="p-1 rounded text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                            title="Eliminar del Despacho"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+              {usersList.length === 0 && (
+                <tr>
+                  <td colSpan="5" className="p-4 text-center text-slate-400">
+                    Sin asesores registrados aún.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* SECCIÓN 2: REGISTRO DE ACTIVIDAD Y AUDITORÍA */}
@@ -2127,13 +2469,19 @@ const ExpedienteModal = ({
 
 // --- GESTOR PRINCIPAL DE EXPEDIENTES (MAIN) ---
 const ExpedienteManager = ({ currentUser }) => {
+  const userEmail = (currentUser?.email || '').toLowerCase().trim();
+  const isSuperAdmin = SUPER_ADMINS.includes(userEmail);
+  const preAuth = PRE_AUTHORIZED_USERS.find(u => u.email.toLowerCase() === userEmail);
+  const isInitialAdmin = isSuperAdmin || (preAuth && preAuth.role === 'admin');
+  const isInitiallyAuthorized = isSuperAdmin || Boolean(preAuth);
+
   const [currentView, setCurrentView] = useState('list');
   const [tasks, setTasks] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [areas, setAreas] = useState([]);
   const [tramos, setTramos] = useState([]);
   const [usersList, setUsersList] = useState([]); 
-  const [filterScope, setFilterScope] = useState('all'); 
+  const [filterScope, setFilterScope] = useState(isInitialAdmin ? 'all' : 'mine'); 
   const [selectedDepts, setSelectedDepts] = useState([]);
   const [selectedTypes, setSelectedTypes] = useState([]);
   const [selectedStatus, setSelectedStatus] = useState([]); 
@@ -2143,7 +2491,9 @@ const ExpedienteManager = ({ currentUser }) => {
   const [editingTask, setEditingTask] = useState(null);
   const [newUpdateText, setNewUpdateText] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); 
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(isInitialAdmin);
+  const [isAuthorized, setIsAuthorized] = useState(isInitiallyAuthorized);
+  const [isAuthChecking, setIsAuthChecking] = useState(!isInitiallyAuthorized);
 
   // Derivación dinámica de opciones para filtros a partir de Firestore
   const dynamicDepartments = useMemo(() => {
@@ -2174,16 +2524,79 @@ const ExpedienteManager = ({ currentUser }) => {
   const [formData, setFormData] = useState(initialFormState);
 
   useEffect(() => {
+    const userEmail = (currentUser?.email || '').toLowerCase().trim();
+    const isSuperAdmin = SUPER_ADMINS.includes(userEmail);
+    const preAuth = PRE_AUTHORIZED_USERS.find(u => u.email.toLowerCase() === userEmail);
+
     const syncUser = async () => { 
-      if (currentUser?.email) {
-        await setDoc(doc(db, 'users', currentUser.email), { email: currentUser.email, lastSeen: serverTimestamp() }).catch(console.warn); 
+      if (userEmail) {
+        try {
+          const userDocRef = doc(db, 'users', userEmail);
+          const snap = await getDoc(userDocRef);
+          if (isSuperAdmin) {
+            if (!snap.exists()) {
+              await setDoc(userDocRef, { 
+                email: userEmail, 
+                name: 'Super Administrador', 
+                role: 'admin', 
+                status: 'active',
+                createdAt: serverTimestamp(),
+                lastSeen: serverTimestamp() 
+              }, { merge: true });
+            } else {
+              await updateDoc(userDocRef, { 
+                role: 'admin', 
+                status: 'active',
+                lastSeen: serverTimestamp() 
+              });
+            }
+            // Asegurar que albmarrib@gmail.com está registrado en settings/config
+            await setDoc(doc(db, 'settings', 'config'), {
+              admins: arrayUnion(userEmail)
+            }, { merge: true });
+          } else if (preAuth && (!snap.exists() || snap.data()?.status !== 'active')) {
+            // Auto-provisión de usuario pre-autorizado (ej: Josep Ferrer)
+            await setDoc(userDocRef, {
+              email: userEmail,
+              name: preAuth.name,
+              department: preAuth.department || 'General',
+              role: preAuth.role || 'admin',
+              status: 'active',
+              createdAt: serverTimestamp(),
+              lastSeen: serverTimestamp()
+            }, { merge: true });
+            if (preAuth.role === 'admin') {
+              await setDoc(doc(db, 'settings', 'config'), {
+                admins: arrayUnion(userEmail)
+              }, { merge: true });
+            }
+          } else if (snap.exists()) {
+            await updateDoc(userDocRef, { lastSeen: serverTimestamp() }).catch(console.warn);
+          }
+        } catch (e) {
+          console.warn("Aviso en syncUser:", e);
+        }
       }
     };
     syncUser();
 
+    // Escuchar colección users y verificar autorización en tiempo real
     const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
-      setUsersList(snap.docs.map(d => d.data()));
-    }, (err) => console.warn("Error cargando usuarios:", err));
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setUsersList(data);
+
+      if (isSuperAdmin || preAuth) {
+        setIsAuthorized(true);
+      } else {
+        const found = data.find(u => (u.email || u.id || '').toLowerCase().trim() === userEmail);
+        setIsAuthorized(Boolean(found && found.status !== 'inactive'));
+      }
+      setIsAuthChecking(false);
+    }, (err) => {
+      console.warn("Error cargando usuarios:", err);
+      setIsAuthorized(isSuperAdmin || Boolean(preAuth));
+      setIsAuthChecking(false);
+    });
 
     // Escuchar colección clientes en tiempo real
     const unsubClientes = onSnapshot(collection(db, 'clientes'), (snap) => {
@@ -2213,7 +2626,6 @@ const ExpedienteManager = ({ currentUser }) => {
         data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
         setTasks(data);
       } else {
-        // Fallback a colección tasks si expedientes está vacía
         const unsubOld = onSnapshot(collection(db, 'tasks'), (oldSnap) => {
           const data = oldSnap.docs.map(d => ({ id: d.id, ...d.data() }));
           data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
@@ -2223,14 +2635,28 @@ const ExpedienteManager = ({ currentUser }) => {
       }
     }, (err) => console.warn(err));
 
+    // Escuchar configuración de administradores: Nadie es admin por defecto excepto el Super Admin y pre-autorizados
     const unsubAdmin = onSnapshot(doc(db, 'settings', 'config'), (docSnap) => {
-        if (docSnap.exists()) {
-            const adminList = docSnap.data().admins || [];
-            setIsAdmin(adminList.includes(currentUser.email));
-        } else {
-            setIsAdmin(true); // Default admin si no hay config
+      const preAuthIsAdmin = preAuth && preAuth.role === 'admin';
+      if (docSnap.exists()) {
+        const adminList = (docSnap.data().admins || []).map(e => (typeof e === 'string' ? e.toLowerCase().trim() : ''));
+        const userIsAdmin = isSuperAdmin || preAuthIsAdmin || adminList.includes(userEmail);
+        setIsAdmin(userIsAdmin);
+        if (!userIsAdmin) {
+          setFilterScope('mine');
         }
-    }, () => setIsAdmin(true));
+      } else {
+        setIsAdmin(isSuperAdmin || preAuthIsAdmin);
+        if (!isSuperAdmin && !preAuthIsAdmin) setFilterScope('mine');
+        if (isSuperAdmin) {
+          setDoc(doc(db, 'settings', 'config'), { admins: [userEmail] }, { merge: true }).catch(console.warn);
+        }
+      }
+    }, () => {
+      const preAuthIsAdmin = preAuth && preAuth.role === 'admin';
+      setIsAdmin(isSuperAdmin || preAuthIsAdmin);
+      if (!isSuperAdmin && !preAuthIsAdmin) setFilterScope('mine');
+    });
 
     return () => { unsubUsers(); unsubExpedientes(); unsubAdmin(); unsubClientes(); unsubAreas(); unsubTramos(); };
   }, [currentUser]);
@@ -2272,7 +2698,14 @@ const ExpedienteManager = ({ currentUser }) => {
     if (Array.isArray(task.assignees)) { assignedList = task.assignees.map(e => e ? e.toLowerCase().trim() : ''); } 
     else if (task.assigneeEmail) { assignedList.push(task.assigneeEmail.toLowerCase().trim()); }
     const amIAssigned = assignedList.includes(myEmail);
-    if (filterScope === 'mine') { if (!amIAssigned) { return false; } }
+
+    // RESTRICCIÓN DE VISIBILIDAD ESTRICTA:
+    // Si el usuario no es administrador, NUNCA puede ver expedientes ajenos.
+    if (!isAdmin) {
+      if (!amIAssigned) return false;
+    } else if (filterScope === 'mine') {
+      if (!amIAssigned) return false;
+    }
 
     const normStatus = normalizeStatus(task.status);
     const normDept = normalizeDepartment(task.department);
@@ -2408,7 +2841,8 @@ const ExpedienteManager = ({ currentUser }) => {
   };
 
   const clearAllFilters = () => { 
-    setFilterScope('all'); 
+    if (isAdmin) setFilterScope('all');
+    else setFilterScope('mine');
     setSelectedDepts([]); 
     setSelectedTypes([]); 
     setSelectedStatus([]); 
@@ -2419,6 +2853,26 @@ const ExpedienteManager = ({ currentUser }) => {
     setCurrentView(view); 
     setIsMobileMenuOpen(false); 
   };
+
+  // Pantalla de carga mientras se verifica la autorización
+  if (isAuthChecking) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center text-white">
+        <div className="w-10 h-10 border-3 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
+        <p className="mt-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Verificando autorización en el despacho...</p>
+      </div>
+    );
+  }
+
+  // Pantalla de Acceso Denegado si el usuario no figura en la plantilla autorizada
+  if (!isAuthorized) {
+    return (
+      <AccessDeniedView 
+        currentUser={currentUser} 
+        onSignOut={() => signOut(auth)} 
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen font-sans text-slate-900 pb-24 antialiased selection:bg-indigo-500 selection:text-white">
@@ -2510,6 +2964,7 @@ const ExpedienteManager = ({ currentUser }) => {
                  areas={areas}
                  tramos={tramos}
                  currentUser={currentUser}
+                 usersList={usersList}
                />
              ) : <div className="text-center p-10 text-rose-500 font-bold">Acceso Denegado</div>
         ) : currentView === 'clientes' ? (
@@ -2530,11 +2985,18 @@ const ExpedienteManager = ({ currentUser }) => {
             <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-premium border border-slate-200/80 p-3.5 mb-6 relative z-20">
               <div className="flex flex-col lg:flex-row gap-3 justify-between items-center w-full">
                 
-                {/* Ámbito */}
-                <div className="flex bg-slate-100/80 p-1 rounded-xl shrink-0 border border-slate-200/70">
-                  <button onClick={() => setFilterScope('mine')} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${filterScope === 'mine' ? 'bg-white text-indigo-700 shadow-2xs border border-slate-200/50' : 'text-slate-500 hover:text-slate-900'}`}>Mis Expedientes</button>
-                  <button onClick={() => setFilterScope('all')} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${filterScope === 'all' ? 'bg-white text-indigo-700 shadow-2xs border border-slate-200/50' : 'text-slate-500 hover:text-slate-900'}`}>Todos</button>
-                </div>
+                {/* Ámbito: Solo los administradores pueden ver todos los expedientes */}
+                {isAdmin ? (
+                  <div className="flex bg-slate-100/80 p-1 rounded-xl shrink-0 border border-slate-200/70">
+                    <button onClick={() => setFilterScope('mine')} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${filterScope === 'mine' ? 'bg-white text-indigo-700 shadow-2xs border border-slate-200/50' : 'text-slate-500 hover:text-slate-900'}`}>Mis Expedientes</button>
+                    <button onClick={() => setFilterScope('all')} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${filterScope === 'all' ? 'bg-white text-indigo-700 shadow-2xs border border-slate-200/50' : 'text-slate-500 hover:text-slate-900'}`}>Todos</button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 bg-indigo-50/90 text-indigo-700 px-3 py-1.5 rounded-xl border border-indigo-100 text-xs font-bold shrink-0">
+                    <User className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Mis Expedientes</span>
+                  </div>
+                )}
 
                 {/* Filtros Dropdowns y Buscador Dinámicos */}
                 <div className="flex flex-wrap items-center gap-2 flex-1 w-full">
