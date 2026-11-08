@@ -38,12 +38,17 @@ import {
   LayoutList, PieChart, Database, Trash2, AlertTriangle, Monitor, Bell, X, 
   Paperclip, FileText, Download, Loader2, XCircle, ExternalLink, Pencil, Save, Map, 
   Activity, PauseCircle, BookOpen, Link as LinkIcon, File, Menu, Copy, Target, Eye, EyeOff,
-  Building2, Scale, UserCheck, CalendarCheck, RefreshCw, Crown, Shield, UserPlus
+  Building2, Scale, UserCheck, CalendarCheck, RefreshCw, Crown, Shield, UserPlus,
+  Coins, Receipt, CreditCard, Sparkles, CheckSquare
 } from 'lucide-react';
 import ClientAutocomplete from './components/ClientAutocomplete';
 import ClientesView from './components/ClientesView';
 import ClassificationManager, { STATUS_COLORS, DEFAULT_ESTADOS } from './components/ClassificationManager';
 import DynamicClassificationSelect from './components/DynamicClassificationSelect';
+import TemplateManager from './components/TemplateManager';
+import ExpedienteBillingTab from './components/ExpedienteBillingTab';
+import BillingView from './components/BillingView';
+import ExpedienteChatTab from './components/ExpedienteChatTab';
 
 // Contexto global para que todos los Badges de estado consuman la paleta dinámica en tiempo real
 export const EstadosContext = React.createContext([]);
@@ -1106,6 +1111,15 @@ const AdminView = ({
         logAction={logAction}
       />
 
+      {/* SECCIÓN 1.5: PLANTILLAS DE TRÁMITES Y TAREAS PREDEFINIDAS GTD */}
+      <TemplateManager 
+        areas={areas}
+        tramos={tramos}
+        usersList={usersList}
+        currentUser={currentUser}
+        logAction={logAction}
+      />
+
       {/* SECCIÓN 2: GESTIÓN DE PERSONAL Y PRIVILEGIOS DEL DESPACHO */}
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-4">
@@ -1857,7 +1871,9 @@ const ExpedienteModal = ({
   clientes = [],
   areas = [],
   tramos = [],
-  estados = []
+  estados = [],
+  plantillas = [],
+  logAction
 }) => {
   const dynamicStatusList = useMemo(() => {
     let list = [];
@@ -1923,10 +1939,54 @@ const ExpedienteModal = ({
   const fileInputRef = useRef(null);
   const [editingUpdateIndex, setEditingUpdateIndex] = useState(null);
   const [editedUpdateText, setEditedUpdateText] = useState('');
-  const [rightTab, setRightTab] = useState('activity');
+  const [rightTab, setRightTab] = useState(task ? 'activity' : 'gtd');
   const [newActionText, setNewActionText] = useState('');
   const [newActionAssignee, setNewActionAssignee] = useState(currentUser?.email || '');
   const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const handleApplyTemplate = (templateId) => {
+    const template = (plantillas || []).find(p => p.id === templateId);
+    if (!template) return;
+
+    if (formData.title && !window.confirm(`¿Aplicar la plantilla "${template.titulo}"? Esto precargará título, área, trámite, pasos GTD y honorarios.`)) {
+      return;
+    }
+
+    let calculatedDueDate = formData.dueDate;
+    if (template.diasVencimiento) {
+      const targetDate = new Date();
+      targetDate.setDate(targetDate.getDate() + Number(template.diasVencimiento));
+      calculatedDueDate = targetDate.toISOString().split('T')[0];
+    }
+
+    const clonedActions = (template.pasos || []).map((step, idx) => ({
+      id: Date.now() + idx,
+      text: step.text,
+      assignee: step.defaultAssignee || currentUser?.email || '',
+      isCompleted: false,
+      createdAt: new Date().toISOString()
+    }));
+
+    setFormData(prev => ({
+      ...prev,
+      title: template.titulo,
+      department: template.area || prev.department,
+      area: template.area || prev.area,
+      type: template.tramo || prev.type,
+      tramo: template.tramo || prev.tramo,
+      description: template.descripcion ? `${template.descripcion}\n\n${prev.description || ''}`.trim() : prev.description,
+      dueDate: calculatedDueDate,
+      billingType: template.billingType || (template.esFacturable === false ? 'included' : 'billable'),
+      esFacturable: template.billingType === 'billable',
+      feeAmount: template.billingType === 'billable' ? (Number(template.precioHonorarios) || 0) : 0,
+      precioHonorarios: template.billingType === 'billable' ? (Number(template.precioHonorarios) || 0) : 0,
+      actions: clonedActions.length > 0 ? clonedActions : prev.actions
+    }));
+
+    if (clonedActions.length > 0) {
+      setRightTab('gtd');
+    }
+  };
 
   if (!show) return null;
 
@@ -2099,6 +2159,39 @@ const ExpedienteModal = ({
               </div>
             </div>
 
+            {/* SELECTOR RÁPIDO DE PLANTILLAS PREDEFINIDAS */}
+            {(!task || (plantillas && plantillas.length > 0)) && (
+              <div className="mb-2.5 p-2 bg-gradient-to-r from-amber-500/10 via-amber-50/60 to-indigo-50/60 rounded-xl border border-amber-200/80 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-6 h-6 rounded-lg bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-2xs font-bold text-xs">
+                    <Sparkles className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="truncate">
+                    <span className="text-xs font-bold text-slate-800 block leading-tight truncate">Cargar Plantilla Predefinida</span>
+                    <span className="text-[10px] text-slate-500 hidden sm:block truncate">Pasos GTD, tramo y honorarios automáticos</span>
+                  </div>
+                </div>
+
+                <select
+                  onChange={(e) => {
+                    const selectedId = e.target.value;
+                    if (!selectedId) return;
+                    handleApplyTemplate(selectedId);
+                    e.target.value = '';
+                  }}
+                  defaultValue=""
+                  className="text-xs font-bold px-2.5 py-1 bg-white border border-slate-300 rounded-lg shadow-2xs text-slate-700 outline-none hover:border-indigo-400 cursor-pointer shrink-0 max-w-[200px]"
+                >
+                  <option value="" disabled>⚡ Aplicar plantilla...</option>
+                  {(plantillas || []).map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.titulo} ({p.pasos?.length || 0} pasos)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <form onSubmit={handleSubmitForm} className="space-y-2">
               <div>
                 <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-0.5">Título del Expediente / Trámite</label>
@@ -2232,35 +2325,77 @@ const ExpedienteModal = ({
           </div>
         </div>
 
-        {/* COLUMNA DERECHA: NOTAS DE SEGUIMIENTO / PASOS GTD / ADJUNTOS */}
-        {task ? (
-          <div className="w-full md:w-1/2 bg-slate-50 flex flex-col h-[500px] md:h-auto border-t md:border-t-0">
-            <div className="flex border-b border-slate-200 bg-white">
-                <button 
-                    type="button"
-                    onClick={() => setRightTab('activity')}
-                    className={`flex-1 py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${rightTab === 'activity' ? 'text-indigo-600 border-indigo-600 bg-indigo-50/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
-                >
-                    <MessageSquare className="w-3.5 h-3.5"/> Bitácora <span className="bg-slate-100 text-slate-600 px-1.5 rounded-full text-[10px] border border-slate-200">{task.updates?.length || 0}</span>
-                </button>
-                <button 
-                    type="button"
-                    onClick={() => setRightTab('gtd')}
-                    className={`flex-1 py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${rightTab === 'gtd' ? 'text-emerald-600 border-emerald-600 bg-emerald-50/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
-                >
-                    <Target className="w-3.5 h-3.5"/> Pasos GTD <span className="bg-slate-100 text-slate-600 px-1.5 rounded-full text-[10px] border border-slate-200">{formData.actions?.length || 0}</span>
-                </button>
-                <button 
-                    type="button"
-                    onClick={() => setRightTab('docs')}
-                    className={`flex-1 py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${rightTab === 'docs' ? 'text-blue-600 border-blue-600 bg-blue-50/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
-                >
-                    <Paperclip className="w-3.5 h-3.5"/> Adjuntos <span className="bg-slate-100 text-slate-600 px-1.5 rounded-full text-[10px] border border-slate-200">{(resourceLinks?.length || 0) + (fileAttachments?.length || 0)}</span>
-                </button>
-            </div>
+        {/* COLUMNA DERECHA: PASOS GTD / FACTURACIÓN / CHAT / BITÁCORA / ADJUNTOS */}
+        <div className="w-full md:w-1/2 bg-slate-50 flex flex-col h-[520px] md:h-auto border-t md:border-t-0">
+          <div className="flex border-b border-slate-200 bg-white overflow-x-auto">
+            <button 
+              type="button"
+              onClick={() => setRightTab('gtd')}
+              className={`flex-1 min-w-[90px] py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${rightTab === 'gtd' ? 'text-emerald-600 border-emerald-600 bg-emerald-50/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
+            >
+              <Target className="w-3.5 h-3.5"/> Pasos GTD <span className="bg-slate-100 text-slate-600 px-1.5 rounded-full text-[10px] border border-slate-200">{formData.actions?.length || 0}</span>
+            </button>
+            <button 
+              type="button"
+              onClick={() => setRightTab('billing')}
+              className={`flex-1 min-w-[90px] py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${rightTab === 'billing' ? 'text-amber-600 border-amber-600 bg-amber-50/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
+            >
+              <Coins className="w-3.5 h-3.5"/> Facturación
+            </button>
+            <button 
+              type="button"
+              onClick={() => setRightTab('chat')}
+              className={`flex-1 min-w-[80px] py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${rightTab === 'chat' ? 'text-indigo-600 border-indigo-600 bg-indigo-50/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
+            >
+              <MessageSquare className="w-3.5 h-3.5"/> Chat
+            </button>
+            <button 
+              type="button"
+              onClick={() => setRightTab('activity')}
+              className={`flex-1 min-w-[80px] py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${rightTab === 'activity' ? 'text-slate-700 border-slate-700 bg-slate-100/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
+            >
+              <Clock className="w-3.5 h-3.5"/> Bitácora <span className="bg-slate-100 text-slate-600 px-1.5 rounded-full text-[10px] border border-slate-200">{task?.updates?.length || 0}</span>
+            </button>
+            <button 
+              type="button"
+              onClick={() => setRightTab('docs')}
+              className={`flex-1 min-w-[80px] py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${rightTab === 'docs' ? 'text-blue-600 border-blue-600 bg-blue-50/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
+            >
+              <Paperclip className="w-3.5 h-3.5"/> Adjuntos <span className="bg-slate-100 text-slate-600 px-1.5 rounded-full text-[10px] border border-slate-200">{(resourceLinks?.length || 0) + (fileAttachments?.length || 0)}</span>
+            </button>
+          </div>
+
+          {/* PESTAÑA: FACTURACIÓN Y GASTOS SUPLIDOS */}
+          {rightTab === 'billing' && (
+            <ExpedienteBillingTab 
+              formData={formData}
+              setFormData={setFormData}
+              currentUser={currentUser}
+            />
+          )}
+
+          {/* PESTAÑA: CHAT INTERNO CON GLOBOS */}
+          {rightTab === 'chat' && (
+            task ? (
+              <ExpedienteChatTab 
+                task={task}
+                currentUser={currentUser}
+                logAction={logAction}
+              />
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400">
+                <MessageSquare className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                <h4 className="text-xs font-bold text-slate-700">Canal de Chat Interno</h4>
+                <p className="text-[11px] text-slate-400 mt-1 max-w-xs">
+                  El chat interno con globos se activará una vez guardado el nuevo expediente.
+                </p>
+              </div>
+            )
+          )}
 
             {/* PESTAÑA 1: BITÁCORA */}
             {rightTab === 'activity' && (
+              task ? (
                 <>
                     <div className="flex-1 overflow-y-auto p-4 space-y-3">
                     {(!task.updates || task.updates.length === 0) && <div className="text-center text-slate-400 py-10 text-xs">Sin notas de seguimiento registradas.</div>}
@@ -2288,6 +2423,15 @@ const ExpedienteModal = ({
                         </div>
                     </div>
                 </>
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400">
+                  <Clock className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                  <h4 className="text-xs font-bold text-slate-700">Bitácora de Seguimiento</h4>
+                  <p className="text-[11px] text-slate-400 mt-1 max-w-xs">
+                    Las notas de seguimiento se podrán añadir una vez guardado el nuevo expediente.
+                  </p>
+                </div>
+              )
             )}
 
             {/* PESTAÑA 2: PASOS GTD */}
@@ -2395,6 +2539,7 @@ const ExpedienteModal = ({
 
             {/* PESTAÑA 3: DOCUMENTACIÓN Y ENLACES OFICIALES */}
             {rightTab === 'docs' && (
+              task ? (
                 <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
                     {/* ENLACES Y SEDES */}
                     <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
@@ -2448,23 +2593,21 @@ const ExpedienteModal = ({
                         </div>
                     </div>
                 </div>
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400">
+                  <Paperclip className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                  <h4 className="text-xs font-bold text-slate-700">Documentación y Enlaces</h4>
+                  <p className="text-[11px] text-slate-400 mt-1 max-w-xs">
+                    Podrás adjuntar archivos PDF y enlaces oficiales una vez guardado el nuevo expediente.
+                  </p>
+                </div>
+              )
             )}
           </div>
-        ) : (
-          <div className="hidden md:flex w-1/2 bg-slate-50 items-center justify-center p-8 text-center">
-            <div className="max-w-xs">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center mx-auto mb-3 shadow-2xs">
-                <Layers className="w-6 h-6"/>
-              </div>
-              <h3 className="text-slate-800 font-bold text-sm">Alta de Nuevo Expediente</h3>
-              <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">Guarda el expediente inicial con sus datos principales. Una vez creado, podrás gestionar su bitácora de seguimiento, desglosar pasos GTD y adjuntar documentación o enlaces oficiales.</p>
-            </div>
-          </div>
-        )}
+        </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
 // --- GESTOR PRINCIPAL DE EXPEDIENTES (MAIN) ---
 const ExpedienteManager = ({ currentUser }) => {
@@ -2480,6 +2623,7 @@ const ExpedienteManager = ({ currentUser }) => {
   const [areas, setAreas] = useState([]);
   const [tramos, setTramos] = useState([]);
   const [estados, setEstados] = useState([]);
+  const [plantillas, setPlantillas] = useState([]);
   const [usersList, setUsersList] = useState([]); 
   const [filterScope, setFilterScope] = useState(isInitialAdmin ? 'all' : 'mine'); 
   const [selectedDepts, setSelectedDepts] = useState([]);
@@ -2531,7 +2675,16 @@ const ExpedienteManager = ({ currentUser }) => {
     status: MASTERS.status[0], 
     assignees: [],
     dueDate: new Date().toISOString().split('T')[0],
-    actions: [] 
+    actions: [],
+    // Reto 3: Módulo Económico y Facturación
+    billingType: 'billable',
+    esFacturable: true,
+    feeAmount: 0,
+    precioHonorarios: 0,
+    billingStatus: 'pending',
+    invoiceNumber: '',
+    downPayments: [],
+    externalExpenses: []
   };
   const [formData, setFormData] = useState(initialFormState);
 
@@ -2638,6 +2791,13 @@ const ExpedienteManager = ({ currentUser }) => {
       setEstados(data);
     }, (err) => console.warn("Error cargando estados:", err));
 
+    // Escuchar colección plantillas_tareas en tiempo real
+    const unsubPlantillas = onSnapshot(collection(db, 'plantillas_tareas'), (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      data.sort((a, b) => (a.titulo || '').localeCompare(b.titulo || ''));
+      setPlantillas(data);
+    }, (err) => console.warn("Error cargando plantillas_tareas:", err));
+
     // Escuchar expedientes (primaria) y tasks (compatibilidad)
     const unsubExpedientes = onSnapshot(collection(db, 'expedientes'), (snap) => {
       if (!snap.empty) {
@@ -2677,7 +2837,7 @@ const ExpedienteManager = ({ currentUser }) => {
       if (!isSuperAdmin && !preAuthIsAdmin) setFilterScope('mine');
     });
 
-    return () => { unsubUsers(); unsubExpedientes(); unsubAdmin(); unsubClientes(); unsubAreas(); unsubTramos(); unsubEstados(); };
+    return () => { unsubUsers(); unsubExpedientes(); unsubAdmin(); unsubClientes(); unsubAreas(); unsubTramos(); unsubEstados(); unsubPlantillas(); };
   }, [currentUser]);
 
   const logAction = async (action, details) => { 
@@ -2784,7 +2944,16 @@ const ExpedienteManager = ({ currentUser }) => {
       assignees: task.assignees || (task.assigneeEmail ? [task.assigneeEmail] : []), 
       dueDate: task.dueDate || '',
       originalDueDate: task.originalDueDate || task.dueDate || '',
-      actions: task.actions || [] 
+      actions: task.actions || [],
+      // Reto 3: Módulo Económico y Facturación
+      billingType: task.billingType || (task.esFacturable === false ? 'included' : 'billable'),
+      esFacturable: task.billingType ? task.billingType === 'billable' : (task.esFacturable !== false),
+      feeAmount: task.feeAmount !== undefined ? task.feeAmount : (task.precioHonorarios || 0),
+      precioHonorarios: task.precioHonorarios !== undefined ? task.precioHonorarios : (task.feeAmount || 0),
+      billingStatus: task.billingStatus || 'pending',
+      invoiceNumber: task.invoiceNumber || '',
+      downPayments: Array.isArray(task.downPayments) ? task.downPayments : [],
+      externalExpenses: Array.isArray(task.externalExpenses) ? task.externalExpenses : []
     });
     setNewUpdateText('');
     setShowModal(true);
@@ -2926,6 +3095,7 @@ const ExpedienteManager = ({ currentUser }) => {
                   <button onClick={() => setCurrentView('plan')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'plan' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><BarChart3 className="w-3.5 h-3.5"/> Plan Fiscal</button>
                   <button onClick={() => setCurrentView('roadmap')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'roadmap' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><CalendarCheck className="w-3.5 h-3.5"/> Vencimientos</button>
                   <button onClick={() => setCurrentView('gtd')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'gtd' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><Target className="w-3.5 h-3.5"/> Trámites GTD</button>
+                  <button onClick={() => setCurrentView('billing')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'billing' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><Coins className="w-3.5 h-3.5"/> Facturación</button>
                   <button onClick={() => setCurrentView('analytics')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'analytics' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><PieChart className="w-3.5 h-3.5"/> Informes</button>
                   {isAdmin && (<button onClick={() => setCurrentView('admin')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'admin' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><Database className="w-3.5 h-3.5"/> Admin</button>)}
                </div>
@@ -2962,6 +3132,7 @@ const ExpedienteManager = ({ currentUser }) => {
                       <button onClick={() => navigateTo('plan')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'plan' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><BarChart3 className="w-4 h-4"/> Plan Fiscal</button>
                       <button onClick={() => navigateTo('roadmap')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'roadmap' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><CalendarCheck className="w-4 h-4"/> Vencimientos</button>
                       <button onClick={() => navigateTo('gtd')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'gtd' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><Target className="w-4 h-4"/> Trámites GTD</button>
+                      <button onClick={() => navigateTo('billing')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'billing' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><Coins className="w-4 h-4"/> Facturación & Honorarios</button>
                       <button onClick={() => navigateTo('analytics')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'analytics' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><PieChart className="w-4 h-4"/> Informes</button>
                       {isAdmin && (<button onClick={() => navigateTo('admin')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'admin' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><Database className="w-4 h-4"/> Panel Admin</button>)}
                       <div className="h-px bg-slate-800 my-2"></div>
@@ -3003,6 +3174,13 @@ const ExpedienteManager = ({ currentUser }) => {
                   setSearchTerm(nifOrName);
                   setCurrentView('list');
                 }}
+             />
+        ) : currentView === 'billing' ? (
+             <BillingView 
+                tasks={tasks}
+                currentUser={currentUser}
+                onEditTask={handleOpenEdit}
+                logAction={logAction}
              />
         ) : (
           <>
@@ -3093,6 +3271,8 @@ const ExpedienteManager = ({ currentUser }) => {
         areas={areas}
         tramos={tramos}
         estados={estados}
+        plantillas={plantillas}
+        logAction={logAction}
       />
     </div>
     </EstadosContext.Provider>

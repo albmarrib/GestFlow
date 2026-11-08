@@ -25,77 +25,74 @@ Documento maestro de especificación y seguimiento de las funcionalidades acorda
 
 ---
 
-### RETO 1: Gestión Dinámica de Estados y Restauración de Colores
+### RETO 1: Gestión Dinámica de Estados y Restauración de Colores ✅ COMPLETADO
 
 #### Diagnóstico:
 Con la ampliación de estados del despacho, se perdieron contrastes visuales y paletas cromáticas diferenciadas en las listas, Kanban y badges. Además, los estados deben ser editables desde el Panel de Administración.
 
-#### Tareas a implementar:
-- [ ] **Colección Firestore `estados`:** Almacenamiento en tiempo real de cada estado con `nombre`, `color` (esmeralda, ámbar, rubí, índigo, pizarra, violeta), `categoria` (*activo*, *bloqueado*, *completado*) y `orden`.
-- [ ] **Pestaña en Panel Admin (`ClassificationManager.jsx`):** Sección *"Estados de Expediente"* para crear nuevos estados, cambiarles el color con vista previa, editarlos y reordenarlos.
-- [ ] **Restauración visual de Badges:** Componente `Badge` dinámico con diseño moderno de alto contraste para todas las vistas (`ListView`, `GTDView`, `RoadmapView`, `AnalyticsView`, `ExpedienteModal`).
-- [ ] **Filtro Inteligente "Ocultar Terminados":** Conectar el botón de ocultar completados con los estados que el admin marque como `categoria: 'completado'`.
+#### Tareas implementadas:
+- [x] **Colección Firestore `estados`:** Almacenamiento y sincronización en tiempo real de cada estado con `nombre`, `color` (10 paletas semánticas: esmeralda, rubí, ámbar, índigo, azul, púrpura, cian, naranja, pizarra, grafito), `categoria` (*activo*, *urgente*, *bloqueado*, *informativo*, *completado*), indicador `isCompleted` y `orden`.
+- [x] **Pestaña en Panel Admin (`ClassificationManager.jsx`):** Sección *"Estados y Colores"* para crear nuevos estados, elegir paleta cromática con vista previa en vivo, clasificar categoría, marcar completitud, editar y reordenar. Incluye botón para inicializar catálogo maestro recomendado.
+- [x] **Restauración visual de Badges:** Componente `Badge` dinámico con `EstadosContext` y diseño refinado de alto contraste con punto indicador (dot) en todas las vistas (`ListView`, `GTDView`, `RoadmapView`, `AnalyticsView`, `ExpedienteModal`).
+- [x] **Filtro Inteligente "Ocultar Terminados":** Conectado el botón de ocultar completados con los estados marcados con `isCompleted` dinámicamente desde Firestore.
 
 ---
 
-### RETO 2: Tareas Predefinidas (Plantillas de Trámites GTD)
+### RETO 2: Tareas Predefinidas (Plantillas de Trámites GTD) ✅ COMPLETADO
 
 #### Diagnóstico:
 En la gestoría gran parte de los trámites se repiten de forma idéntica (*Constitución de S.L.*, *Alta de Autónomo*, *Modelo 303 IVA*, *Traspaso DGT*, *Cierre Contable*). Actualmente hay que introducir título, pasos y datos a mano cada vez.
 
-#### Tareas a implementar:
-- [ ] **Colección Firestore `plantillas_tareas`:** Estructura con `titulo`, `departamento`, `tipo`, `diasEstimados` (para calcular el vencimiento en automático), `esFacturable`, `precioDefecto` y array `defaultActions` (Pasos GTD precargados).
-- [ ] **Diseñador de Plantillas en Panel Admin:** Pantalla para que el administrador cree y gestione las plantillas del despacho, definiendo la secuencia de pasos GTD obligatorios de cada trámite.
-- [ ] **Selector en "Nuevo Expediente":** Dropdown destacado `[ ⚡ Cargar Plantilla Predefinida... ]` que al seleccionarse autorrellena:
-  - Título y descripción estándar.
-  - Área y tipo de trámite.
-  - Plazo de vencimiento calculado ($Hoy + N$ días).
-  - Todos los pasos GTD precargados en la pestaña de trámites.
-  - Honorarios sugeridos para el módulo económico.
+#### Tareas implementadas:
+- [x] **Colección Firestore `plantillas_tareas`:** Estructura con `titulo`, `area`, `tramo`, `diasVencimiento`, `billingType`, `esFacturable`, `precioHonorarios` y array `pasos` (Pasos GTD precargados y ordenables).
+- [x] **Diseñador de Plantillas en Panel Admin (`TemplateManager.jsx`):** Pantalla completa con catálogo de plantillas, diseñador interactivo de pasos GTD (subir/bajar orden, texto y asesor asignado), duplicación rápida y botón de precarga con 6 plantillas maestras estándar de asesoría.
+- [x] **Selector en "Nuevo Expediente" (`ExpedienteModal.jsx`):** Desplegable destacado `[ ⚡ Cargar Plantilla Predefinida... ]` que al seleccionarse autorrellena:
+  - Título y descripción estándar del procedimiento.
+  - Área y trámite por defecto.
+  - Plazo de vencimiento calculado automáticamente ($Hoy + N$ días).
+  - Todos los pasos GTD precargados en la pestaña de trámites con IDs únicos.
+  - Honorarios y régimen de facturación precargados para el módulo económico.
 
 ---
 
-### RETO 3: Módulo Económico y Control de Facturación
+### RETO 3: Módulo Económico y Control de Facturación ✅ COMPLETADO
 
 #### Objetivos:
-- Cada expediente debe especificar si es facturable o no, con honorarios pactados.
-- Control de suplidos y gastos externos (notarías, registros mercantiles, tasas DGT Modelo 790) con justificantes adjuntos.
-- Control de pagos a cuenta / provisiones de fondos del cliente.
+- Cada expediente define si es a cobrar (`billable`), incluido en cuota (`included`) o no facturable (`non_billable`), con honorarios pactados editables.
+- Control de suplidos y gastos externos (notarías, registros mercantiles, tasas DGT) con importes y enlaces a justificantes.
+- Control de pagos a cuenta / provisiones de fondos abonadas por el cliente.
 - Balance automático en vivo:  
   $$\text{Total a Facturar / Cobrar} = \text{Honorarios} + \text{Gastos Suplidos} - \text{Entregas a Cuenta}$$
 - Panel financiero global de expedientes cerrados y abiertos pendientes de cobro/facturación.
 - Exportador a Excel y CSV optimizado para programas contables (A3, Contasol, Sage).
 
-#### Tareas a implementar:
-- [ ] **Campos Económicos en Expediente:**
-  - `billingType`: `'included'` (Incluido en cuota mensual), `'billable'` (Facturable adicional), `'non_billable'` (No facturable / Interno).
-  - `feeAmount`: Importe de honorarios (€) precargado de la plantilla o manual.
-  - `billingStatus`: `'pending'` (Pendiente de facturar), `'invoiced'` (Facturado), `'paid'` (Cobrado).
-  - Array `downPayments`: `[{ id, date, amount, concept, paymentMethod, notes, receiptUrl }]`.
-  - Array `externalExpenses` (Suplidos): `[{ id, provider, invoiceNumber, date, amount, concept, status, receiptUrl }]`.
-- [ ] **Pestaña Económica en `ExpedienteModal.jsx`:**
-  - Tarjetas de resumen: Honorarios + Suplidos Adelantados - Pagos Recibidos = Saldo a Facturar.
-  - Formularios rápidos para registrar entregas a cuenta y gastos de suplidos con subida de archivo PDF/imagen.
-- [ ] **Panel Financiero del Despacho:**
-  - Nueva vista o sección para el departamento de administración con totales globales (Pendiente de cobro, Suplidos pendientes de recuperar).
-  - Filtro prioritario: *"Expedientes Tramitados / Cerrados sin Facturar"*.
-- [ ] **Exportación Contable (Excel & CSV):**
-  - Generador de ficheros estructurados con columnas preparadas para enlazar con contabilidad.
+#### Tareas implementadas:
+- [x] **Pestaña Económica en Expediente (`ExpedienteBillingTab.jsx`):**
+  - Selector de régimen (A Cobrar / Cuota / No facturable), honorarios editables y estado de factura (`pending`, `invoiced`, `paid`).
+  - Gestor de entregas a cuenta y provisiones con fecha, método de pago y justificantes.
+  - Gestor de suplidos y tasas de terceras partes con proveedor, número de documento y justificantes.
+  - Tarjeta de liquidación económica en vivo con desglose y saldo pendiente.
+- [x] **Panel Financiero Global (`BillingView.jsx`):**
+  - 4 KPIs financieros globales (Honorarios Pendientes, Suplidos Adelantados, Anticipos Cobrados, Saldo Neto a Cobrar).
+  - Alerta prioritaria destacada para expedientes tramitados/cerrados pendientes de facturar.
+  - Tabla de liquidación con cambio rápido de estado de facturación y número de factura.
+- [x] **Exportación Contable (Excel & CSV):**
+  - Exportación con un solo clic a formato Excel `.xlsx` y fichero `.csv` estructurado con columnas contables estándar.
 
 ---
 
-### RETO 4: Sistema de Comunicación Interno (Chat con Globos)
+### RETO 4: Sistema de Comunicación Interno (Chat con Globos) ✅ COMPLETADO
 
 #### Objetivos:
 Facilitar la comunicación ágil entre asesores directamente en el contexto del expediente, evitando WhatsApp y correos dispersos.
 
-#### Tareas a implementar:
-- [ ] **Subcolección en tiempo real `expedientes/{id}/messages`:** Almacenamiento eficiente e independiente de mensajes (`senderEmail`, `senderName`, `text`, `createdAt`, `attachments`).
-- [ ] **Diseño tipo WhatsApp / Slack (Globos de conversación):**
-  - Mensajes propios: alineados a la derecha, color índigo, marca horaria.
-  - Mensajes de otros asesores: alineados a la izquierda, color pizarra claro, avatar con inicial y nombre completo.
-- [ ] **Pestaña "💬 Chat Interno" en `ExpedienteModal.jsx`:** Con scroll automático al último mensaje y caja de texto con envío por tecla `Enter`.
-- [ ] **Badges de actividad no leída:** Indicador visual de mensajes nuevos en el expediente.
+#### Tareas implementadas:
+- [x] **Subcolección en tiempo real `expedientes/{id}/messages`:** Almacenamiento eficiente e independiente de mensajes (`senderEmail`, `senderName`, `text`, `createdAt`).
+- [x] **Diseño tipo WhatsApp / Slack (`ExpedienteChatTab.jsx`):**
+  - Globos de conversación elegantes: mensajes propios alineados a la derecha con degradado índigo; mensajes de compañeros a la izquierda en fondo blanco/gris con avatar y nombre.
+  - Reconocimiento automático y formato clicable de enlaces web (URLs).
+  - Marca horaria inteligente y ticks de lectura.
+- [x] **Pestaña "💬 Chat Interno" en `ExpedienteModal.jsx`:** Con scroll automático al último mensaje, caja de texto con envío por tecla `Enter` y botón para compartir enlaces.
 
 ---
 
