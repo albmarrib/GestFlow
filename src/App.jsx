@@ -42,8 +42,11 @@ import {
 } from 'lucide-react';
 import ClientAutocomplete from './components/ClientAutocomplete';
 import ClientesView from './components/ClientesView';
-import ClassificationManager from './components/ClassificationManager';
+import ClassificationManager, { STATUS_COLORS, DEFAULT_ESTADOS } from './components/ClassificationManager';
 import DynamicClassificationSelect from './components/DynamicClassificationSelect';
+
+// Contexto global para que todos los Badges de estado consuman la paleta dinámica en tiempo real
+export const EstadosContext = React.createContext([]);
 
 // --- CONFIGURACIÓN DE SEGURIDAD Y SUPER ADMINISTRADORES ---
 export const SUPER_ADMINS = ['albmarrib@gmail.com'];
@@ -165,57 +168,36 @@ const getDelayDays = (task) => {
 };
 
 const Badge = ({ text, size = 'xs' }) => {
+  const dynamicEstados = React.useContext(EstadosContext) || [];
+  if (!text) return null;
   const norm = normalizeStatus(text);
-  let colorClass = 'bg-slate-100 text-slate-700 border-slate-200/80';
-  let dotColor = 'bg-slate-400';
 
-  switch (norm) {
-    case 'En Plazo': 
-      colorClass = 'bg-emerald-50/90 text-emerald-800 border-emerald-200/80'; 
-      dotColor = 'bg-emerald-500';
-      break;
-    case 'Trámite Periódico': 
-      colorClass = 'bg-indigo-50/90 text-indigo-800 border-indigo-200/80'; 
-      dotColor = 'bg-indigo-500';
-      break;
-    case 'Pendiente Documentación': 
-      colorClass = 'bg-amber-50/90 text-amber-800 border-amber-200/80'; 
-      dotColor = 'bg-amber-500';
-      break;
-    case 'En Revisión': 
-      colorClass = 'bg-purple-50/90 text-purple-800 border-purple-200/80'; 
-      dotColor = 'bg-purple-500';
-      break;
-    case 'Urgente / Próximo a Vencer': 
-      colorClass = 'bg-rose-50/90 text-rose-800 border-rose-200/80'; 
-      dotColor = 'bg-rose-500 animate-pulse';
-      break;
-    case 'Presentado / Tramitado': 
-      colorClass = 'bg-blue-50/90 text-blue-800 border-blue-200/80'; 
-      dotColor = 'bg-blue-500';
-      break;
-    case 'En Pausa / Suspendido': 
-      colorClass = 'bg-slate-100 text-slate-700 border-slate-200'; 
-      dotColor = 'bg-slate-400';
-      break;
-    case 'Cerrado': 
-      colorClass = 'bg-slate-800 text-slate-200 border-slate-700'; 
-      dotColor = 'bg-slate-400';
-      break;
-    default:
-      colorClass = 'bg-slate-100 text-slate-700 border-slate-200/80';
-      dotColor = 'bg-slate-400';
+  // 1. Buscar en la colección de estados dinámicos de Firestore
+  const matchedEstado = dynamicEstados.find(e => 
+    (e.nombre || e.name || '').toLowerCase().trim() === norm.toLowerCase().trim()
+  );
+
+  let colorConfig = null;
+  if (matchedEstado && matchedEstado.color && STATUS_COLORS[matchedEstado.color]) {
+    colorConfig = STATUS_COLORS[matchedEstado.color];
+  } else {
+    // 2. Mapeo semántico de respaldo de alta fidelidad
+    switch (norm) {
+      case 'En Plazo': colorConfig = STATUS_COLORS.emerald; break;
+      case 'Pendiente Documentación': colorConfig = STATUS_COLORS.amber; break;
+      case 'En Revisión': colorConfig = STATUS_COLORS.purple; break;
+      case 'Urgente / Próximo a Vencer': colorConfig = STATUS_COLORS.rose; break;
+      case 'Trámite Periódico': colorConfig = STATUS_COLORS.indigo; break;
+      case 'Presentado / Tramitado': colorConfig = STATUS_COLORS.blue; break;
+      case 'En Pausa / Suspendido': colorConfig = STATUS_COLORS.slate; break;
+      case 'Cerrado': colorConfig = STATUS_COLORS.dark; break;
+      default: colorConfig = STATUS_COLORS.slate;
+    }
   }
 
-  const isStatus = [
-    'En Plazo', 'Trámite Periódico', 'Pendiente Documentación', 
-    'En Revisión', 'Urgente / Próximo a Vencer', 'Presentado / Tramitado', 
-    'En Pausa / Suspendido', 'Cerrado'
-  ].includes(norm);
-
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-${size} font-bold border ${colorClass} whitespace-nowrap shadow-2xs tracking-tight`}>
-      {isStatus && <span className={`w-1.5 h-1.5 rounded-full ${dotColor} shrink-0`}></span>}
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-${size} font-bold border ${colorConfig.colorClass} whitespace-nowrap shadow-2xs tracking-tight`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${colorConfig.dotColor} shrink-0`}></span>
       <span>{norm}</span>
     </span>
   );
@@ -889,6 +871,7 @@ const AdminView = ({
   clientesCount = 0,
   areas = [],
   tramos = [],
+  estados = [],
   currentUser,
   usersList = []
 }) => {
@@ -1113,10 +1096,11 @@ const AdminView = ({
         )}
       </div>
 
-      {/* SECCIÓN 1: CLASIFICACIÓN DINÁMICA DE EXPEDIENTES (ÁREAS Y TRAMOS) */}
+      {/* SECCIÓN 1: CLASIFICACIÓN DINÁMICA DE EXPEDIENTES (ÁREAS, TRAMOS Y ESTADOS) */}
       <ClassificationManager 
         areas={areas}
         tramos={tramos}
+        estados={estados}
         tasks={tasks}
         currentUser={currentUser}
         logAction={logAction}
@@ -1872,8 +1856,23 @@ const ExpedienteModal = ({
   setEditingTask, 
   clientes = [],
   areas = [],
-  tramos = []
+  tramos = [],
+  estados = []
 }) => {
+  const dynamicStatusList = useMemo(() => {
+    let list = [];
+    if (estados && estados.length > 0) {
+      list = estados.map(e => e.nombre || e.name).filter(Boolean);
+    } else {
+      list = MASTERS.status;
+    }
+    const currentNorm = normalizeStatus(formData.status);
+    if (currentNorm && !list.includes(currentNorm)) {
+      list = [currentNorm, ...list];
+    }
+    return list;
+  }, [estados, formData.status]);
+
   const suggestedAssignees = useMemo(() => {
     const result = [];
     const lowerSet = new Set();
@@ -2165,8 +2164,8 @@ const ExpedienteModal = ({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-0.5">Estado</label>
-                  <select value={normalizeStatus(formData.status)} onChange={e => setFormData({...formData, status: e.target.value, dueDate: e.target.value === 'Trámite Periódico' ? '' : formData.dueDate })} className="w-full border border-slate-300 py-1.5 px-2.5 rounded-lg bg-white font-medium text-xs text-slate-700 outline-none">
-                    {MASTERS.status.map(s => <option key={s} value={s}>{s}</option>)}
+                  <select value={normalizeStatus(formData.status)} onChange={e => setFormData({...formData, status: e.target.value, dueDate: e.target.value === 'Trámite Periódico' ? '' : formData.dueDate })} className="w-full border border-slate-300 py-1.5 px-2.5 rounded-lg bg-white font-medium text-xs text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500">
+                    {dynamicStatusList.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 <div>
@@ -2480,6 +2479,7 @@ const ExpedienteManager = ({ currentUser }) => {
   const [clientes, setClientes] = useState([]);
   const [areas, setAreas] = useState([]);
   const [tramos, setTramos] = useState([]);
+  const [estados, setEstados] = useState([]);
   const [usersList, setUsersList] = useState([]); 
   const [filterScope, setFilterScope] = useState(isInitialAdmin ? 'all' : 'mine'); 
   const [selectedDepts, setSelectedDepts] = useState([]);
@@ -2505,6 +2505,18 @@ const ExpedienteManager = ({ currentUser }) => {
     if (tramos.length > 0) return tramos.map(t => t.nombre || t.name).filter(Boolean);
     return MASTERS.types;
   }, [tramos]);
+
+  const dynamicStatus = useMemo(() => {
+    if (estados.length > 0) return estados.map(e => e.nombre || e.name).filter(Boolean);
+    return MASTERS.status;
+  }, [estados]);
+
+  const completedStatusNames = useMemo(() => {
+    if (estados.length > 0) {
+      return estados.filter(e => e.isCompleted).map(e => (e.nombre || e.name || '').trim().toLowerCase());
+    }
+    return ['presentado / tramitado', 'cerrado', 'completed', 'closed'];
+  }, [estados]);
 
   const initialFormState = {
     title: '', 
@@ -2619,6 +2631,13 @@ const ExpedienteManager = ({ currentUser }) => {
       setTramos(data);
     }, (err) => console.warn("Error cargando tramos:", err));
 
+    // Escuchar colección estados en tiempo real
+    const unsubEstados = onSnapshot(collection(db, 'estados'), (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      data.sort((a, b) => (a.orden || 99) - (b.orden || 99));
+      setEstados(data);
+    }, (err) => console.warn("Error cargando estados:", err));
+
     // Escuchar expedientes (primaria) y tasks (compatibilidad)
     const unsubExpedientes = onSnapshot(collection(db, 'expedientes'), (snap) => {
       if (!snap.empty) {
@@ -2658,7 +2677,7 @@ const ExpedienteManager = ({ currentUser }) => {
       if (!isSuperAdmin && !preAuthIsAdmin) setFilterScope('mine');
     });
 
-    return () => { unsubUsers(); unsubExpedientes(); unsubAdmin(); unsubClientes(); unsubAreas(); unsubTramos(); };
+    return () => { unsubUsers(); unsubExpedientes(); unsubAdmin(); unsubClientes(); unsubAreas(); unsubTramos(); unsubEstados(); };
   }, [currentUser]);
 
   const logAction = async (action, details) => { 
@@ -2711,7 +2730,11 @@ const ExpedienteManager = ({ currentUser }) => {
     const normDept = normalizeDepartment(task.department);
     const normType = normalizeType(task.type);
 
-    if (hideCompleted && currentView !== 'analytics' && (normStatus === 'Presentado / Tramitado' || normStatus === 'Cerrado')) return false;
+    if (hideCompleted && currentView !== 'analytics' && (
+      normStatus === 'Presentado / Tramitado' || 
+      normStatus === 'Cerrado' || 
+      completedStatusNames.includes(normStatus.toLowerCase())
+    )) return false;
     if (selectedDepts.length > 0 && !selectedDepts.includes(normDept)) return false;
     if (selectedTypes.length > 0 && !selectedTypes.includes(normType)) return false;
     if (selectedStatus.length > 0 && !selectedStatus.includes(normStatus)) return false; 
@@ -2875,7 +2898,8 @@ const ExpedienteManager = ({ currentUser }) => {
   }
 
   return (
-    <div className="min-h-screen font-sans text-slate-900 pb-24 antialiased selection:bg-indigo-500 selection:text-white">
+    <EstadosContext.Provider value={estados}>
+      <div className="min-h-screen font-sans text-slate-900 pb-24 antialiased selection:bg-indigo-500 selection:text-white">
       
       {/* HEADER PRINCIPAL DE GESTORÍA (SaaS Elegante & Equilibrado) */}
       <header className="bg-slate-950/95 backdrop-blur-xl text-white border-b border-slate-800/80 sticky top-0 z-40 shadow-xs">
@@ -2963,6 +2987,7 @@ const ExpedienteManager = ({ currentUser }) => {
                  clientesCount={clientes.length} 
                  areas={areas}
                  tramos={tramos}
+                 estados={estados}
                  currentUser={currentUser}
                  usersList={usersList}
                />
@@ -3002,7 +3027,7 @@ const ExpedienteManager = ({ currentUser }) => {
                 <div className="flex flex-wrap items-center gap-2 flex-1 w-full">
                   <MultiSelectDropdown label="Áreas" icon={Briefcase} options={dynamicDepartments} selected={selectedDepts} onChange={setSelectedDepts} />
                   <MultiSelectDropdown label="Trámites" icon={Tag} options={dynamicTypes} selected={selectedTypes} onChange={setSelectedTypes} />
-                  <MultiSelectDropdown label="Estados" icon={Filter} options={MASTERS.status} selected={selectedStatus} onChange={setSelectedStatus} />
+                  <MultiSelectDropdown label="Estados" icon={Filter} options={dynamicStatus} selected={selectedStatus} onChange={setSelectedStatus} />
                   
                   {currentView !== 'analytics' && (
                     <button
@@ -3067,8 +3092,10 @@ const ExpedienteManager = ({ currentUser }) => {
         clientes={clientes}
         areas={areas}
         tramos={tramos}
+        estados={estados}
       />
     </div>
+    </EstadosContext.Provider>
   );
 };
 

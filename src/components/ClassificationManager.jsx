@@ -23,11 +23,100 @@ import {
   FolderPlus, 
   X, 
   Loader2,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Palette,
+  Check,
+  Clock,
+  ShieldCheck,
+  Filter
 } from 'lucide-react';
 
+// Paleta de colores semántica para estados
+export const STATUS_COLORS = {
+  emerald: {
+    id: 'emerald',
+    label: 'Verde Esmeralda',
+    colorClass: 'bg-emerald-50 text-emerald-800 border-emerald-200/90',
+    dotColor: 'bg-emerald-500',
+    hex: '#10b981',
+    bgClass: 'bg-emerald-500'
+  },
+  rose: {
+    id: 'rose',
+    label: 'Rojo / Urgente',
+    colorClass: 'bg-rose-50 text-rose-800 border-rose-200/90',
+    dotColor: 'bg-rose-500 animate-pulse',
+    hex: '#f43f5e',
+    bgClass: 'bg-rose-500'
+  },
+  amber: {
+    id: 'amber',
+    label: 'Ámbar / En Espera',
+    colorClass: 'bg-amber-50 text-amber-800 border-amber-200/90',
+    dotColor: 'bg-amber-500',
+    hex: '#f59e0b',
+    bgClass: 'bg-amber-500'
+  },
+  blue: {
+    id: 'blue',
+    label: 'Azul Tramitado',
+    colorClass: 'bg-blue-50 text-blue-800 border-blue-200/90',
+    dotColor: 'bg-blue-500',
+    hex: '#3b82f6',
+    bgClass: 'bg-blue-500'
+  },
+  indigo: {
+    id: 'indigo',
+    label: 'Índigo Corporativo',
+    colorClass: 'bg-indigo-50 text-indigo-800 border-indigo-200/90',
+    dotColor: 'bg-indigo-500',
+    hex: '#6366f1',
+    bgClass: 'bg-indigo-500'
+  },
+  purple: {
+    id: 'purple',
+    label: 'Púrpura / Revisión',
+    colorClass: 'bg-purple-50 text-purple-800 border-purple-200/90',
+    dotColor: 'bg-purple-500',
+    hex: '#a855f7',
+    bgClass: 'bg-purple-500'
+  },
+  cyan: {
+    id: 'cyan',
+    label: 'Cian / Externo',
+    colorClass: 'bg-cyan-50 text-cyan-800 border-cyan-200/90',
+    dotColor: 'bg-cyan-500',
+    hex: '#06b6d4',
+    bgClass: 'bg-cyan-500'
+  },
+  orange: {
+    id: 'orange',
+    label: 'Naranja Intenso',
+    colorClass: 'bg-orange-50 text-orange-800 border-orange-200/90',
+    dotColor: 'bg-orange-500',
+    hex: '#f97316',
+    bgClass: 'bg-orange-500'
+  },
+  slate: {
+    id: 'slate',
+    label: 'Pizarra / En Pausa',
+    colorClass: 'bg-slate-100 text-slate-700 border-slate-300',
+    dotColor: 'bg-slate-400',
+    hex: '#64748b',
+    bgClass: 'bg-slate-400'
+  },
+  dark: {
+    id: 'dark',
+    label: 'Gris Oscuro / Cerrado',
+    colorClass: 'bg-slate-800 text-slate-100 border-slate-700',
+    dotColor: 'bg-slate-300',
+    hex: '#1e293b',
+    bgClass: 'bg-slate-800'
+  }
+};
+
 // Valores iniciales recomendados para el despacho si las colecciones están vacías
-const DEFAULT_AREAS = [
+export const DEFAULT_AREAS = [
   { nombre: 'Fiscal / Tributario', descripcion: 'Declaraciones periódicas, modelos tributarios, impuestos y AEAT' },
   { nombre: 'Contable', descripcion: 'Llevar contabilidad, legalización de libros y cuentas anuales' },
   { nombre: 'Laboral y Seguridad Social', descripcion: 'Nóminas, altas/bajas en TGSS, contratos y convenios' },
@@ -39,7 +128,7 @@ const DEFAULT_AREAS = [
   { nombre: 'Dirección / General', descripcion: 'Gestión interna y trámites transversales del despacho' }
 ];
 
-const DEFAULT_TRAMOS = [
+export const DEFAULT_TRAMOS = [
   { nombre: 'Vencimiento Fiscal', descripcion: 'Plazo oficial improrrogable con presentación telemática en AEAT' },
   { nombre: 'Cierre Contable / Libros', descripcion: 'Cierre de ejercicio, legalización de libros o depósito en Registro Mercantil' },
   { nombre: 'Nóminas y Seg. Social', descripcion: 'Envío de seguros sociales (SILTRA), contratos y confección mensual' },
@@ -51,26 +140,44 @@ const DEFAULT_TRAMOS = [
   { nombre: 'Otro Trámite', descripcion: 'Trámites misceláneos no encuadrados en categorías anteriores' }
 ];
 
+export const DEFAULT_ESTADOS = [
+  { nombre: 'En Plazo', color: 'emerald', categoria: 'activo', isCompleted: false, orden: 1, descripcion: 'En gestión activa y dentro de los plazos ordinarios' },
+  { nombre: 'Pendiente Documentación', color: 'amber', categoria: 'bloqueado', isCompleted: false, orden: 2, descripcion: 'A la espera de que el cliente o terceros aporten justificantes' },
+  { nombre: 'En Revisión', color: 'purple', categoria: 'activo', isCompleted: false, orden: 3, descripcion: 'Confeccionado, en fase de comprobación por el asesor senior' },
+  { nombre: 'Urgente / Próximo a Vencer', color: 'rose', categoria: 'urgente', isCompleted: false, orden: 4, descripcion: 'Plazo oficial inminente o requerimiento que vence en menos de 48h' },
+  { nombre: 'Trámite Periódico', color: 'indigo', categoria: 'informativo', isCompleted: false, orden: 5, descripcion: 'Gestión recurrente mensual o trimestral sin vencimiento único' },
+  { nombre: 'En Pausa / Suspendido', color: 'slate', categoria: 'bloqueado', isCompleted: false, orden: 6, descripcion: 'Paralizado temporalmente por instrucción expresa o causa de fuerza mayor' },
+  { nombre: 'Presentado / Tramitado', color: 'blue', categoria: 'completado', isCompleted: true, orden: 7, descripcion: 'Declaración o trámite liquidado con justificante de registro telemático' },
+  { nombre: 'Cerrado', color: 'dark', categoria: 'completado', isCompleted: true, orden: 8, descripcion: 'Expediente finalizado, facturado o archivado definitivamente' }
+];
+
 const ClassificationManager = ({
   areas = [],
   tramos = [],
+  estados = [],
   tasks = [],
   currentUser,
   logAction
 }) => {
-  const [activeTab, setActiveTab] = useState('areas'); // 'areas' | 'tramos'
+  const [activeTab, setActiveTab] = useState('areas'); // 'areas' | 'tramos' | 'estados'
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  
+  // Form states
   const [formNombre, setFormNombre] = useState('');
   const [formDescripcion, setFormDescripcion] = useState('');
+  const [formColor, setFormColor] = useState('emerald');
+  const [formCategoria, setFormCategoria] = useState('activo');
+  const [formIsCompleted, setFormIsCompleted] = useState(false);
+  const [formOrden, setFormOrden] = useState(1);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
   const [formError, setFormError] = useState('');
 
-  const isAreas = activeTab === 'areas';
-  const currentCollectionName = isAreas ? 'areas' : 'tramos';
-  const currentItems = isAreas ? areas : tramos;
+  const currentCollectionName = activeTab === 'areas' ? 'areas' : activeTab === 'tramos' ? 'tramos' : 'estados';
+  const currentItems = activeTab === 'areas' ? areas : activeTab === 'tramos' ? tramos : estados;
 
   // Filtrado de elementos
   const filteredItems = useMemo(() => {
@@ -82,30 +189,33 @@ const ClassificationManager = ({
     );
   }, [currentItems, searchTerm]);
 
-  // Contar expedientes que usan cada área o tramo
+  // Contar expedientes que usan cada área, tramo o estado
   const usageCounts = useMemo(() => {
     const counts = {};
     tasks.forEach(t => {
-      if (isAreas) {
+      if (activeTab === 'areas') {
         const areaName = (t.department || t.area || '').trim();
-        if (areaName) {
-          counts[areaName] = (counts[areaName] || 0) + 1;
-        }
-      } else {
+        if (areaName) counts[areaName] = (counts[areaName] || 0) + 1;
+      } else if (activeTab === 'tramos') {
         const tramoName = (t.type || t.tramo || '').trim();
-        if (tramoName) {
-          counts[tramoName] = (counts[tramoName] || 0) + 1;
-        }
+        if (tramoName) counts[tramoName] = (counts[tramoName] || 0) + 1;
+      } else {
+        const estadoName = (t.status || '').trim();
+        if (estadoName) counts[estadoName] = (counts[estadoName] || 0) + 1;
       }
     });
     return counts;
-  }, [tasks, isAreas]);
+  }, [tasks, activeTab]);
 
   // Abrir modal de creación
   const handleOpenCreate = () => {
     setEditingItem(null);
     setFormNombre('');
     setFormDescripcion('');
+    setFormColor('emerald');
+    setFormCategoria('activo');
+    setFormIsCompleted(false);
+    setFormOrden((estados.length || 0) + 1);
     setFormError('');
     setIsModalOpen(true);
   };
@@ -115,6 +225,10 @@ const ClassificationManager = ({
     setEditingItem(item);
     setFormNombre(item.nombre || item.name || '');
     setFormDescripcion(item.descripcion || item.description || '');
+    setFormColor(item.color || 'emerald');
+    setFormCategoria(item.categoria || 'activo');
+    setFormIsCompleted(Boolean(item.isCompleted));
+    setFormOrden(item.orden || 1);
     setFormError('');
     setIsModalOpen(true);
   };
@@ -134,7 +248,8 @@ const ClassificationManager = ({
       (item.nombre || item.name || '').toLowerCase() === cleanNombre.toLowerCase()
     );
     if (exists) {
-      setFormError(`Ya existe un ${isAreas ? 'área' : 'tramo'} con el nombre "${cleanNombre}".`);
+      const typeLabel = activeTab === 'areas' ? 'área' : activeTab === 'tramos' ? 'tramo' : 'estado';
+      setFormError(`Ya existe un ${typeLabel} con el nombre "${cleanNombre}".`);
       return;
     }
 
@@ -142,37 +257,44 @@ const ClassificationManager = ({
     setFormError('');
 
     try {
+      const payload = {
+        nombre: cleanNombre,
+        descripcion: formDescripcion.trim(),
+        updatedAt: serverTimestamp(),
+        updatedBy: currentUser?.email || 'Sistema'
+      };
+
+      if (activeTab === 'estados') {
+        payload.color = formColor;
+        payload.categoria = formCategoria;
+        payload.isCompleted = Boolean(formIsCompleted);
+        payload.orden = Number(formOrden) || 1;
+      }
+
       if (editingItem) {
         // Actualizar
         const itemRef = doc(db, currentCollectionName, editingItem.id);
-        await updateDoc(itemRef, {
-          nombre: cleanNombre,
-          descripcion: formDescripcion.trim(),
-          updatedAt: serverTimestamp(),
-          updatedBy: currentUser?.email || 'Sistema'
-        });
+        await updateDoc(itemRef, payload);
 
         if (logAction) {
+          const typeLabel = activeTab === 'areas' ? 'Área' : activeTab === 'tramos' ? 'Tramo' : 'Estado';
           logAction(
-            `Actualizado ${isAreas ? 'Área' : 'Tramo'}`, 
+            `Actualizado ${typeLabel}`, 
             `Nombre: ${cleanNombre} (ID: ${editingItem.id})`
           );
         }
       } else {
         // Crear nuevo
-        await addDoc(collection(db, currentCollectionName), {
-          nombre: cleanNombre,
-          descripcion: formDescripcion.trim(),
-          activo: true,
-          createdAt: serverTimestamp(),
-          createdBy: currentUser?.email || 'Sistema',
-          updatedAt: serverTimestamp(),
-          updatedBy: currentUser?.email || 'Sistema'
-        });
+        payload.activo = true;
+        payload.createdAt = serverTimestamp();
+        payload.createdBy = currentUser?.email || 'Sistema';
+
+        await addDoc(collection(db, currentCollectionName), payload);
 
         if (logAction) {
+          const typeLabel = activeTab === 'areas' ? 'Área' : activeTab === 'tramos' ? 'Tramo' : 'Estado';
           logAction(
-            `Creado ${isAreas ? 'Área' : 'Tramo'}`, 
+            `Creado ${typeLabel}`, 
             `Nombre: ${cleanNombre}`
           );
         }
@@ -194,10 +316,11 @@ const ClassificationManager = ({
   const handleDelete = async (item) => {
     const itemName = item.nombre || item.name || 'Sin nombre';
     const usedCount = usageCounts[itemName] || 0;
+    const typeLabel = activeTab === 'areas' ? 'área' : activeTab === 'tramos' ? 'tramo' : 'estado';
 
-    let confirmMsg = `¿Seguro que deseas eliminar el ${isAreas ? 'área' : 'tramo'} "${itemName}"?`;
+    let confirmMsg = `¿Seguro que deseas eliminar el ${typeLabel} "${itemName}"?`;
     if (usedCount > 0) {
-      confirmMsg = `⚠️ ¡ADVERTENCIA!\n\nHay ${usedCount} expediente(s) asociados actualmente a "${itemName}".\n\nSi lo eliminas, los expedientes existentes mantendrán el texto histórico, pero no estará disponible para nuevas asignaciones.\n\n¿Deseas eliminarlo de todas formas?`;
+      confirmMsg = `⚠️ ¡ADVERTENCIA!\n\nHay ${usedCount} expediente(s) asociados actualmente a este ${typeLabel} "${itemName}".\n\nSi lo eliminas, los expedientes existentes mantendrán el texto histórico, pero no estará disponible para nuevas asignaciones.\n\n¿Deseas eliminarlo de todas formas?`;
     }
 
     if (!window.confirm(confirmMsg)) return;
@@ -206,8 +329,8 @@ const ClassificationManager = ({
       await deleteDoc(doc(db, currentCollectionName, item.id));
       if (logAction) {
         logAction(
-          `Eliminado ${isAreas ? 'Área' : 'Tramo'}`, 
-          `Nombre: ${itemName} (ID: ${item.id}) - Expedientes vinculados: ${usedCount}`
+          `Eliminado ${activeTab === 'areas' ? 'Área' : activeTab === 'tramos' ? 'Tramo' : 'Estado'}`, 
+          `Nombre: ${itemName} (ID: ${item.id})`
         );
       }
     } catch (error) {
@@ -216,12 +339,12 @@ const ClassificationManager = ({
     }
   };
 
-  // Cargar valores predeterminados en Firestore por lotes
+  // Carga masiva de valores estándar recomendados
   const handleSeedDefaults = async () => {
-    const defaults = isAreas ? DEFAULT_AREAS : DEFAULT_TRAMOS;
-    const countName = isAreas ? 'Áreas' : 'Tramos';
-    
-    if (!window.confirm(`¿Cargar las ${defaults.length} ${countName} estándar predeterminadas en la base de datos de Firestore? Se omitirán las que ya existan.`)) {
+    const defaults = activeTab === 'areas' ? DEFAULT_AREAS : activeTab === 'tramos' ? DEFAULT_TRAMOS : DEFAULT_ESTADOS;
+    const countName = activeTab === 'areas' ? 'Áreas' : activeTab === 'tramos' ? 'Tramos' : 'Estados';
+
+    if (!window.confirm(`¿Deseas inicializar los ${defaults.length} ${countName.toLowerCase()} estándar de gestoría en Firestore? Solo se añadirán los que no existan todavía.`)) {
       return;
     }
 
@@ -237,7 +360,7 @@ const ClassificationManager = ({
 
         if (!alreadyExists) {
           const newDocRef = doc(collection(db, currentCollectionName));
-          batch.set(newDocRef, {
+          const docData = {
             nombre: def.nombre,
             descripcion: def.descripcion,
             activo: true,
@@ -245,7 +368,16 @@ const ClassificationManager = ({
             createdBy: currentUser?.email || 'Sistema (Seed)',
             updatedAt: serverTimestamp(),
             updatedBy: currentUser?.email || 'Sistema (Seed)'
-          });
+          };
+
+          if (activeTab === 'estados') {
+            docData.color = def.color;
+            docData.categoria = def.categoria;
+            docData.isCompleted = def.isCompleted;
+            docData.orden = def.orden;
+          }
+
+          batch.set(newDocRef, docData);
           added++;
         }
       });
@@ -271,27 +403,27 @@ const ClassificationManager = ({
     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
       
       {/* CABECERA Y SELECTOR DE PESTAÑA */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-5">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-slate-100 pb-5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
             <Layers className="w-5 h-5" />
           </div>
           <div>
             <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              Clasificación Dinámica de Expedientes
+              Clasificación Dinámica y Estados del Despacho
             </h2>
             <p className="text-xs text-slate-500">
-              Administra las colecciones Firestore de <span className="font-semibold text-slate-700">Áreas</span> y <span className="font-semibold text-slate-700">Tramos</span> que alimentan los selectores en tiempo real.
+              Administra las colecciones Firestore de <span className="font-semibold text-slate-700">Áreas</span>, <span className="font-semibold text-slate-700">Tramos</span> y <span className="font-semibold text-indigo-600">Estados con colores</span> que alimentan el sistema en tiempo real.
             </p>
           </div>
         </div>
 
-        {/* Pestañas de Navegación */}
-        <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 self-stretch sm:self-auto">
+        {/* Pestañas de Navegación (3 Tabs) */}
+        <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 self-stretch sm:self-auto overflow-x-auto">
           <button
             onClick={() => { setActiveTab('areas'); setSearchTerm(''); }}
-            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-              isAreas 
+            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+              activeTab === 'areas' 
                 ? 'bg-white text-indigo-600 shadow-sm' 
                 : 'text-slate-600 hover:text-slate-900'
             }`}
@@ -299,7 +431,7 @@ const ClassificationManager = ({
             <Briefcase className="w-3.5 h-3.5" />
             <span>Áreas / Departamentos</span>
             <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-              isAreas ? 'bg-indigo-50 text-indigo-700 font-bold' : 'bg-slate-200 text-slate-600'
+              activeTab === 'areas' ? 'bg-indigo-50 text-indigo-700 font-bold' : 'bg-slate-200 text-slate-600'
             }`}>
               {areas.length}
             </span>
@@ -307,8 +439,8 @@ const ClassificationManager = ({
 
           <button
             onClick={() => { setActiveTab('tramos'); setSearchTerm(''); }}
-            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-              !isAreas 
+            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+              activeTab === 'tramos' 
                 ? 'bg-white text-indigo-600 shadow-sm' 
                 : 'text-slate-600 hover:text-slate-900'
             }`}
@@ -316,9 +448,26 @@ const ClassificationManager = ({
             <Tag className="w-3.5 h-3.5" />
             <span>Tramos / Trámites</span>
             <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-              !isAreas ? 'bg-indigo-50 text-indigo-700 font-bold' : 'bg-slate-200 text-slate-600'
+              activeTab === 'tramos' ? 'bg-indigo-50 text-indigo-700 font-bold' : 'bg-slate-200 text-slate-600'
             }`}>
               {tramos.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => { setActiveTab('estados'); setSearchTerm(''); }}
+            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+              activeTab === 'estados' 
+                ? 'bg-white text-indigo-600 shadow-sm' 
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Palette className="w-3.5 h-3.5 text-indigo-500" />
+            <span>Estados y Colores</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+              activeTab === 'estados' ? 'bg-indigo-50 text-indigo-700 font-bold' : 'bg-slate-200 text-slate-600'
+            }`}>
+              {estados.length}
             </span>
           </button>
         </div>
@@ -332,7 +481,7 @@ const ClassificationManager = ({
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder={`Buscar en ${isAreas ? 'Áreas' : 'Tramos'} por nombre o descripción...`}
+            placeholder={`Buscar en ${activeTab === 'areas' ? 'Áreas' : activeTab === 'tramos' ? 'Tramos' : 'Estados'}...`}
             className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 bg-slate-50 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
           />
           {searchTerm && (
@@ -351,7 +500,7 @@ const ClassificationManager = ({
             <button
               onClick={handleSeedDefaults}
               disabled={isSeeding}
-              className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all disabled:opacity-50"
+              className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
               title="Cargar catálogo estándar inicial en Firestore"
             >
               {isSeeding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-emerald-600" />}
@@ -362,10 +511,10 @@ const ClassificationManager = ({
           {/* Botón Nuevo Elemento */}
           <button
             onClick={handleOpenCreate}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md shadow-indigo-100 flex items-center gap-1.5 transition-all"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md shadow-indigo-100 flex items-center gap-1.5 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>{isAreas ? 'Nueva Área' : 'Nuevo Tramo'}</span>
+            <span>{activeTab === 'areas' ? 'Nueva Área' : activeTab === 'tramos' ? 'Nuevo Tramo' : 'Nuevo Estado'}</span>
           </button>
         </div>
       </div>
@@ -376,7 +525,9 @@ const ClassificationManager = ({
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider">
-                <th className="p-3.5 pl-4">Nombre</th>
+                <th className="p-3.5 pl-4">{activeTab === 'estados' ? 'Estado / Color' : 'Nombre'}</th>
+                {activeTab === 'estados' && <th className="p-3.5">Categoría / Tipo</th>}
+                {activeTab === 'estados' && <th className="p-3.5 text-center">Filtro Finalizado</th>}
                 <th className="p-3.5">Descripción</th>
                 <th className="p-3.5 text-center">Expedientes en Uso</th>
                 <th className="p-3.5 text-right pr-4">Acciones</th>
@@ -386,16 +537,47 @@ const ClassificationManager = ({
               {filteredItems.map((item) => {
                 const itemName = item.nombre || item.name || 'Sin nombre';
                 const usage = usageCounts[itemName] || 0;
+                const colorConfig = STATUS_COLORS[item.color] || STATUS_COLORS.slate;
 
                 return (
                   <tr key={item.id} className="hover:bg-slate-50/60 transition-colors">
-                    {/* Nombre */}
+                    {/* Nombre / Badge */}
                     <td className="p-3.5 pl-4 font-bold text-slate-800">
-                      <div className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${isAreas ? 'bg-indigo-500' : 'bg-emerald-500'}`}></span>
-                        <span className="text-slate-900 font-semibold">{itemName}</span>
-                      </div>
+                      {activeTab === 'estados' ? (
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${colorConfig.colorClass} shadow-2xs`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${colorConfig.dotColor}`}></span>
+                            <span>{itemName}</span>
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full ${activeTab === 'areas' ? 'bg-indigo-500' : 'bg-emerald-500'}`}></span>
+                          <span className="text-slate-900 font-semibold">{itemName}</span>
+                        </div>
+                      )}
                     </td>
+
+                    {/* Columnas específicas para Estados */}
+                    {activeTab === 'estados' && (
+                      <td className="p-3.5 whitespace-nowrap">
+                        <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 capitalize">
+                          {item.categoria || 'activo'}
+                        </span>
+                      </td>
+                    )}
+
+                    {activeTab === 'estados' && (
+                      <td className="p-3.5 text-center whitespace-nowrap">
+                        {item.isCompleted ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <Check className="w-3 h-3" /> Se Oculta al Terminar
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-[10px]">En Proceso</span>
+                        )}
+                      </td>
+                    )}
 
                     {/* Descripción */}
                     <td className="p-3.5 text-slate-500 max-w-md">
@@ -426,14 +608,14 @@ const ClassificationManager = ({
                       <div className="inline-flex items-center gap-1">
                         <button
                           onClick={() => handleOpenEdit(item)}
-                          className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
                           title="Editar elemento"
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => handleDelete(item)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                           title="Eliminar elemento"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -446,13 +628,13 @@ const ClassificationManager = ({
 
               {filteredItems.length === 0 && (
                 <tr>
-                  <td colSpan="4" className="p-8 text-center text-slate-400">
+                  <td colSpan={activeTab === 'estados' ? 6 : 4} className="p-8 text-center text-slate-400">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Layers className="w-8 h-8 text-slate-300 stroke-1" />
                       <p className="text-sm font-medium text-slate-600">
                         {searchTerm 
-                          ? `No hay ${isAreas ? 'áreas' : 'tramos'} que coincidan con "${searchTerm}".`
-                          : `No hay ${isAreas ? 'áreas' : 'tramos'} creados en Firestore.`}
+                          ? `No hay elementos que coincidan con "${searchTerm}".`
+                          : `No hay ${activeTab === 'areas' ? 'áreas' : activeTab === 'tramos' ? 'tramos' : 'estados'} creados en Firestore.`}
                       </p>
                       {!searchTerm && (
                         <div className="mt-2 flex items-center gap-3">
@@ -460,7 +642,7 @@ const ClassificationManager = ({
                             onClick={handleOpenCreate}
                             className="text-xs bg-indigo-600 text-white font-bold px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors"
                           >
-                            + Crear primera {isAreas ? 'Área' : 'Tramo'}
+                            + Crear primer {activeTab === 'areas' ? 'Área' : activeTab === 'tramos' ? 'Tramo' : 'Estado'}
                           </button>
                           <button
                             onClick={handleSeedDefaults}
@@ -482,12 +664,12 @@ const ClassificationManager = ({
       {/* PIE DE TABLA / RESUMEN */}
       <div className="flex flex-col sm:flex-row justify-between items-center text-xs text-slate-500 pt-2 border-t border-slate-100 gap-2">
         <span>
-          Mostrando {filteredItems.length} de {currentItems.length} {isAreas ? 'áreas' : 'tramos'} en Firestore
+          Mostrando {filteredItems.length} de {currentItems.length} {activeTab === 'areas' ? 'áreas' : activeTab === 'tramos' ? 'tramos' : 'estados'} en Firestore
         </span>
         <button
           onClick={handleSeedDefaults}
           disabled={isSeeding}
-          className="text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 hover:underline disabled:opacity-50"
+          className="text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 hover:underline disabled:opacity-50 cursor-pointer"
         >
           <Sparkles className="w-3 h-3" />
           <span>Restaurar / Añadir valores estándar ausentes</span>
@@ -497,19 +679,19 @@ const ClassificationManager = ({
       {/* MODAL PARA CREAR O EDITAR */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
             
             {/* Cabecera del Modal */}
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
-                  {isAreas ? <Briefcase className="w-4 h-4" /> : <Tag className="w-4 h-4" />}
+                  {activeTab === 'areas' ? <Briefcase className="w-4 h-4" /> : activeTab === 'tramos' ? <Tag className="w-4 h-4" /> : <Palette className="w-4 h-4" />}
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-slate-800">
                     {editingItem 
-                      ? `Editar ${isAreas ? 'Área' : 'Tramo'}` 
-                      : `Nueva ${isAreas ? 'Área' : 'Nuevo Tramo'}`}
+                      ? `Editar ${activeTab === 'areas' ? 'Área' : activeTab === 'tramos' ? 'Tramo' : 'Estado'}` 
+                      : `Nuevo ${activeTab === 'areas' ? 'Área' : activeTab === 'tramos' ? 'Tramo' : 'Estado'}`}
                   </h3>
                   <p className="text-[11px] text-slate-400">
                     Colección de Firestore: <code className="text-indigo-600 font-mono font-bold">{currentCollectionName}</code>
@@ -519,7 +701,7 @@ const ClassificationManager = ({
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200/50 transition-colors"
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200/50 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -534,21 +716,120 @@ const ClassificationManager = ({
                 </div>
               )}
 
+              {/* Vista previa en tiempo real si es Estado */}
+              {activeTab === 'estados' && (
+                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-500">Vista previa del Badge:</span>
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${STATUS_COLORS[formColor]?.colorClass || STATUS_COLORS.slate.colorClass} shadow-2xs`}>
+                    <span className={`w-2 h-2 rounded-full ${STATUS_COLORS[formColor]?.dotColor || STATUS_COLORS.slate.dotColor}`}></span>
+                    <span>{formNombre || 'Nombre del Estado'}</span>
+                  </span>
+                </div>
+              )}
+
               {/* Campo Nombre */}
               <div>
                 <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1">
-                  Nombre del {isAreas ? 'Área / Departamento' : 'Tramo / Trámite'} <span className="text-rose-500">*</span>
+                  Nombre del {activeTab === 'areas' ? 'Área / Departamento' : activeTab === 'tramos' ? 'Tramo / Trámite' : 'Estado'} <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   required
                   value={formNombre}
                   onChange={(e) => setFormNombre(e.target.value)}
-                  placeholder={isAreas ? 'Ej. Fiscal / Tributario' : 'Ej. Vencimiento Fiscal'}
+                  placeholder={activeTab === 'areas' ? 'Ej. Fiscal / Tributario' : activeTab === 'tramos' ? 'Ej. Vencimiento Fiscal' : 'Ej. Pendiente Firma Notarial'}
                   className="w-full border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
                   autoFocus
                 />
               </div>
+
+              {/* Campos específicos de Estados: Selector de Color */}
+              {activeTab === 'estados' && (
+                <div>
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-2">
+                    Color Distintivo del Estado
+                  </label>
+                  <div className="grid grid-cols-5 gap-2">
+                    {Object.values(STATUS_COLORS).map((c) => {
+                      const isSelected = formColor === c.id;
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => setFormColor(c.id)}
+                          className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition-all cursor-pointer ${
+                            isSelected 
+                              ? 'border-indigo-600 bg-indigo-50/60 ring-2 ring-indigo-500/30 shadow-xs' 
+                              : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                          }`}
+                          title={c.label}
+                        >
+                          <span className={`w-4 h-4 rounded-full ${c.bgClass} shadow-2xs flex items-center justify-center text-white`}>
+                            {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                          </span>
+                          <span className="text-[10px] font-semibold text-slate-700 truncate max-w-full text-center">
+                            {c.label.split(' ')[0]}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Campos específicos de Estados: Categoría y Checkbox Completado */}
+              {activeTab === 'estados' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1">
+                      Categoría
+                    </label>
+                    <select
+                      value={formCategoria}
+                      onChange={(e) => setFormCategoria(e.target.value)}
+                      className="w-full border border-slate-300 rounded-xl p-2 text-xs text-slate-800 focus:border-indigo-500 outline-none"
+                    >
+                      <option value="activo">Activo (En curso ordinario)</option>
+                      <option value="urgente">Urgente (Plazo inminente / Alerta)</option>
+                      <option value="bloqueado">Bloqueado (En espera de cliente/terceros)</option>
+                      <option value="informativo">Informativo (Periódico / Recurrente)</option>
+                      <option value="completado">Completado (Presentado o Cerrado)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1">
+                      Orden de prioridad
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="99"
+                      value={formOrden}
+                      onChange={(e) => setFormOrden(Number(e.target.value))}
+                      className="w-full border border-slate-300 rounded-xl p-2 text-xs text-slate-800 focus:border-indigo-500 outline-none"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'estados' && (
+                <div className="p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl flex items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    id="isCompletedCheck"
+                    checked={formIsCompleted}
+                    onChange={(e) => setFormIsCompleted(e.target.checked)}
+                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 mt-0.5 cursor-pointer"
+                  />
+                  <label htmlFor="isCompletedCheck" className="text-xs text-slate-700 cursor-pointer">
+                    <span className="font-bold text-slate-800 block">¿Es un estado finalizado / tramitado?</span>
+                    <span className="text-[11px] text-slate-500">
+                      Al activarse, este estado se ocultará cuando los gestores pulsen el botón del ojo ("Ocultar presentados/cerrados") en los filtros.
+                    </span>
+                  </label>
+                </div>
+              )}
 
               {/* Campo Descripción */}
               <div>
@@ -558,26 +839,26 @@ const ClassificationManager = ({
                 <textarea
                   value={formDescripcion}
                   onChange={(e) => setFormDescripcion(e.target.value)}
-                  placeholder="Detalles sobre qué expedientes o plazos comprende..."
-                  rows="3"
+                  placeholder="Detalles sobre qué expedientes o situaciones comprende..."
+                  rows="2"
                   className="w-full border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
                 />
               </div>
 
               {/* Botones de acción */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
                   disabled={isSubmitting}
-                  className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+                  className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-100 flex items-center gap-1.5 transition-all disabled:opacity-50"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-100 flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   <span>{editingItem ? 'Guardar Cambios' : 'Crear'}</span>
