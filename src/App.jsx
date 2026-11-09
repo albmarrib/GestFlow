@@ -2158,10 +2158,44 @@ const ExpedienteModal = ({
   const fileInputRef = useRef(null);
   const [editingUpdateIndex, setEditingUpdateIndex] = useState(null);
   const [editedUpdateText, setEditedUpdateText] = useState('');
-  const [rightTab, setRightTab] = useState(task ? 'activity' : 'gtd');
+  const [rightTab, setRightTab] = useState('activity');
   const [newActionText, setNewActionText] = useState('');
   const [newActionAssignee, setNewActionAssignee] = useState(currentUser?.email || '');
   const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // Estados para edición inline de pasos GTD
+  const [editingActionId, setEditingActionId] = useState(null);
+  const [editingActionText, setEditingActionText] = useState('');
+  const [editingActionAssignee, setEditingActionAssignee] = useState('');
+
+  const startEditingAction = (action) => {
+    setEditingActionId(action.id);
+    setEditingActionText(action.text || '');
+    setEditingActionAssignee(action.assignee || currentUser?.email || '');
+  };
+
+  const saveEditedAction = () => {
+    if (!editingActionText.trim()) return;
+    setFormData(prev => ({
+      ...prev,
+      actions: (prev.actions || []).map(a => a.id === editingActionId ? {
+        ...a,
+        text: editingActionText.trim(),
+        assignee: editingActionAssignee
+      } : a)
+    }));
+    setEditingActionId(null);
+  };
+
+  const handleQuickReassign = (actionId, newAssignee) => {
+    setFormData(prev => ({
+      ...prev,
+      actions: (prev.actions || []).map(a => a.id === actionId ? {
+        ...a,
+        assignee: newAssignee
+      } : a)
+    }));
+  };
 
   const handleApplyTemplate = (templateId) => {
     const template = (plantillas || []).find(p => p.id === templateId);
@@ -2356,10 +2390,10 @@ const ExpedienteModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-md p-2 sm:p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[88vh] flex flex-col md:flex-row overflow-hidden border border-slate-200/80 animate-in zoom-in-95 duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[650px] max-h-[90vh] flex flex-col md:flex-row overflow-hidden border border-slate-200/80 animate-in zoom-in-95 duration-200">
         
-        {/* COLUMNA IZQUIERDA: FORMULARIO DEL EXPEDIENTE (ULTRA-CONDENSADO) */}
-        <div className="w-full md:w-1/2 p-4 sm:p-5 border-r border-slate-100 overflow-y-auto bg-white flex flex-col justify-between">
+        {/* COLUMNA IZQUIERDA: FORMULARIO DEL EXPEDIENTE (ALTURA CONSTANTE) */}
+        <div className="w-full md:w-1/2 h-full p-4 sm:p-5 border-r border-slate-100 overflow-y-auto bg-white flex flex-col justify-between">
           <div>
             <div className="flex justify-between items-center mb-2.5 pb-2 border-b border-slate-100">
               <h3 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
@@ -2590,284 +2624,378 @@ const ExpedienteModal = ({
           </div>
         </div>
 
-        {/* COLUMNA DERECHA: PASOS GTD / FACTURACIÓN / CHAT / BITÁCORA / ADJUNTOS */}
-        <div className="w-full md:w-1/2 bg-slate-50 flex flex-col h-[520px] md:h-auto border-t md:border-t-0">
-          <div className="flex border-b border-slate-200 bg-white overflow-x-auto">
-            <button 
-              type="button"
-              onClick={() => setRightTab('gtd')}
-              className={`flex-1 min-w-[90px] py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${rightTab === 'gtd' ? 'text-emerald-600 border-emerald-600 bg-emerald-50/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
-            >
-              <Target className="w-3.5 h-3.5"/> Pasos GTD <span className="bg-slate-100 text-slate-600 px-1.5 rounded-full text-[10px] border border-slate-200">{formData.actions?.length || 0}</span>
-            </button>
-            <button 
-              type="button"
-              onClick={() => setRightTab('billing')}
-              className={`flex-1 min-w-[90px] py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${rightTab === 'billing' ? 'text-amber-600 border-amber-600 bg-amber-50/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
-            >
-              <Coins className="w-3.5 h-3.5"/> Facturación
-            </button>
-            <button 
-              type="button"
-              onClick={() => setRightTab('chat')}
-              className={`flex-1 min-w-[80px] py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${rightTab === 'chat' ? 'text-indigo-600 border-indigo-600 bg-indigo-50/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
-            >
-              <MessageSquare className="w-3.5 h-3.5"/> Chat
-            </button>
+        {/* COLUMNA DERECHA: PESTAÑAS Y CONTENIDO CON ALTURA CONSTANTE */}
+        <div className="w-full md:w-1/2 h-full bg-slate-50 flex flex-col overflow-hidden border-t md:border-t-0">
+          <div className="flex border-b border-slate-200 bg-white overflow-x-auto shrink-0">
+            {/* 1. BITÁCORA */}
             <button 
               type="button"
               onClick={() => setRightTab('activity')}
-              className={`flex-1 min-w-[80px] py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${rightTab === 'activity' ? 'text-slate-700 border-slate-700 bg-slate-100/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
+              className={`flex-1 min-w-[75px] py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${rightTab === 'activity' ? 'text-slate-800 border-slate-800 bg-slate-100/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
             >
               <Clock className="w-3.5 h-3.5"/> Bitácora <span className="bg-slate-100 text-slate-600 px-1.5 rounded-full text-[10px] border border-slate-200">{task?.updates?.length || 0}</span>
             </button>
+
+            {/* 2. PASOS GTD */}
+            <button 
+              type="button"
+              onClick={() => setRightTab('gtd')}
+              className={`flex-1 min-w-[85px] py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${rightTab === 'gtd' ? 'text-emerald-600 border-emerald-600 bg-emerald-50/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
+            >
+              <Target className="w-3.5 h-3.5"/> Pasos GTD <span className="bg-slate-100 text-slate-600 px-1.5 rounded-full text-[10px] border border-slate-200">{formData.actions?.length || 0}</span>
+            </button>
+
+            {/* 3. FACTURACIÓN */}
+            <button 
+              type="button"
+              onClick={() => setRightTab('billing')}
+              className={`flex-1 min-w-[85px] py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${rightTab === 'billing' ? 'text-amber-600 border-amber-600 bg-amber-50/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
+            >
+              <Coins className="w-3.5 h-3.5"/> Facturación
+            </button>
+
+            {/* 4. ADJUNTOS */}
             <button 
               type="button"
               onClick={() => setRightTab('docs')}
-              className={`flex-1 min-w-[80px] py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${rightTab === 'docs' ? 'text-blue-600 border-blue-600 bg-blue-50/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
+              className={`flex-1 min-w-[75px] py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${rightTab === 'docs' ? 'text-blue-600 border-blue-600 bg-blue-50/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
             >
               <Paperclip className="w-3.5 h-3.5"/> Adjuntos <span className="bg-slate-100 text-slate-600 px-1.5 rounded-full text-[10px] border border-slate-200">{(resourceLinks?.length || 0) + (fileAttachments?.length || 0)}</span>
             </button>
+
+            {/* 5. CHAT */}
+            <button 
+              type="button"
+              onClick={() => setRightTab('chat')}
+              className={`flex-1 min-w-[70px] py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${rightTab === 'chat' ? 'text-indigo-600 border-indigo-600 bg-indigo-50/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
+            >
+              <MessageSquare className="w-3.5 h-3.5"/> Chat
+            </button>
           </div>
 
-          {/* PESTAÑA: FACTURACIÓN Y GASTOS SUPLIDOS */}
-          {rightTab === 'billing' && (
-            <ExpedienteBillingTab 
-              formData={formData}
-              setFormData={setFormData}
-              currentUser={currentUser}
-            />
-          )}
-
-          {/* PESTAÑA: CHAT INTERNO CON GLOBOS */}
-          {rightTab === 'chat' && (
+          {/* PESTAÑA 1: BITÁCORA */}
+          {rightTab === 'activity' && (
             task ? (
-              <ExpedienteChatTab 
-                task={task}
-                currentUser={currentUser}
-                logAction={logAction}
-              />
+              <div className="flex-1 flex flex-col h-full overflow-hidden">
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                  {(!task.updates || task.updates.length === 0) && <div className="text-center text-slate-400 py-10 text-xs">Sin notas de seguimiento registradas.</div>}
+                  {task.updates?.map((update, idx) => (
+                    <div key={idx} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                      <div className="flex justify-between items-start mb-1">
+                        <div><span className="text-xs font-bold text-indigo-950">{update.author}</span><div className="text-[10px] text-slate-400">{formatDateLocal(update.date)}</div></div>
+                        {currentUser.email === update.author && editingUpdateIndex !== idx && (<button onClick={() => startEditingUpdate(idx, update.text)} className="text-slate-300 hover:text-indigo-600 transition-colors" title="Editar comentario"><Pencil className="w-3 h-3" /></button>)}
+                      </div>
+                      {editingUpdateIndex === idx ? (
+                        <div className="mt-2">
+                          <textarea className="w-full border border-indigo-300 rounded p-2 text-xs focus:ring-1 focus:ring-indigo-500 outline-none" rows="3" value={editedUpdateText} onChange={(e) => setEditedUpdateText(e.target.value)}></textarea>
+                          <div className="flex gap-2 mt-2 justify-end"><button onClick={() => setEditingUpdateIndex(null)} className="text-xs px-2 py-1 text-slate-500 hover:bg-slate-100 rounded">Cancelar</button><button onClick={saveEditedUpdate} className="text-xs px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 flex items-center gap-1"><Save className="w-3 h-3"/> Guardar</button></div>
+                        </div>
+                      ) : (<p className="text-xs text-slate-700 whitespace-pre-wrap mt-1 overflow-hidden leading-relaxed"><TextWithLinks text={update.text} /></p>)}
+                    </div>
+                  ))}
+                </div>
+                <div className="p-3 bg-white border-t border-slate-200 shrink-0">
+                  <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-1">Añadir Nota de Seguimiento</label>
+                  <div className="flex gap-2 relative">
+                    <textarea value={newUpdateText} onChange={(e) => setNewUpdateText(e.target.value)} placeholder="Escribe un avance o notas..." className="flex-1 border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-indigo-500 outline-none resize-none pr-8" rows="2"></textarea>
+                    <button type="button" onClick={handlePasteLinkInChat} className="absolute right-14 top-2 text-slate-400 hover:text-indigo-600 p-1 rounded transition-colors" title="Pegar enlace web"><LinkIcon className="w-4 h-4"/></button>
+                    <button type="button" onClick={onAddUpdate} disabled={!newUpdateText.trim()} className="bg-indigo-600 disabled:bg-slate-300 text-white px-3.5 rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center"><Send className="w-3.5 h-3.5" /></button>
+                  </div>
+                </div>
+              </div>
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400">
-                <MessageSquare className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                <h4 className="text-xs font-bold text-slate-700">Canal de Chat Interno</h4>
+                <Clock className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                <h4 className="text-xs font-bold text-slate-700">Bitácora de Seguimiento</h4>
                 <p className="text-[11px] text-slate-400 mt-1 max-w-xs">
-                  El chat interno con globos se activará una vez guardado el nuevo expediente.
+                  Las notas de seguimiento se podrán añadir una vez guardado el nuevo expediente.
                 </p>
               </div>
             )
           )}
 
-            {/* PESTAÑA 1: BITÁCORA */}
-            {rightTab === 'activity' && (
-              task ? (
-                <>
-                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                    {(!task.updates || task.updates.length === 0) && <div className="text-center text-slate-400 py-10 text-xs">Sin notas de seguimiento registradas.</div>}
-                    {task.updates?.map((update, idx) => (
-                        <div key={idx} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                        <div className="flex justify-between items-start mb-1">
-                            <div><span className="text-xs font-bold text-indigo-950">{update.author}</span><div className="text-[10px] text-slate-400">{formatDateLocal(update.date)}</div></div>
-                            {currentUser.email === update.author && editingUpdateIndex !== idx && (<button onClick={() => startEditingUpdate(idx, update.text)} className="text-slate-300 hover:text-indigo-600 transition-colors" title="Editar comentario"><Pencil className="w-3 h-3" /></button>)}
+          {/* PESTAÑA 2: PASOS GTD EDITABLES */}
+          {rightTab === 'gtd' && (
+            <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-50">
+              <div className="p-2.5 bg-emerald-50/50 border-b border-emerald-100 shrink-0">
+                <p className="text-[11px] text-emerald-800 text-center font-medium">Divide este expediente en pasos secuenciales. Puedes editarlos y reasignarlos en cualquier momento.</p>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                {(formData.actions || []).map(action => {
+                  const isEditingThis = editingActionId === action.id;
+
+                  if (isEditingThis) {
+                    return (
+                      <div key={action.id} className="p-3 rounded-xl border border-indigo-300 bg-white shadow-xs space-y-2.5 animate-in fade-in duration-150">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Descripción del Paso GTD</label>
+                          <input 
+                            type="text" 
+                            value={editingActionText} 
+                            onChange={e => setEditingActionText(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && saveEditedAction()}
+                            className="w-full text-xs font-medium border border-slate-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500"
+                            placeholder="Descripción del paso..."
+                            autoFocus
+                          />
                         </div>
-                        {editingUpdateIndex === idx ? (
-                            <div className="mt-2">
-                                <textarea className="w-full border border-indigo-300 rounded p-2 text-xs focus:ring-1 focus:ring-indigo-500 outline-none" rows="3" value={editedUpdateText} onChange={(e) => setEditedUpdateText(e.target.value)}></textarea>
-                                <div className="flex gap-2 mt-2 justify-end"><button onClick={() => setEditingUpdateIndex(null)} className="text-xs px-2 py-1 text-slate-500 hover:bg-slate-100 rounded">Cancelar</button><button onClick={saveEditedUpdate} className="text-xs px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 flex items-center gap-1"><Save className="w-3 h-3"/> Guardar</button></div>
-                            </div>
-                        ) : (<p className="text-xs text-slate-700 whitespace-pre-wrap mt-1 overflow-hidden leading-relaxed"><TextWithLinks text={update.text} /></p>)}
-                        </div>
-                    ))}
-                    </div>
-                    <div className="p-3 bg-white border-t border-slate-200">
-                        <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-1">Añadir Nota de Seguimiento</label>
-                        <div className="flex gap-2 relative">
-                            <textarea value={newUpdateText} onChange={(e) => setNewUpdateText(e.target.value)} placeholder="Escribe un avance o notas..." className="flex-1 border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-indigo-500 outline-none resize-none pr-8" rows="2"></textarea>
-                            <button type="button" onClick={handlePasteLinkInChat} className="absolute right-14 top-2 text-slate-400 hover:text-indigo-600 p-1 rounded transition-colors" title="Pegar enlace web"><LinkIcon className="w-4 h-4"/></button>
-                            <button type="button" onClick={onAddUpdate} disabled={!newUpdateText.trim()} className="bg-indigo-600 disabled:bg-slate-300 text-white px-3.5 rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center"><Send className="w-3.5 h-3.5" /></button>
-                        </div>
-                    </div>
-                </>
-              ) : (
-                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400">
-                  <Clock className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                  <h4 className="text-xs font-bold text-slate-700">Bitácora de Seguimiento</h4>
-                  <p className="text-[11px] text-slate-400 mt-1 max-w-xs">
-                    Las notas de seguimiento se podrán añadir una vez guardado el nuevo expediente.
-                  </p>
-                </div>
-              )
-            )}
-
-            {/* PESTAÑA 2: PASOS GTD */}
-            {rightTab === 'gtd' && (
-                 <div className="flex-1 flex flex-col bg-slate-50">
-                     <div className="p-2.5 bg-emerald-50/50 border-b border-emerald-100">
-                         <p className="text-[11px] text-emerald-800 text-center font-medium">Divide este expediente en pasos claros (solicitar datos, validar borradores, presentar en sede).</p>
-                     </div>
-                     
-                     <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                        {(formData.actions || []).map(action => (
-                            <div key={action.id} className={`flex items-center gap-2 p-2.5 rounded-xl border shadow-2xs transition-all ${action.isCompleted ? 'bg-slate-100 border-slate-200 opacity-60' : 'bg-white border-slate-200 hover:border-emerald-300'}`}>
-                                <button type="button" onClick={() => toggleAction(action.id)} className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors shrink-0 ${action.isCompleted ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 hover:border-emerald-400 bg-slate-50'}`}>
-                                    {action.isCompleted && <Check className="w-3 h-3 text-white"/>}
-                                </button>
-                                <div className="flex-1 text-xs min-w-0">
-                                    <span className={`block leading-tight font-medium truncate ${action.isCompleted ? 'line-through text-slate-500' : 'text-slate-800'}`}>{action.text}</span>
-                                    <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-0.5">
-                                        <User className="w-2.5 h-2.5"/> 
-                                        <span className={action.assignee === currentUser.email ? 'text-indigo-600 font-bold' : ''}>
-                                            {action.assignee === currentUser.email ? 'Yo' : action.assignee}
-                                        </span>
-                                    </div>
-                                </div>
-                                <button type="button" onClick={() => deleteAction(action.id)} className="text-slate-300 hover:text-rose-500 p-1"><Trash2 className="w-3.5 h-3.5"/></button>
-                            </div>
-                        ))}
-                        {(!formData.actions || formData.actions.length === 0) && (
-                            <div className="flex flex-col items-center justify-center h-40 text-slate-400">
-                                <Target className="w-8 h-8 mb-2 opacity-20"/>
-                                <span className="text-xs italic">Sin pasos definidos para este expediente.</span>
-                            </div>
-                        )}
-                     </div>
-
-                     <div className="p-3 bg-white border-t border-slate-200">
-                        <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-1">Añadir Paso o Trámite</label>
-                        <div className="flex gap-2 items-center">
-                            <input 
-                                type="text" 
-                                placeholder="¿Cuál es el siguiente paso?" 
-                                value={newActionText}
-                                onChange={e => setNewActionText(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddAction())}
-                                className="flex-1 text-xs border border-slate-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-emerald-500"
-                            />
-                            
-                            <div className="relative w-[130px] shrink-0">
-                                <input 
-                                    type="text" 
-                                    placeholder="Asignar a..."
-                                    autoComplete="off"
-                                    value={newActionAssignee}
-                                    onChange={(e) => {
-                                        setNewActionAssignee(e.target.value);
-                                        setShowSuggestions(true);
-                                    }}
-                                    onFocus={(e) => {
-                                        if (e.target.value === 'Yo' || e.target.value === currentUser?.email) {
-                                            setNewActionAssignee('');
-                                        }
-                                        setShowSuggestions(true);
-                                    }}
-                                    onBlur={() => {
-                                        setTimeout(() => setShowSuggestions(false), 200);
-                                        if (!newActionAssignee.trim()) setNewActionAssignee('Yo');
-                                    }}
-                                    className="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-emerald-500"
-                                />
-                                
-                                {showSuggestions && newActionAssignee && (
-                                    (() => {
-                                        const allOptions = ['Yo', ...(suggestedAssignees || [])];
-                                        const matches = allOptions.filter(a => 
-                                            a.toLowerCase().includes(newActionAssignee.toLowerCase())
-                                        );
-                                        
-                                        if (matches.length === 0 || (matches.length === 1 && matches[0] === newActionAssignee)) return null;
-
-                                        return (
-                                            <div className="absolute bottom-full left-0 mb-1 w-full bg-white border border-slate-200 rounded-lg shadow-xl z-[9999] overflow-hidden">
-                                                {matches.slice(0, 5).map(assignee => (
-                                                    <div 
-                                                        key={assignee}
-                                                        className="px-3 py-2 text-xs hover:bg-emerald-50 cursor-pointer text-slate-700 font-medium border-b border-slate-50 last:border-0 truncate"
-                                                        onClick={() => { 
-                                                            setNewActionAssignee(assignee); 
-                                                            setShowSuggestions(false); 
-                                                        }}
-                                                    >
-                                                        {assignee}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        );
-                                    })()
-                                )}
-                            </div>
-
-                            <button type="button" onClick={handleAddAction} className="bg-slate-800 text-white p-2 rounded-lg hover:bg-emerald-600 transition-colors shadow-sm"><Plus className="w-4 h-4"/></button>
-                        </div>
-                    </div>
-                 </div>
-            )}
-
-            {/* PESTAÑA 3: DOCUMENTACIÓN Y ENLACES OFICIALES */}
-            {rightTab === 'docs' && (
-              task ? (
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
-                    {/* ENLACES Y SEDES */}
-                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
-                        <div className="flex justify-between items-center mb-2.5 pb-2 border-b border-slate-100">
-                            <label className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
-                                <BookOpen className="w-3.5 h-3.5 text-indigo-600"/> Enlaces y Sedes Electrónicas
-                            </label>
-                            <button type="button" onClick={handleAddLinkAttachment} className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-lg border border-indigo-200 flex items-center gap-1 transition-colors font-semibold">
-                                <Plus className="w-3 h-3"/> Añadir Enlace
+                        <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
+                          <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                            <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <select 
+                              value={editingActionAssignee} 
+                              onChange={e => setEditingActionAssignee(e.target.value)}
+                              className="text-xs font-semibold border border-slate-300 rounded-lg py-1 px-2 bg-white outline-none flex-1 truncate"
+                            >
+                              <option value={currentUser.email}>Asignar a: Yo ({currentUser.email.split('@')[0]})</option>
+                              {usersList.filter(u => u.email !== currentUser.email).map(u => (
+                                <option key={u.email} value={u.email}>
+                                  Asignar a: {u.name ? `${u.name} (${u.email})` : u.email}
+                                </option>
+                              ))}
+                              <option value="">Sin Asignar</option>
+                            </select>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button 
+                              type="button" 
+                              onClick={() => setEditingActionId(null)}
+                              className="px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-100 rounded-lg font-medium transition-colors cursor-pointer"
+                            >
+                              Cancelar
                             </button>
+                            <button 
+                              type="button" 
+                              onClick={saveEditedAction}
+                              className="px-3 py-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold flex items-center gap-1 shadow-2xs transition-all cursor-pointer"
+                            >
+                              <Check className="w-3 h-3" /> Guardar
+                            </button>
+                          </div>
                         </div>
-                        <div className="space-y-1.5">
-                            {resourceLinks.length === 0 && <div className="text-xs text-slate-400 italic text-center py-2">Sin enlaces oficiales vinculados (AEAT, DGT, Cloud, etc.).</div>}
-                            {resourceLinks.map((item, idx) => (
-                                <div key={idx} className="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-200 text-xs">
-                                    <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-indigo-700 hover:underline truncate max-w-[280px] font-medium">
-                                        <Globe className="w-3.5 h-3.5 shrink-0 text-slate-400"/> {item.name}
-                                    </a>
-                                    <button type="button" onClick={() => handleDeleteAttachment(item)} className="text-slate-400 hover:text-rose-500 p-0.5"><XCircle className="w-3.5 h-3.5"/></button>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                      </div>
+                    );
+                  }
 
-                    {/* ARCHIVOS Y MODELOS */}
-                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
-                        <div className="flex justify-between items-center mb-2.5 pb-2 border-b border-slate-100">
-                            <label className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
-                                <Paperclip className="w-3.5 h-3.5 text-slate-500"/> Documentación y Modelos Adjuntos
-                            </label>
-                            <div>
-                                <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
-                                <button type="button" onClick={() => fileInputRef.current.click()} disabled={isUploading} className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200 flex items-center gap-1 transition-colors font-semibold">
-                                    {isUploading ? <Loader2 className="w-3 h-3 animate-spin"/> : <Plus className="w-3 h-3"/>} Adjuntar Archivo
-                                </button>
-                            </div>
-                        </div>
-                        <div className="space-y-1.5">
-                            {fileAttachments.length === 0 && <div className="text-xs text-slate-400 italic text-center py-2">No hay documentos adjuntos.</div>}
-                            {fileAttachments.map((item, idx) => (
-                                <div key={idx} className="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-200 text-xs">
-                                    <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-slate-700 hover:underline truncate max-w-[240px] font-medium">
-                                        <File className="w-3.5 h-3.5 shrink-0 text-indigo-500"/> {item.name}
-                                    </a>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-[10px] text-slate-400">{new Date(item.uploadedAt).toLocaleDateString('es-ES')}</span>
-                                        <button type="button" onClick={() => handleDeleteAttachment(item)} className="text-slate-400 hover:text-rose-500 p-0.5"><XCircle className="w-3.5 h-3.5"/></button>
-                                    </div>
-                                </div>
+                  return (
+                    <div key={action.id} className={`flex items-center gap-2 p-2.5 rounded-xl border shadow-2xs transition-all ${action.isCompleted ? 'bg-slate-100 border-slate-200 opacity-60' : 'bg-white border-slate-200 hover:border-emerald-300'}`}>
+                      <button type="button" onClick={() => toggleAction(action.id)} className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors shrink-0 cursor-pointer ${action.isCompleted ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 hover:border-emerald-400 bg-slate-50'}`}>
+                        {action.isCompleted && <Check className="w-3 h-3 text-white"/>}
+                      </button>
+
+                      <div className="flex-1 text-xs min-w-0">
+                        <span 
+                          onClick={() => startEditingAction(action)} 
+                          className={`block leading-tight font-medium truncate cursor-pointer hover:text-indigo-600 transition-colors ${action.isCompleted ? 'line-through text-slate-500' : 'text-slate-800'}`}
+                          title="Haz clic para editar el texto del paso"
+                        >
+                          {action.text}
+                        </span>
+
+                        <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">
+                          <User className="w-3 h-3 text-slate-400 shrink-0"/> 
+                          {/* Selector rápido de reasignación con 1 clic (vacaciones / ausencia) */}
+                          <select 
+                            value={action.assignee || ''} 
+                            onChange={e => handleQuickReassign(action.id, e.target.value)}
+                            className="bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 text-[10px] text-slate-700 font-bold rounded px-1.5 py-0.5 outline-none cursor-pointer truncate max-w-[190px] transition-colors"
+                            title="Reasignar este paso a otro asesor (ej. por vacaciones o suplencia)"
+                          >
+                            <option value={currentUser.email}>Asignado: Yo</option>
+                            {usersList.filter(u => u.email !== currentUser.email).map(u => (
+                              <option key={u.email} value={u.email}>
+                                Asignado: {u.name ? u.name : u.email.split('@')[0]}
+                              </option>
                             ))}
+                            <option value="">Sin Asignar</option>
+                          </select>
                         </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button 
+                          type="button" 
+                          onClick={() => startEditingAction(action)} 
+                          className="text-slate-400 hover:text-indigo-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                          title="Editar texto y responsable del paso"
+                        >
+                          <Pencil className="w-3 h-3"/>
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={() => deleteAction(action.id)} 
+                          className="text-slate-400 hover:text-rose-500 p-1.5 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
+                          title="Eliminar paso GTD"
+                        >
+                          <Trash2 className="w-3 h-3"/>
+                        </button>
+                      </div>
                     </div>
+                  );
+                })}
+
+                {(!formData.actions || formData.actions.length === 0) && (
+                  <div className="flex flex-col items-center justify-center h-40 text-slate-400">
+                    <Target className="w-8 h-8 mb-2 opacity-20"/>
+                    <span className="text-xs italic">Sin pasos definidos para este expediente.</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-3 bg-white border-t border-slate-200 shrink-0">
+                <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-1">Añadir Nuevo Paso GTD</label>
+                <div className="flex gap-2 items-center">
+                  <input 
+                    type="text" 
+                    placeholder="¿Cuál es el siguiente paso?" 
+                    value={newActionText}
+                    onChange={e => setNewActionText(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddAction())}
+                    className="flex-1 text-xs border border-slate-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  
+                  <div className="relative w-[130px] shrink-0">
+                    <input 
+                      type="text" 
+                      placeholder="Asignar a..."
+                      autoComplete="off"
+                      value={newActionAssignee}
+                      onChange={(e) => {
+                        setNewActionAssignee(e.target.value);
+                        setShowSuggestions(true);
+                      }}
+                      onFocus={(e) => {
+                        if (e.target.value === 'Yo' || e.target.value === currentUser?.email) {
+                          setNewActionAssignee('');
+                        }
+                        setShowSuggestions(true);
+                      }}
+                      onBlur={() => {
+                        setTimeout(() => setShowSuggestions(false), 200);
+                        if (!newActionAssignee.trim()) setNewActionAssignee('Yo');
+                      }}
+                      className="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                    
+                    {showSuggestions && newActionAssignee && (
+                      (() => {
+                        const allOptions = ['Yo', ...(suggestedAssignees || [])];
+                        const matches = allOptions.filter(a => 
+                          a.toLowerCase().includes(newActionAssignee.toLowerCase())
+                        );
+                        
+                        if (matches.length === 0 || (matches.length === 1 && matches[0] === newActionAssignee)) return null;
+
+                        return (
+                          <div className="absolute bottom-full left-0 mb-1 w-full bg-white border border-slate-200 rounded-lg shadow-xl z-[9999] overflow-hidden">
+                            {matches.map((item, idx) => (
+                              <div 
+                                key={idx} 
+                                onMouseDown={() => {
+                                  setNewActionAssignee(item === 'Yo' ? currentUser?.email : item);
+                                  setShowSuggestions(false);
+                                }}
+                                className="p-2 text-xs hover:bg-slate-100 cursor-pointer text-slate-700 truncate"
+                              >
+                                {item}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()
+                    )}
+                  </div>
+
+                  <button 
+                    type="button" 
+                    onClick={handleAddAction}
+                    disabled={!newActionText.trim()}
+                    className="bg-emerald-600 disabled:bg-slate-300 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-emerald-700 transition-colors shrink-0 cursor-pointer shadow-xs"
+                  >
+                    Añadir
+                  </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* PESTAÑA 3: FACTURACIÓN Y GASTOS SUPLIDOS */}
+          {rightTab === 'billing' && (
+            <div className="flex-1 flex flex-col h-full overflow-hidden">
+              <ExpedienteBillingTab 
+                formData={formData}
+                setFormData={setFormData}
+                currentUser={currentUser}
+              />
+            </div>
+          )}
+
+          {/* PESTAÑA 4: ADJUNTOS */}
+          {rightTab === 'docs' && (
+            <div className="flex-1 flex flex-col h-full overflow-hidden bg-white p-4">
+              <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-100 shrink-0">
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                  <Paperclip className="w-3.5 h-3.5 text-blue-600" /> Archivos y Documentación
+                </span>
+                {task && (
+                  <label className="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-2.5 py-1 rounded-lg font-semibold cursor-pointer flex items-center gap-1 transition-colors">
+                    {isUploading ? <Loader2 className="w-3 h-3 animate-spin"/> : <Plus className="w-3 h-3"/>}
+                    <span>Subir Archivo</span>
+                    <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" disabled={isUploading} />
+                  </label>
+                )}
+              </div>
+              <div className="flex-1 overflow-y-auto space-y-2">
+                {task ? (
+                  <>
+                    {(resourceLinks.length === 0 && fileAttachments.length === 0) && (
+                      <p className="text-center text-slate-400 py-10 text-xs italic">Sin archivos ni enlaces adjuntos aún.</p>
+                    )}
+                    {resourceLinks.map((link, idx) => (
+                      <div key={'link_' + idx} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs">
+                        <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline font-medium truncate flex-1 flex items-center gap-1.5">
+                          <ExternalLink className="w-3 h-3 shrink-0" /> <span className="truncate">{link.name || link.url}</span>
+                        </a>
+                      </div>
+                    ))}
+                    {fileAttachments.map((f, idx) => (
+                      <div key={'file_' + idx} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs">
+                        <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-slate-800 hover:text-indigo-600 font-medium truncate flex-1 flex items-center gap-1.5">
+                          <Paperclip className="w-3 h-3 text-slate-400 shrink-0" /> <span className="truncate">{f.name}</span>
+                        </a>
+                      </div>
+                    ))}
+                  </>
+                ) : (
+                  <p className="text-center text-slate-400 py-10 text-xs italic">Podrás subir adjuntos una vez guardado el nuevo expediente.</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* PESTAÑA 5: CHAT INTERNO CON GLOBOS (AL FINAL) */}
+          {rightTab === 'chat' && (
+            <div className="flex-1 flex flex-col h-full overflow-hidden">
+              {task ? (
+                <ExpedienteChatTab 
+                  task={task}
+                  currentUser={currentUser}
+                  logAction={logAction}
+                />
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400">
-                  <Paperclip className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                  <h4 className="text-xs font-bold text-slate-700">Documentación y Enlaces</h4>
+                  <MessageSquare className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                  <h4 className="text-xs font-bold text-slate-700">Canal de Chat Interno</h4>
                   <p className="text-[11px] text-slate-400 mt-1 max-w-xs">
-                    Podrás adjuntar archivos PDF y enlaces oficiales una vez guardado el nuevo expediente.
+                    El chat interno con globos se activará una vez guardado el nuevo expediente.
                   </p>
                 </div>
-              )
-            )}
+              )}
+            </div>
+          )}
+                            
+
           </div>
         </div>
       </div>
