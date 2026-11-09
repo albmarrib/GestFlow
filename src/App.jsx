@@ -49,6 +49,8 @@ import TemplateManager from './components/TemplateManager';
 import ExpedienteBillingTab from './components/ExpedienteBillingTab';
 import BillingView from './components/BillingView';
 import ExpedienteChatTab from './components/ExpedienteChatTab';
+import BillingSettingsManager from './components/BillingSettingsManager';
+import { DEFAULT_BILLING_SETTINGS } from './utils/billingUtils';
 
 // Contexto global para que todos los Badges de estado consuman la paleta dinámica en tiempo real
 export const EstadosContext = React.createContext([]);
@@ -1316,14 +1318,15 @@ const AdminView = ({
   tramos = [],
   estados = [],
   currentUser,
-  usersList = []
+  usersList = [],
+  billingSettings = {}
 }) => {
   const [selectedTasks, setSelectedTasks] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [adminList, setAdminList] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
   const [adminSearchTerm, setAdminSearchTerm] = useState('');
-  const [adminTab, setAdminTab] = useState('clasificacion'); // 'clasificacion' | 'plantillas' | 'personal' | 'clientes' | 'mantenimiento'
+  const [adminTab, setAdminTab] = useState('clasificacion'); // 'clasificacion' | 'plantillas' | 'facturacion' | 'personal' | 'clientes' | 'mantenimiento'
 
   // Estado para formulario de alta de nuevo empleado
   const [newEmployee, setNewEmployee] = useState({
@@ -1570,6 +1573,19 @@ const AdminView = ({
 
           <button
             type="button"
+            onClick={() => setAdminTab('facturacion')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+              adminTab === 'facturacion'
+                ? 'bg-white text-indigo-600 shadow-2xs ring-1 ring-slate-200/50'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+            }`}
+          >
+            <Coins className="w-3.5 h-3.5 text-emerald-500" />
+            <span>Liquidaciones & Cobros</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setAdminTab('personal')}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
               adminTab === 'personal'
@@ -1637,6 +1653,15 @@ const AdminView = ({
           areas={areas}
           tramos={tramos}
           usersList={usersList}
+          currentUser={currentUser}
+          logAction={logAction}
+        />
+      )}
+
+      {/* PESTAÑA 2.5: CONFIGURACIÓN DE LIQUIDACIONES Y FACTURACIÓN */}
+      {adminTab === 'facturacion' && (
+        <BillingSettingsManager 
+          billingSettings={billingSettings}
           currentUser={currentUser}
           logAction={logAction}
         />
@@ -2490,6 +2515,7 @@ const ExpedienteModal = ({
   plantillas = [],
   gtdAssignees = [],
   saveGtdAssignee,
+  billingSettings = {},
   logAction
 }) => {
   const effectiveFormStatus = useMemo(() => {
@@ -3399,6 +3425,7 @@ const ExpedienteModal = ({
                 setFormData={setFormData}
                 currentUser={currentUser}
                 clientes={clientes}
+                billingSettings={billingSettings}
                 logAction={logAction}
               />
             </div>
@@ -3671,6 +3698,7 @@ const ExpedienteManager = ({ currentUser }) => {
   const [estados, setEstados] = useState([]);
   const [plantillas, setPlantillas] = useState([]);
   const [gtdAssignees, setGtdAssignees] = useState([]);
+  const [billingSettings, setBillingSettings] = useState(DEFAULT_BILLING_SETTINGS);
   const [usersList, setUsersList] = useState([]); 
   const [filterScope, setFilterScope] = useState(isInitialAdmin ? 'all' : 'mine'); 
   const [selectedDepts, setSelectedDepts] = useState([]);
@@ -3848,6 +3876,15 @@ const ExpedienteManager = ({ currentUser }) => {
       setGtdAssignees(data);
     }, (err) => console.warn("Error cargando gtd_assignees:", err));
 
+    // Escuchar configuración de facturación y liquidaciones en tiempo real
+    const unsubBilling = onSnapshot(doc(db, 'settings', 'billing'), (docSnap) => {
+      if (docSnap.exists()) {
+        setBillingSettings({ ...DEFAULT_BILLING_SETTINGS, ...docSnap.data() });
+      } else {
+        setBillingSettings(DEFAULT_BILLING_SETTINGS);
+      }
+    }, (err) => console.warn("Error cargando settings/billing:", err));
+
     // Escuchar expedientes (primaria) y tasks (compatibilidad)
     const unsubExpedientes = onSnapshot(collection(db, 'expedientes'), (snap) => {
       if (!snap.empty) {
@@ -3887,7 +3924,7 @@ const ExpedienteManager = ({ currentUser }) => {
       if (!isSuperAdmin && !preAuthIsAdmin) setFilterScope('mine');
     });
 
-    return () => { unsubUsers(); unsubExpedientes(); unsubAdmin(); unsubClientes(); unsubAreas(); unsubTramos(); unsubEstados(); unsubPlantillas(); unsubGtdAssignees(); };
+    return () => { unsubUsers(); unsubExpedientes(); unsubAdmin(); unsubClientes(); unsubAreas(); unsubTramos(); unsubEstados(); unsubPlantillas(); unsubGtdAssignees(); unsubBilling(); };
   }, [currentUser]);
 
   const saveGtdAssignee = async (name) => {
@@ -4244,6 +4281,7 @@ const ExpedienteManager = ({ currentUser }) => {
                  estados={estados}
                  currentUser={currentUser}
                  usersList={usersList}
+                 billingSettings={billingSettings}
                />
              ) : <div className="text-center p-10 text-rose-500 font-bold">Acceso Denegado</div>
         ) : currentView === 'clientes' ? (
@@ -4264,6 +4302,8 @@ const ExpedienteManager = ({ currentUser }) => {
                 currentUser={currentUser}
                 onEditTask={handleOpenEdit}
                 logAction={logAction}
+                clientes={clientes}
+                billingSettings={billingSettings}
              />
         ) : (
           <>
@@ -4365,6 +4405,7 @@ const ExpedienteManager = ({ currentUser }) => {
         plantillas={plantillas}
         gtdAssignees={gtdAssignees}
         saveGtdAssignee={saveGtdAssignee}
+        billingSettings={billingSettings}
         logAction={logAction}
       />
     </div>

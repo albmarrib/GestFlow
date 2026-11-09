@@ -17,16 +17,22 @@ import {
   FileCheck2,
   Calendar,
   User,
-  Scale
+  Scale,
+  Printer,
+  Mail,
+  Send
 } from 'lucide-react';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
+import { findClientForTask, openLiquidationPdf, openBillingEmail } from '../utils/billingUtils';
 
 export default function BillingView({ 
   tasks = [], 
   currentUser, 
   onEditTask, 
-  logAction 
+  logAction,
+  clientes = [],
+  billingSettings = {}
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'pending', 'invoiced', 'paid', 'unbilled_closed', 'with_expenses'
@@ -628,12 +634,42 @@ export default function BillingView({
 
                       {/* Acciones */}
                       <td className="py-2 px-2.5 text-center whitespace-nowrap">
-                        <button
-                          onClick={() => onEditTask(t)}
-                          className="bg-slate-50 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 border border-slate-200 hover:border-indigo-200 px-2 py-0.5 rounded-lg text-xs font-semibold transition-all"
-                        >
-                          Gestionar
-                        </button>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const clientData = findClientForTask(t, clientes);
+                              openLiquidationPdf(t, clientData, billingSettings);
+                            }}
+                            className="bg-slate-800 hover:bg-slate-900 text-white px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
+                            title="Generar e Imprimir / Guardar en PDF la liquidación"
+                          >
+                            <Printer className="w-3 h-3 text-blue-400" />
+                            <span>PDF</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const clientData = findClientForTask(t, clientes);
+                              openBillingEmail(t, clientData, billingSettings, '', logAction);
+                            }}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
+                            title="Enviar liquidación por email con el texto estándar"
+                          >
+                            <Mail className="w-3 h-3" />
+                            <span>Email</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => onEditTask(t)}
+                            className="bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 px-2 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer"
+                            title="Abrir expediente completo"
+                          >
+                            Ficha
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
