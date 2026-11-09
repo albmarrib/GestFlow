@@ -489,84 +489,230 @@ const SimpleBarChart = ({ data, colorClass = "bg-indigo-500", labelKey = "name",
   );
 };
 
-// --- VISTA GTD: CENTRO DE ACCIONES Y TRÁMITES ---
-const GTDView = ({ tasks, currentUser, onEditParent }) => {
-  const [activeTab, setActiveTab] = useState('overview'); 
-  const [waitingViewMode, setWaitingViewMode] = useState('person'); 
-  const [expandedGroups, setExpandedGroups] = useState({});
-  const [localSearch, setLocalSearch] = useState(''); 
+// --- VISTA GTD: CENTRO DE ACCIONES Y TRÁMITES (COMPACTO Y PROFESIONAL) ---
+const GTDView = ({ 
+  tasks = [], 
+  currentUser, 
+  onEditParent,
+  isAdmin = false,
+  usersList = []
+}) => {
+  const [activeTab, setActiveTab] = useState('all'); // 'all', 'mine', 'waiting'
+  const [sortBy, setSortBy] = useState('urgency'); // 'urgency', 'expediente', 'assignee'
+  const [adminScope, setAdminScope] = useState('personal'); // 'personal', 'all_office'
+  const [selectedAssigneeFilter, setSelectedAssigneeFilter] = useState('');
+  const [urgencyFilter, setUrgencyFilter] = useState('all'); // 'all', 'overdue', 'today'
+  const [localSearch, setLocalSearch] = useState('');
 
-  const { myActionsGrouped, waitingByTask, waitingByPerson, totalMine, totalWaiting } = useMemo(() => {
-    const mine = {};
-    const wTask = {};
-    const wPerson = {};
-    let countMine = 0;
-    let countWaiting = 0;
-    const s = localSearch.toLowerCase();
+  // Cálculo de Urgencia y Días Restantes según dueDate del expediente
+  const getActionUrgency = (task) => {
+    const dueDateStr = task.dueDate;
+    if (!dueDateStr) {
+      return {
+        dueDate: '',
+        label: 'Sin fecha',
+        color: 'slate',
+        badgeClass: 'bg-slate-100 text-slate-500 border-slate-200',
+        daysDiff: 9999,
+        isOverdue: false,
+        isToday: false,
+        isSoon: false
+      };
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = new Date(dueDateStr);
+    due.setHours(0, 0, 0, 0);
+    const diffTime = due - today;
+    const daysDiff = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+    if (daysDiff < 0) {
+      return {
+        dueDate: dueDateStr,
+        label: `Vencido (${Math.abs(daysDiff)}d)`,
+        shortLabel: `${daysDiff}d`,
+        color: 'rose',
+        badgeClass: 'bg-rose-50 text-rose-700 border-rose-200 font-bold',
+        daysDiff,
+        isOverdue: true,
+        isToday: false,
+        isSoon: false
+      };
+    } else if (daysDiff === 0) {
+      return {
+        dueDate: dueDateStr,
+        label: '¡Vence Hoy!',
+        shortLabel: 'Hoy',
+        color: 'amber',
+        badgeClass: 'bg-amber-100 text-amber-800 border-amber-300 font-extrabold',
+        daysDiff: 0,
+        isOverdue: false,
+        isToday: true,
+        isSoon: true
+      };
+    } else if (daysDiff <= 3) {
+      return {
+        dueDate: dueDateStr,
+        label: `Vence en ${daysDiff}d`,
+        shortLabel: `${daysDiff}d`,
+        color: 'amber',
+        badgeClass: 'bg-amber-50 text-amber-700 border-amber-200 font-semibold',
+        daysDiff,
+        isOverdue: false,
+        isToday: false,
+        isSoon: true
+      };
+    } else {
+      return {
+        dueDate: dueDateStr,
+        label: `${dueDateStr}`,
+        shortLabel: `${daysDiff}d`,
+        color: 'emerald',
+        badgeClass: 'bg-slate-50 text-slate-600 border-slate-200',
+        daysDiff,
+        isOverdue: false,
+        isToday: false,
+        isSoon: false
+      };
+    }
+  };
+
+  const myEmail = (currentUser?.email || '').toLowerCase().trim();
+  const myUserPrefix = myEmail.split('@')[0];
+
+  // Procesamiento y separación de TO-DO y WAITING-FOR con control estricto anti-dispersión
+  const { 
+    myActions, 
+    waitingActions, 
+    allKnownAssignees,
+    countOverdue, 
+    countToday 
+  } = useMemo(() => {
+    const mineList = [];
+    const waitingList = [];
+    const assigneesSet = new Set();
+    let overdueCount = 0;
+    let todayCount = 0;
+
+    const s = localSearch.toLowerCase().trim();
 
     tasks.forEach(task => {
       const effectiveStatus = getEffectiveStatus(task);
-      if (!task.actions || task.actions.length === 0 || effectiveStatus === 'Cerrado') return;
+      if (effectiveStatus === 'Cerrado' || !task.actions || task.actions.length === 0) return;
+
+      // Involucración en el expediente:
+      const isTaskAssignee = Array.isArray(task.assignees) && task.assignees.some(a => {
+        const aLower = (a || '').toLowerCase().trim();
+        return aLower === myEmail || aLower === myUserPrefix;
+      });
+      const isTaskCreator = (task.createdBy || '').toLowerCase().trim() === myEmail;
+      const amIInvolvedInTask = isTaskAssignee || isTaskCreator;
+
+      const urgency = getActionUrgency(task);
+
       task.actions.forEach(action => {
         if (action.isCompleted) return;
-        const matchesSearch = (task.title || '').toLowerCase().includes(s) || 
-                              (task.client || '').toLowerCase().includes(s) || 
-                              (action.text || '').toLowerCase().includes(s) || 
-                              (action.assignee && action.assignee.toLowerCase().includes(s));
-        if (!matchesSearch) return;
 
-        const actionItem = { ...action, parentTask: task };
-        if (action.assignee === currentUser.email) {
-          if (!mine[task.id]) mine[task.id] = { title: task.title, client: task.client, actions: [], task: task };
-          mine[task.id].actions.push(actionItem);
-          countMine++;
+        if (action.assignee) {
+          assigneesSet.add(action.assignee.trim());
+        }
+
+        // Búsqueda
+        if (s) {
+          const matchTitle = (task.title || '').toLowerCase().includes(s);
+          const matchClient = (task.client || '').toLowerCase().includes(s);
+          const matchAction = (action.text || '').toLowerCase().includes(s);
+          const matchAssignee = (action.assignee || '').toLowerCase().includes(s);
+          if (!matchTitle && !matchClient && !matchAction && !matchAssignee) return;
+        }
+
+        // Filtro de urgencia
+        if (urgencyFilter === 'overdue' && !urgency.isOverdue) return;
+        if (urgencyFilter === 'today' && !urgency.isToday && !urgency.isSoon) return;
+
+        const actionAssigneeLower = (action.assignee || '').toLowerCase().trim();
+        const isAssignedToMe = actionAssigneeLower === myEmail || 
+                               actionAssigneeLower === myUserPrefix || 
+                               actionAssigneeLower === 'yo';
+
+        const item = {
+          ...action,
+          parentTask: task,
+          urgency
+        };
+
+        if (urgency.isOverdue) overdueCount++;
+        if (urgency.isToday) todayCount++;
+
+        // LÓGICA DE VISIBILIDAD:
+        if (isAdmin && adminScope === 'all_office') {
+          // El Administrador en modo supervisión global
+          if (selectedAssigneeFilter) {
+            const filterLower = selectedAssigneeFilter.toLowerCase().trim();
+            if (actionAssigneeLower === filterLower || actionAssigneeLower === filterLower.split('@')[0]) {
+              mineList.push(item);
+            } else {
+              waitingList.push(item);
+            }
+          } else {
+            if (isAssignedToMe) {
+              mineList.push(item);
+            } else {
+              waitingList.push(item);
+            }
+          }
         } else {
-          const amIInvolved = task.createdBy === currentUser.email || (task.assignees && task.assignees.includes(currentUser.email));
-          if (amIInvolved) {
-            if (!wTask[task.id]) wTask[task.id] = { title: task.title, client: task.client, actions: [], task: task };
-            wTask[task.id].actions.push(actionItem);
-            const person = action.assignee || 'Sin Asignar';
-            if (!wPerson[person]) wPerson[person] = { name: person, actions: [] };
-            wPerson[person].actions.push(actionItem);
-            countWaiting++;
+          // MODO PERSONAL (Tanto para Gestores normales como para el Admin en su propio espacio)
+          if (isAssignedToMe) {
+            mineList.push(item);
+          } else if (amIInvolvedInTask) {
+            // ANTI-DISPERSIÓN: Solo entra en Waiting-For si el gestor forma parte de este expediente
+            waitingList.push(item);
           }
         }
       });
     });
 
-    return { 
-      myActionsGrouped: Object.values(mine), 
-      waitingByTask: Object.values(wTask),
-      waitingByPerson: Object.values(wPerson).sort((a, b) => a.name.localeCompare(b.name)),
-      totalMine: countMine,
-      totalWaiting: countWaiting
+    // Ordenación
+    const sortFn = (a, b) => {
+      if (sortBy === 'urgency') {
+        return a.urgency.daysDiff - b.urgency.daysDiff;
+      }
+      if (sortBy === 'expediente') {
+        return (a.parentTask.title || '').localeCompare(b.parentTask.title || '');
+      }
+      if (sortBy === 'assignee') {
+        return (a.assignee || '').localeCompare(b.assignee || '');
+      }
+      return 0;
     };
-  }, [tasks, currentUser, localSearch]);
 
-  const toggleGroup = (groupId, context) => {
-    const key = `${context}_${groupId}`;
-    setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }));
-  };
+    mineList.sort(sortFn);
+    waitingList.sort(sortFn);
 
-  const handleToggleAll = (expand) => {
-    const newState = { ...expandedGroups };
-    myActionsGrouped.forEach(g => newState[`mine_${g.task.id}`] = !expand);
-    waitingByTask.forEach(g => newState[`waiting_task_${g.task.id}`] = !expand);
-    waitingByPerson.forEach(p => newState[`waiting_person_${p.name}`] = !expand);
-    setExpandedGroups(newState);
-  };
+    return {
+      myActions: mineList,
+      waitingActions: waitingList,
+      allKnownAssignees: Array.from(assigneesSet).sort(),
+      countOverdue: overdueCount,
+      countToday: todayCount
+    };
+  }, [tasks, currentUser, localSearch, sortBy, urgencyFilter, adminScope, selectedAssigneeFilter, isAdmin]);
 
+  // Marcar trámite como completado directamente
   const toggleActionQuick = async (actionItem) => {
     const taskRef = doc(db, 'expedientes', actionItem.parentTask.id);
-    const updatedActions = actionItem.parentTask.actions.map(a => a.id === actionItem.id ? { ...a, isCompleted: true } : a);
+    const updatedActions = actionItem.parentTask.actions.map(a => 
+      a.id === actionItem.id ? { ...a, isCompleted: true, completedAt: new Date().toISOString() } : a
+    );
     try {
       await updateDoc(taskRef, { 
-          actions: updatedActions, 
-          updatedBy: currentUser.email, 
-          lastUpdated: serverTimestamp() 
+        actions: updatedActions, 
+        updatedBy: currentUser.email, 
+        lastUpdated: serverTimestamp() 
       });
     } catch (e) {
-      // Intento en tasks por compatibilidad
       await updateDoc(doc(db, 'tasks', actionItem.parentTask.id), { 
         actions: updatedActions, 
         updatedBy: currentUser.email, 
@@ -575,186 +721,430 @@ const GTDView = ({ tasks, currentUser, onEditParent }) => {
     }
   };
 
-  const exportChecklist = (person) => {
+  // Exportar checklist para enviar a un delegado o externo (Word / doc)
+  const exportChecklistForAssignee = (assigneeName, actionsToExport) => {
     const date = new Date().toLocaleDateString('es-ES');
-    let content = `CHECKLIST DE TRÁMITES PENDIENTES - ${person.name.toUpperCase()}\n`;
-    content += `Fecha: ${date}\n--------------------------------------------------\n\n`;
-    person.actions.forEach((action) => {
-      content += `[ ] ${action.text}\n    Expediente: ${action.parentTask.title} (Cliente: ${action.parentTask.client || 'N/A'})\n\n`;
+    let content = `CHECKLIST DE TRÁMITES PENDIENTES - ${assigneeName.toUpperCase()}\n`;
+    content += `Fecha de emisión: ${date}\n`;
+    content += `Despacho GestFlow\n--------------------------------------------------\n\n`;
+    actionsToExport.forEach((action, idx) => {
+      content += `${idx + 1}. [ ] ${action.text}\n`;
+      content += `   Expediente: ${action.parentTask.title}\n`;
+      if (action.parentTask.client) content += `   Cliente: ${action.parentTask.client}\n`;
+      if (action.parentTask.dueDate) content += `   Fecha Límite: ${action.parentTask.dueDate} (${action.urgency.label})\n`;
+      content += `\n`;
     });
     const blob = new Blob([content], { type: 'application/msword;charset=utf-8' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `Checklist_Tramites_${person.name.split('@')[0]}_${date.replace(/\//g, '-')}.doc`;
+    const safeName = assigneeName.replace(/[^a-zA-Z0-9]/g, '_');
+    link.download = `Checklist_GTD_${safeName}_${date.replace(/\//g, '-')}.doc`;
     link.click();
   };
 
-  const ActionCheckbox = ({ onClick }) => (
-    <button onClick={onClick} className="w-6 h-6 rounded-md border-2 border-slate-300 bg-white flex items-center justify-center shrink-0 hover:border-emerald-500 hover:bg-emerald-50 transition-all shadow-sm group/check" title="Marcar como completado">
-        <Check className="w-4 h-4 text-emerald-500 opacity-0 group-hover/check:opacity-100 transition-opacity" strokeWidth={3}/>
-    </button>
-  );
-
-  const TaskLinkBadge = ({ task }) => (
-    <button onClick={() => onEditParent(task)} className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-[10px] font-bold hover:bg-indigo-600 hover:text-white transition-all border border-indigo-100 shadow-sm uppercase tracking-tight shrink-0">
-        <ExternalLink className="w-3 h-3"/> Abrir Expediente
-    </button>
-  );
-
   return (
-    <div className="w-full space-y-6 animate-in fade-in duration-300">
-      {/* HEADER */}
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col lg:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-4">
-            <div className="bg-indigo-600 p-3 rounded-xl shadow-lg shadow-indigo-100"><Target className="text-white w-6 h-6"/></div>
+    <div className="w-full space-y-3.5 animate-in fade-in duration-200">
+      
+      {/* BARRA SUPERIOR DE HERRAMIENTAS GTD (COMPACTA Y PROFESIONAL) */}
+      <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs space-y-2.5">
+        
+        {/* Fila 1: Título, Selector To-Do/Waiting y Toggle Admin */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2.5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold shadow-xs">
+              <Target className="w-4 h-4" />
+            </div>
             <div>
-                <h2 className="text-2xl font-black text-slate-800 tracking-tight">Centro de Trámites y Pasos (GTD)</h2>
-                <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Gestión ágil de pasos inmediatos por expediente</p>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-slate-800">Trámites GTD</h2>
+                {isAdmin && (
+                  <span className="text-[10px] bg-slate-100 text-slate-600 font-semibold px-1.5 py-0.2 rounded border border-slate-200">
+                    Modo Admin
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-400">Acciones inmediatas y seguimiento de delegaciones</p>
             </div>
           </div>
-          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
-            <button onClick={() => setActiveTab('overview')} className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === 'overview' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>Visión General</button>
-            <button onClick={() => setActiveTab('actions')} className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === 'actions' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>Mis Trámites ({totalMine})</button>
-            <button onClick={() => setActiveTab('waiting')} className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === 'waiting' ? 'bg-white text-amber-600 shadow-sm' : 'text-slate-500'}`}>Esperando Respuesta ({totalWaiting})</button>
+
+          {/* Selector de Pestaña Principal */}
+          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200/80 w-full sm:w-auto justify-between sm:justify-start">
+            <button
+              type="button"
+              onClick={() => setActiveTab('all')}
+              className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${
+                activeTab === 'all' 
+                  ? 'bg-white text-slate-800 shadow-2xs font-bold' 
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Ambas Listas
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('mine')}
+              className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
+                activeTab === 'mine' 
+                  ? 'bg-white text-emerald-700 shadow-2xs font-bold' 
+                  : 'text-slate-500 hover:text-emerald-700'
+              }`}
+            >
+              <span>Mi To-Do</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeTab === 'mine' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
+                {myActions.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('waiting')}
+              className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
+                activeTab === 'waiting' 
+                  ? 'bg-white text-amber-700 shadow-2xs font-bold' 
+                  : 'text-slate-500 hover:text-amber-700'
+              }`}
+            >
+              <span>En Espera</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeTab === 'waiting' ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-600'}`}>
+                {waitingActions.length}
+              </span>
+            </button>
           </div>
+        </div>
+
+        {/* Fila 2: Filtros de Urgencia, Búsqueda, Ordenación y Supervisión Despacho */}
+        <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+          
+          {/* Filtros rápidos de Urgencia */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mr-1">Plazos:</span>
+            <button
+              type="button"
+              onClick={() => setUrgencyFilter('all')}
+              className={`px-2 py-0.5 text-[11px] rounded-lg transition-all ${
+                urgencyFilter === 'all' 
+                  ? 'bg-slate-800 text-white font-bold' 
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium'
+              }`}
+            >
+              Todos
+            </button>
+            <button
+              type="button"
+              onClick={() => setUrgencyFilter('overdue')}
+              className={`px-2 py-0.5 text-[11px] rounded-lg transition-all flex items-center gap-1 ${
+                urgencyFilter === 'overdue' 
+                  ? 'bg-rose-600 text-white font-bold shadow-xs' 
+                  : countOverdue > 0 
+                  ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 font-semibold' 
+                  : 'bg-slate-100 text-slate-400 font-medium'
+              }`}
+            >
+              <AlertTriangle className="w-3 h-3" />
+              <span>Vencidos ({countOverdue})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setUrgencyFilter('today')}
+              className={`px-2 py-0.5 text-[11px] rounded-lg transition-all flex items-center gap-1 ${
+                urgencyFilter === 'today' 
+                  ? 'bg-amber-600 text-white font-bold shadow-xs' 
+                  : countToday > 0 
+                  ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 font-semibold' 
+                  : 'bg-slate-100 text-slate-400 font-medium'
+              }`}
+            >
+              <Clock className="w-3 h-3" />
+              <span>Hoy / Próximos ({countToday})</span>
+            </button>
+          </div>
+
+          {/* Búsqueda, Ordenación y Filtros Admin */}
+          <div className="flex items-center gap-2 flex-wrap ml-auto">
+            
+            {/* Si es Admin: Alternar Mi Espacio vs Despacho Global */}
+            {isAdmin && (
+              <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => { setAdminScope('personal'); setSelectedAssigneeFilter(''); }}
+                  className={`px-2 py-0.5 text-[10px] font-bold rounded ${
+                    adminScope === 'personal' ? 'bg-white text-indigo-700 shadow-2xs' : 'text-slate-500'
+                  }`}
+                  title="Ver solo mis trámites y lo que he delegado en mis expedientes"
+                >
+                  Mi Espacio
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAdminScope('all_office')}
+                  className={`px-2 py-0.5 text-[10px] font-bold rounded ${
+                    adminScope === 'all_office' ? 'bg-white text-indigo-700 shadow-2xs' : 'text-slate-500'
+                  }`}
+                  title="Ver todos los trámites del despacho"
+                >
+                  Todo el Despacho
+                </button>
+              </div>
+            )}
+
+            {/* Si está en visión global: selector de asesor/externo */}
+            {isAdmin && adminScope === 'all_office' && (
+              <select
+                value={selectedAssigneeFilter}
+                onChange={(e) => setSelectedAssigneeFilter(e.target.value)}
+                className="py-1 px-2 text-xs border border-slate-200 rounded-lg bg-white text-slate-700 font-medium outline-none focus:ring-1 focus:ring-indigo-500 max-w-[150px]"
+              >
+                <option value="">Todos los gestores</option>
+                {allKnownAssignees.map(a => (
+                  <option key={a} value={a}>{a}</option>
+                ))}
+              </select>
+            )}
+
+            {/* Ordenación */}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="py-1 px-2 text-xs border border-slate-200 rounded-lg bg-white text-slate-700 font-medium outline-none focus:ring-1 focus:ring-indigo-500"
+              title="Criterio de ordenación"
+            >
+              <option value="urgency">⚡ Ordenar: Fecha / Urgencia</option>
+              <option value="expediente">📁 Ordenar: Expediente</option>
+              <option value="assignee">👤 Ordenar: Responsable</option>
+            </select>
+
+            {/* Búsqueda rápida */}
+            <div className="relative w-40 sm:w-52">
+              <Search className="absolute left-2.5 top-2 w-3 h-3 text-slate-400" />
+              <input
+                type="text"
+                value={localSearch}
+                onChange={(e) => setLocalSearch(e.target.value)}
+                placeholder="Buscar trámite..."
+                className="w-full pl-7 pr-2.5 py-1 text-xs border border-slate-200 rounded-lg bg-slate-50 focus:bg-white outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800"
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* CONTROLES */}
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4 px-1">
-          <div className="relative w-full md:w-96">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"/>
-              <input type="text" placeholder="Buscar por cliente, expediente o trámite..." value={localSearch} onChange={(e) => setLocalSearch(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm" />
-          </div>
-          <div className="flex items-center gap-4">
-              <button onClick={() => handleToggleAll(true)} className="text-xs font-bold text-indigo-600 uppercase flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"><Plus className="w-3.5 h-3.5"/> Desplegar Todo</button>
-              <button onClick={() => handleToggleAll(false)} className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"><Minus className="w-3.5 h-3.5"/> Plegar Todo</button>
-          </div>
-      </div>
+      {/* CUERPO PRINCIPAL: LISTAS TO-DO Y WAITING FOR */}
+      <div className={`grid gap-3.5 ${activeTab === 'all' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
+        
+        {/* COLUMNA 1: MI TO-DO (MIS TRÁMITES DIRECTOS) */}
+        {(activeTab === 'all' || activeTab === 'mine') && (
+          <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden flex flex-col">
+            
+            {/* Cabecera compacta To-Do */}
+            <div className="p-2.5 px-3 bg-emerald-50/70 border-b border-emerald-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <h3 className="text-xs font-bold text-emerald-950 uppercase tracking-wide">
+                  {isAdmin && adminScope === 'all_office' && selectedAssigneeFilter 
+                    ? `Trámites de: ${selectedAssigneeFilter}`
+                    : 'Mi To-Do (Mis Trámites a Realizar)'}
+                </h3>
+              </div>
+              <span className="text-[11px] font-bold bg-white text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200 shadow-2xs">
+                {myActions.length} pendientes
+              </span>
+            </div>
 
-      <div className={`grid gap-8 ${activeTab === 'overview' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
-          {/* COLUMNA: MIS ACCIONES */}
-          {(activeTab === 'overview' || activeTab === 'actions') && (
-            <div className="space-y-4">
-                <div className="flex items-center gap-2 pb-2 border-b-2 border-emerald-500 w-fit pr-8">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-500"/>
-                    <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wide">Mis Próximos Trámites ({totalMine})</h3>
+            {/* Listado de tareas To-Do */}
+            <div className="p-2.5 space-y-1.5 flex-1 overflow-y-auto max-h-[620px]">
+              {myActions.length === 0 ? (
+                <div className="py-12 text-center text-slate-400">
+                  <CheckSquare className="w-8 h-8 text-emerald-400/40 mx-auto mb-1.5" />
+                  <p className="text-xs font-semibold text-slate-600">¡Todo al día en tu To-Do!</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">No tienes trámites propios pendientes en este momento.</p>
                 </div>
-                {myActionsGrouped.length === 0 ? (
-                  <div className="p-8 bg-white border border-dashed border-slate-200 rounded-xl text-center text-slate-400 text-xs">Sin trámites asignados pendientes</div>
-                ) : (
-                  myActionsGrouped.map(group => (
-                    <div key={group.task.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all">
-                        <div onClick={() => toggleGroup(group.task.id, 'mine')} className="flex items-center justify-between p-4 bg-slate-50/50 cursor-pointer hover:bg-slate-50">
-                            <div className="flex items-center gap-3">
-                                {expandedGroups[`mine_${group.task.id}`] ? <ChevronRight className="w-4 h-4 text-slate-400"/> : <ChevronDown className="w-4 h-4 text-slate-400"/>}
-                                <div>
-                                  <span className="font-bold text-slate-800 text-sm block">{group.title}</span>
-                                  {group.client && <span className="text-xs text-indigo-600 font-semibold">{group.client}</span>}
-                                </div>
-                                <span className="bg-white border border-slate-200 text-slate-600 text-[10px] px-2 py-0.5 rounded-full font-bold">{group.actions.length} pasos</span>
-                            </div>
-                            <TaskLinkBadge task={group.task}/>
-                        </div>
-                        {!expandedGroups[`mine_${group.task.id}`] && (
-                            <div className="p-3 space-y-2 bg-white">
-                                {group.actions.map((action, i) => (
-                                    <div key={i} className="flex gap-4 items-center p-3 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-colors">
-                                        <ActionCheckbox onClick={() => toggleActionQuick(action)} />
-                                        <p className="text-sm text-slate-700 font-medium leading-relaxed">{action.text}</p>
-                                    </div>
-                                ))}
-                            </div>
+              ) : (
+                myActions.map((action) => (
+                  <div
+                    key={`${action.parentTask.id}_${action.id}`}
+                    className="p-2.5 rounded-lg border border-slate-200 bg-white hover:border-emerald-300 hover:shadow-2xs transition-all flex items-start justify-between gap-2.5 group"
+                  >
+                    {/* Checkbox para completar */}
+                    <button
+                      type="button"
+                      onClick={() => toggleActionQuick(action)}
+                      className="w-5 h-5 mt-0.5 rounded-md border-2 border-slate-300 bg-white flex items-center justify-center shrink-0 hover:border-emerald-500 hover:bg-emerald-50 transition-colors cursor-pointer group-hover:border-emerald-400"
+                      title="Marcar paso como completado"
+                    >
+                      <Check className="w-3.5 h-3.5 text-emerald-600 opacity-0 hover:opacity-100 transition-opacity" strokeWidth={3} />
+                    </button>
+
+                    {/* Descripción y contexto del expediente */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-slate-800 leading-snug break-words">
+                        {action.text}
+                      </p>
+                      
+                      <div className="flex items-center gap-1.5 flex-wrap mt-1 text-[11px]">
+                        {/* Enlace al Expediente */}
+                        <button
+                          type="button"
+                          onClick={() => onEditParent(action.parentTask)}
+                          className="font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-1.5 py-0.2 rounded border border-indigo-200/70 truncate max-w-[200px] transition-colors"
+                          title="Abrir ficha del expediente"
+                        >
+                          📁 {action.parentTask.title}
+                        </button>
+
+                        {/* Cliente */}
+                        {action.parentTask.client && (
+                          <span className="text-slate-500 truncate max-w-[150px]">
+                            • {action.parentTask.client}
+                          </span>
                         )}
-                    </div>
-                  ))
-                )}
-            </div>
-          )}
 
-          {/* COLUMNA: ESPERANDO POR OTROS */}
-          {(activeTab === 'overview' || activeTab === 'waiting') && (
-            <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b-2 border-amber-500 pb-2">
-                    <div className="flex items-center gap-2">
-                        <Users className="w-5 h-5 text-amber-500"/>
-                        <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wide">Esperando Documentación / Respuesta ({totalWaiting})</h3>
+                        {/* Badge de Urgencia y Due Date */}
+                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] border ${action.urgency.badgeClass}`}>
+                          <Clock className="w-2.5 h-2.5" />
+                          <span>{action.urgency.label}</span>
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex bg-slate-200/50 p-1 rounded-lg border border-slate-200">
-                        <button onClick={() => setWaitingViewMode('task')} className={`px-3 py-1 text-[10px] font-bold uppercase rounded transition-all ${waitingViewMode === 'task' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-500'}`}>Por Expediente</button>
-                        <button onClick={() => setWaitingViewMode('person')} className={`px-3 py-1 text-[10px] font-bold uppercase rounded transition-all ${waitingViewMode === 'person' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-500'}`}>Por Responsable</button>
-                    </div>
+
+                    {/* Botón rápido Abrir */}
+                    <button
+                      type="button"
+                      onClick={() => onEditParent(action.parentTask)}
+                      className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-indigo-600 p-1 rounded transition-all shrink-0"
+                      title="Abrir expediente"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* COLUMNA 2: EN ESPERA / DELEGADAS (WAITING FOR) */}
+        {(activeTab === 'all' || activeTab === 'waiting') && (
+          <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden flex flex-col">
+            
+            {/* Cabecera compacta Waiting For */}
+            <div className="p-2.5 px-3 bg-amber-50/70 border-b border-amber-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-amber-600" />
+                <h3 className="text-xs font-bold text-amber-950 uppercase tracking-wide">
+                  En Espera (Delegado a Terceros / Externos)
+                </h3>
+              </div>
+              <span className="text-[11px] font-bold bg-white text-amber-800 px-2 py-0.5 rounded-full border border-amber-200 shadow-2xs">
+                {waitingActions.length} en espera
+              </span>
+            </div>
+
+            {/* Listado de tareas Waiting-For */}
+            <div className="p-2.5 space-y-1.5 flex-1 overflow-y-auto max-h-[620px]">
+              {waitingActions.length === 0 ? (
+                <div className="py-12 text-center text-slate-400">
+                  <Users className="w-8 h-8 text-amber-400/40 mx-auto mb-1.5" />
+                  <p className="text-xs font-semibold text-slate-600">No estás esperando trámites de nadie</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {isAdmin && adminScope === 'all_office' 
+                      ? 'No hay trámites delegados en el despacho.' 
+                      : 'En tus expedientes no hay pasos pendientes asignados a otros compañeros o externos.'}
+                  </p>
                 </div>
+              ) : (
+                waitingActions.map((action) => {
+                  const assigneeName = action.assignee || 'Sin Asignar';
+                  const isExternal = !assigneeName.includes('@');
 
-                {waitingViewMode === 'task' ? (
-                    waitingByTask.map(group => (
-                        <div key={group.task.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                            <div onClick={() => toggleGroup(group.task.id, 'waiting_task')} className="flex items-center justify-between p-4 bg-slate-50/50 cursor-pointer hover:bg-slate-50">
-                                <div className="flex items-center gap-3">
-                                    {expandedGroups[`waiting_task_${group.task.id}`] ? <ChevronRight className="w-4 h-4 text-slate-400"/> : <ChevronDown className="w-4 h-4 text-slate-400"/>}
-                                    <div>
-                                      <span className="font-bold text-slate-800 text-sm block">{group.title}</span>
-                                      {group.client && <span className="text-xs text-amber-600 font-semibold">{group.client}</span>}
-                                    </div>
-                                    <span className="bg-white border border-slate-200 text-slate-500 text-[10px] px-2 py-0.5 rounded-full font-bold">{group.actions.length} pasos</span>
-                                </div>
-                                <TaskLinkBadge task={group.task}/>
-                            </div>
-                            {!expandedGroups[`waiting_task_${group.task.id}`] && (
-                                <div className="p-3 space-y-2 bg-white">
-                                    {group.actions.map((action, i) => (
-                                        <div key={i} className="flex justify-between items-center p-3 rounded-xl border border-slate-50 bg-slate-50/30">
-                                            <div className="flex gap-4 items-center">
-                                                <ActionCheckbox onClick={() => toggleActionQuick(action)} />
-                                                <div>
-                                                    <p className="text-sm text-slate-700 font-medium">{action.text}</p>
-                                                    <span className="text-[10px] text-amber-700 font-bold uppercase mt-1 block tracking-wider">{action.assignee}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                  return (
+                    <div
+                      key={`${action.parentTask.id}_${action.id}`}
+                      className="p-2.5 rounded-lg border border-slate-200 bg-white hover:border-amber-300 hover:shadow-2xs transition-all flex items-start justify-between gap-2.5 group"
+                    >
+                      {/* Checkbox para completar si ya nos entregaron lo esperado */}
+                      <button
+                        type="button"
+                        onClick={() => toggleActionQuick(action)}
+                        className="w-5 h-5 mt-0.5 rounded-md border-2 border-slate-300 bg-white flex items-center justify-center shrink-0 hover:border-emerald-500 hover:bg-emerald-50 transition-colors cursor-pointer group-hover:border-amber-400"
+                        title="Marcar como recibido / completado"
+                      >
+                        <Check className="w-3.5 h-3.5 text-emerald-600 opacity-0 hover:opacity-100 transition-opacity" strokeWidth={3} />
+                      </button>
+
+                      {/* Descripción y metadatos */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-slate-800 leading-snug break-words">
+                          {action.text}
+                        </p>
+                        
+                        <div className="flex items-center gap-1.5 flex-wrap mt-1 text-[11px]">
+                          {/* Badge del Asignado Delegado */}
+                          <span 
+                            className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded font-bold text-[10px] border ${
+                              isExternal 
+                                ? 'bg-amber-50 text-amber-800 border-amber-200' 
+                                : 'bg-slate-100 text-slate-700 border-slate-200'
+                            }`}
+                            title={`Esperando respuesta de: ${assigneeName}`}
+                          >
+                            <User className="w-2.5 h-2.5 opacity-70" />
+                            <span>{assigneeName}</span>
+                          </span>
+
+                          {/* Enlace al Expediente */}
+                          <button
+                            type="button"
+                            onClick={() => onEditParent(action.parentTask)}
+                            className="font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-1.5 py-0.2 rounded border border-indigo-200/70 truncate max-w-[180px] transition-colors"
+                            title="Abrir ficha del expediente"
+                          >
+                            📁 {action.parentTask.title}
+                          </button>
+
+                          {/* Cliente */}
+                          {action.parentTask.client && (
+                            <span className="text-slate-500 truncate max-w-[130px]">
+                              • {action.parentTask.client}
+                            </span>
+                          )}
+
+                          {/* Badge de Urgencia y Due Date */}
+                          <span className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] border ${action.urgency.badgeClass}`}>
+                            <Clock className="w-2.5 h-2.5" />
+                            <span>{action.urgency.label}</span>
+                          </span>
                         </div>
-                    ))
-                ) : (
-                    waitingByPerson.map(person => (
-                        <div key={person.name} className="bg-white border border-amber-100 rounded-xl overflow-hidden shadow-sm">
-                            <div onClick={() => toggleGroup(person.name, 'waiting_person')} className="flex items-center justify-between p-4 bg-amber-50/30 cursor-pointer border-b border-amber-100 hover:bg-amber-50/50 transition-colors">
-                                <div className="flex items-center gap-3 min-w-0">
-                                    {expandedGroups[`waiting_person_${person.name}`] ? <ChevronRight className="w-4 h-4 text-amber-400"/> : <ChevronDown className="w-4 h-4 text-amber-400"/>}
-                                    <span className="font-bold text-amber-950 text-sm truncate">{person.name}</span>
-                                    <span className="bg-amber-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0">{person.actions.length} pasos</span>
-                                </div>
-                                <button onClick={(e) => { e.stopPropagation(); exportChecklist(person); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-amber-700 border border-amber-200 rounded-lg text-[10px] font-bold hover:bg-amber-600 hover:text-white transition-all shadow-sm shrink-0">
-                                    <FileText className="w-3.5 h-3.5"/> EXPORTAR
-                                </button>
-                            </div>
-                            {!expandedGroups[`waiting_person_${person.name}`] && (
-                                <div className="p-3 space-y-3 bg-white">
-                                    {person.actions.map((action, i) => (
-                                        <div key={i} className="p-4 rounded-xl border border-slate-100 bg-slate-50/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:bg-white hover:border-indigo-100">
-                                            <div className="flex gap-4 items-center flex-1">
-                                                <ActionCheckbox onClick={() => toggleActionQuick(action)} />
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm text-slate-800 font-semibold mb-1 break-words">{action.text}</p>
-                                                    <p className="text-[11px] text-slate-500 font-medium italic flex items-center gap-1 truncate" title={action.parentTask.title}>
-                                                       <Target className="w-3 h-3 shrink-0 text-slate-400"/> {action.parentTask.title} {action.parentTask.client ? `(${action.parentTask.client})` : ''}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className="shrink-0 flex justify-end">
-                                              <TaskLinkBadge task={action.parentTask}/>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    ))
-                )}
+                      </div>
+
+                      {/* Botón rápido Exportar y Abrir */}
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => exportChecklistForAssignee(assigneeName, [action])}
+                          className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-amber-700 p-1 rounded transition-all"
+                          title={`Exportar checklist para ${assigneeName}`}
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onEditParent(action.parentTask)}
+                          className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-indigo-600 p-1 rounded transition-all"
+                          title="Abrir expediente"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
-          )}
+          </div>
+        )}
+
       </div>
+
     </div>
   );
 };
@@ -3862,7 +4252,15 @@ const ExpedienteManager = ({ currentUser }) => {
             {currentView === 'plan' && <AnnualPlanView tasks={filteredTasks} currentUser={currentUser} onEdit={handleOpenEdit} />}
             {currentView === 'analytics' && <AnalyticsView tasks={filteredTasks} onEdit={handleOpenEdit} />}
             {currentView === 'roadmap' && <RoadmapView tasks={filteredTasks} onEdit={handleOpenEdit} />}
-            {currentView === 'gtd' && <GTDView tasks={filteredTasks} currentUser={currentUser} onEditParent={handleOpenEdit} />}
+            {currentView === 'gtd' && (
+              <GTDView 
+                tasks={filteredTasks} 
+                currentUser={currentUser} 
+                onEditParent={handleOpenEdit} 
+                isAdmin={isAdmin}
+                usersList={usersList}
+              />
+            )}
           </>
         )}
       </main>
