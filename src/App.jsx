@@ -2098,6 +2098,8 @@ const ExpedienteModal = ({
   tramos = [],
   estados = [],
   plantillas = [],
+  gtdAssignees = [],
+  saveGtdAssignee,
   logAction
 }) => {
   const effectiveFormStatus = useMemo(() => {
@@ -2114,18 +2116,33 @@ const ExpedienteModal = ({
     const myEmail = currentUser?.email?.toLowerCase().trim() || '';
 
     const addSafe = (val) => {
-        if (!val || typeof val !== 'string' || val === 'Yo') return;
-        const lower = val.toLowerCase().trim();
-        if (lower === myEmail || lowerSet.has(lower)) return;
-        lowerSet.add(lower);
-        result.push(val.trim());
+      if (!val || typeof val !== 'string' || val.trim().toLowerCase() === 'yo') return;
+      const lower = val.toLowerCase().trim();
+      if (lower === myEmail || lowerSet.has(lower)) return;
+      lowerSet.add(lower);
+      result.push(val.trim());
     };
 
-    if (usersList) usersList.forEach(u => addSafe(u?.email));
-    if (tasks) tasks.forEach(t => t?.actions?.forEach(a => addSafe(a?.assignee)));
+    // 1. Usuarios del equipo (nombres y correos)
+    if (usersList) {
+      usersList.forEach(u => {
+        if (u.name) addSafe(u.name);
+        if (u.email) addSafe(u.email);
+      });
+    }
+
+    // 2. Contactos externos grabados en Firestore (ej: "Paco Notaría")
+    if (gtdAssignees) {
+      gtdAssignees.forEach(a => addSafe(a.name));
+    }
+
+    // 3. Contactos históricos utilizados en tareas cargadas
+    if (tasks) {
+      tasks.forEach(t => t?.actions?.forEach(a => addSafe(a?.assignee)));
+    }
 
     return result.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
-  }, [tasks, usersList, currentUser]);
+  }, [tasks, usersList, gtdAssignees, currentUser]);
 
   // Validación estricta: Comprobar si el cliente seleccionado existe en la colección de clientes
   const isValidClientSelected = useMemo(() => {
@@ -2163,38 +2180,40 @@ const ExpedienteModal = ({
   const [newActionAssignee, setNewActionAssignee] = useState(currentUser?.email || '');
   const [showSuggestions, setShowSuggestions] = useState(false);
 
-  // Estados para edición inline de pasos GTD
-  const [editingActionId, setEditingActionId] = useState(null);
-  const [editingActionText, setEditingActionText] = useState('');
-  const [editingActionAssignee, setEditingActionAssignee] = useState('');
+  // Estados para modal de edición de pasos GTD (Requerimiento 1 & 2)
+  const [editingActionItem, setEditingActionItem] = useState(null);
+  const [modalActionText, setModalActionText] = useState('');
+  const [modalActionAssignee, setModalActionAssignee] = useState('');
+  const [modalShowSuggestions, setModalShowSuggestions] = useState(false);
 
-  const startEditingAction = (action) => {
-    setEditingActionId(action.id);
-    setEditingActionText(action.text || '');
-    setEditingActionAssignee(action.assignee || currentUser?.email || '');
+  const handleOpenEditActionModal = (action) => {
+    setEditingActionItem(action);
+    setModalActionText(action.text || '');
+    setModalActionAssignee(action.assignee || currentUser?.email || '');
+    setModalShowSuggestions(false);
   };
 
-  const saveEditedAction = () => {
-    if (!editingActionText.trim()) return;
-    setFormData(prev => ({
-      ...prev,
-      actions: (prev.actions || []).map(a => a.id === editingActionId ? {
-        ...a,
-        text: editingActionText.trim(),
-        assignee: editingActionAssignee
-      } : a)
-    }));
-    setEditingActionId(null);
-  };
+  const handleSaveActionModal = () => {
+    if (!modalActionText.trim() || !editingActionItem) return;
+    let finalAssignee = modalActionAssignee.trim();
+    if (!finalAssignee || finalAssignee.toLowerCase() === 'yo') {
+      finalAssignee = currentUser.email;
+    } else {
+      if (saveGtdAssignee) {
+        saveGtdAssignee(finalAssignee);
+      }
+    }
 
-  const handleQuickReassign = (actionId, newAssignee) => {
     setFormData(prev => ({
       ...prev,
-      actions: (prev.actions || []).map(a => a.id === actionId ? {
+      actions: (prev.actions || []).map(a => a.id === editingActionItem.id ? {
         ...a,
-        assignee: newAssignee
+        text: modalActionText.trim(),
+        assignee: finalAssignee
       } : a)
     }));
+
+    setEditingActionItem(null);
   };
 
   const handleApplyTemplate = (templateId) => {
@@ -2361,10 +2380,14 @@ const ExpedienteModal = ({
       let finalAssignee = newActionAssignee.trim();
       if (!finalAssignee || finalAssignee.toLowerCase() === 'yo' || finalAssignee.toLowerCase() === 'me') {
           finalAssignee = currentUser.email;
+      } else {
+          if (saveGtdAssignee) {
+              saveGtdAssignee(finalAssignee);
+          }
       }
       const newAction = {
           id: Date.now(),
-          text: newActionText,
+          text: newActionText.trim(),
           assignee: finalAssignee, 
           isCompleted: false,
           createdAt: new Date().toISOString()
@@ -2626,50 +2649,95 @@ const ExpedienteModal = ({
 
         {/* COLUMNA DERECHA: PESTAÑAS Y CONTENIDO CON ALTURA CONSTANTE */}
         <div className="w-full md:w-1/2 h-full bg-slate-50 flex flex-col overflow-hidden border-t md:border-t-0">
-          <div className="flex border-b border-slate-200 bg-white overflow-x-auto shrink-0">
+          <div className="grid grid-cols-5 border-b border-slate-200 bg-white shrink-0 h-11">
             {/* 1. BITÁCORA */}
             <button 
               type="button"
               onClick={() => setRightTab('activity')}
-              className={`flex-1 min-w-[75px] py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${rightTab === 'activity' ? 'text-slate-800 border-slate-800 bg-slate-100/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
+              title="Bitácora de seguimiento"
+              className={`h-full px-1 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border-b-2 whitespace-nowrap ${
+                rightTab === 'activity' 
+                  ? 'text-slate-900 border-slate-900 bg-slate-50 font-bold' 
+                  : 'text-slate-500 border-transparent hover:text-slate-800 hover:bg-slate-50/60'
+              }`}
             >
-              <Clock className="w-3.5 h-3.5"/> Bitácora <span className="bg-slate-100 text-slate-600 px-1.5 rounded-full text-[10px] border border-slate-200">{task?.updates?.length || 0}</span>
+              <Clock className="w-3.5 h-3.5 shrink-0"/>
+              <span className="truncate">Bitácora</span>
+              {(task?.updates?.length || 0) > 0 && (
+                <span className="bg-slate-200/80 text-slate-700 px-1.5 py-0.2 rounded-full text-[10px] font-bold">
+                  {task.updates.length}
+                </span>
+              )}
             </button>
 
-            {/* 2. PASOS GTD */}
+            {/* 2. GTD */}
             <button 
               type="button"
               onClick={() => setRightTab('gtd')}
-              className={`flex-1 min-w-[85px] py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${rightTab === 'gtd' ? 'text-emerald-600 border-emerald-600 bg-emerald-50/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
+              title="Plan de acción GTD"
+              className={`h-full px-1 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border-b-2 whitespace-nowrap ${
+                rightTab === 'gtd' 
+                  ? 'text-emerald-700 border-emerald-600 bg-emerald-50/50 font-bold' 
+                  : 'text-slate-500 border-transparent hover:text-slate-800 hover:bg-slate-50/60'
+              }`}
             >
-              <Target className="w-3.5 h-3.5"/> Pasos GTD <span className="bg-slate-100 text-slate-600 px-1.5 rounded-full text-[10px] border border-slate-200">{formData.actions?.length || 0}</span>
+              <Target className="w-3.5 h-3.5 shrink-0 text-emerald-600"/>
+              <span className="truncate">GTD</span>
+              {(formData.actions?.length || 0) > 0 && (
+                <span className="bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded-full text-[10px] font-bold">
+                  {formData.actions.length}
+                </span>
+              )}
             </button>
 
             {/* 3. FACTURACIÓN */}
             <button 
               type="button"
               onClick={() => setRightTab('billing')}
-              className={`flex-1 min-w-[85px] py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${rightTab === 'billing' ? 'text-amber-600 border-amber-600 bg-amber-50/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
+              title="Honorarios, suplidos y anticipos"
+              className={`h-full px-1 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border-b-2 whitespace-nowrap ${
+                rightTab === 'billing' 
+                  ? 'text-amber-700 border-amber-600 bg-amber-50/50 font-bold' 
+                  : 'text-slate-500 border-transparent hover:text-slate-800 hover:bg-slate-50/60'
+              }`}
             >
-              <Coins className="w-3.5 h-3.5"/> Facturación
+              <Coins className="w-3.5 h-3.5 shrink-0 text-amber-600"/>
+              <span className="truncate">Facturación</span>
             </button>
 
             {/* 4. ADJUNTOS */}
             <button 
               type="button"
               onClick={() => setRightTab('docs')}
-              className={`flex-1 min-w-[75px] py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${rightTab === 'docs' ? 'text-blue-600 border-blue-600 bg-blue-50/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
+              title="Documentos y enlaces de interés"
+              className={`h-full px-1 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border-b-2 whitespace-nowrap ${
+                rightTab === 'docs' 
+                  ? 'text-blue-700 border-blue-600 bg-blue-50/50 font-bold' 
+                  : 'text-slate-500 border-transparent hover:text-slate-800 hover:bg-slate-50/60'
+              }`}
             >
-              <Paperclip className="w-3.5 h-3.5"/> Adjuntos <span className="bg-slate-100 text-slate-600 px-1.5 rounded-full text-[10px] border border-slate-200">{(resourceLinks?.length || 0) + (fileAttachments?.length || 0)}</span>
+              <Paperclip className="w-3.5 h-3.5 shrink-0 text-blue-600"/>
+              <span className="truncate">Adjuntos</span>
+              {((resourceLinks?.length || 0) + (fileAttachments?.length || 0)) > 0 && (
+                <span className="bg-blue-100 text-blue-800 px-1.5 py-0.2 rounded-full text-[10px] font-bold">
+                  {(resourceLinks?.length || 0) + (fileAttachments?.length || 0)}
+                </span>
+              )}
             </button>
 
             {/* 5. CHAT */}
             <button 
               type="button"
               onClick={() => setRightTab('chat')}
-              className={`flex-1 min-w-[70px] py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border-b-2 ${rightTab === 'chat' ? 'text-indigo-600 border-indigo-600 bg-indigo-50/50' : 'text-slate-500 border-transparent hover:bg-slate-50'}`}
+              title="Chat interno del expediente"
+              className={`h-full px-1 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border-b-2 whitespace-nowrap ${
+                rightTab === 'chat' 
+                  ? 'text-indigo-700 border-indigo-600 bg-indigo-50/50 font-bold' 
+                  : 'text-slate-500 border-transparent hover:text-slate-800 hover:bg-slate-50/60'
+              }`}
             >
-              <MessageSquare className="w-3.5 h-3.5"/> Chat
+              <MessageSquare className="w-3.5 h-3.5 shrink-0 text-indigo-600"/>
+              <span className="truncate">Chat</span>
             </button>
           </div>
 
@@ -2714,113 +2782,92 @@ const ExpedienteModal = ({
             )
           )}
 
-          {/* PESTAÑA 2: PASOS GTD EDITABLES */}
+          {/* PESTAÑA 2: PASOS GTD LIMPIOS Y PROFESIONALES */}
           {rightTab === 'gtd' && (
             <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-50">
               <div className="p-2.5 bg-emerald-50/50 border-b border-emerald-100 shrink-0">
-                <p className="text-[11px] text-emerald-800 text-center font-medium">Divide este expediente en pasos secuenciales. Puedes editarlos y reasignarlos en cualquier momento.</p>
+                <p className="text-[11px] text-emerald-800 text-center font-medium">Divide este expediente en pasos secuenciales. Pulsa el lápiz para editar o reasignar cualquier paso.</p>
               </div>
               
               <div className="flex-1 overflow-y-auto p-3 space-y-2">
                 {(formData.actions || []).map(action => {
-                  const isEditingThis = editingActionId === action.id;
-
-                  if (isEditingThis) {
-                    return (
-                      <div key={action.id} className="p-3 rounded-xl border border-indigo-300 bg-white shadow-xs space-y-2.5 animate-in fade-in duration-150">
-                        <div>
-                          <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Descripción del Paso GTD</label>
-                          <input 
-                            type="text" 
-                            value={editingActionText} 
-                            onChange={e => setEditingActionText(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && saveEditedAction()}
-                            className="w-full text-xs font-medium border border-slate-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500"
-                            placeholder="Descripción del paso..."
-                            autoFocus
-                          />
-                        </div>
-                        <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
-                          <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                            <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            <select 
-                              value={editingActionAssignee} 
-                              onChange={e => setEditingActionAssignee(e.target.value)}
-                              className="text-xs font-semibold border border-slate-300 rounded-lg py-1 px-2 bg-white outline-none flex-1 truncate"
-                            >
-                              <option value={currentUser.email}>Asignar a: Yo ({currentUser.email.split('@')[0]})</option>
-                              {usersList.filter(u => u.email !== currentUser.email).map(u => (
-                                <option key={u.email} value={u.email}>
-                                  Asignar a: {u.name ? `${u.name} (${u.email})` : u.email}
-                                </option>
-                              ))}
-                              <option value="">Sin Asignar</option>
-                            </select>
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <button 
-                              type="button" 
-                              onClick={() => setEditingActionId(null)}
-                              className="px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-100 rounded-lg font-medium transition-colors cursor-pointer"
-                            >
-                              Cancelar
-                            </button>
-                            <button 
-                              type="button" 
-                              onClick={saveEditedAction}
-                              className="px-3 py-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold flex items-center gap-1 shadow-2xs transition-all cursor-pointer"
-                            >
-                              <Check className="w-3 h-3" /> Guardar
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
+                  const isMe = action.assignee === currentUser?.email || action.assignee === 'Yo';
+                  let assigneeLabel = 'Sin asignar';
+                  if (isMe) {
+                    assigneeLabel = 'Yo';
+                  } else if (action.assignee) {
+                    if (action.assignee.includes('@')) {
+                      // Buscar si hay un nombre en usersList
+                      const foundUser = (usersList || []).find(u => (u.email || '').toLowerCase() === action.assignee.toLowerCase());
+                      assigneeLabel = foundUser?.name ? foundUser.name : action.assignee.split('@')[0];
+                    } else {
+                      assigneeLabel = action.assignee;
+                    }
                   }
 
                   return (
-                    <div key={action.id} className={`flex items-center gap-2 p-2.5 rounded-xl border shadow-2xs transition-all ${action.isCompleted ? 'bg-slate-100 border-slate-200 opacity-60' : 'bg-white border-slate-200 hover:border-emerald-300'}`}>
-                      <button type="button" onClick={() => toggleAction(action.id)} className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors shrink-0 cursor-pointer ${action.isCompleted ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 hover:border-emerald-400 bg-slate-50'}`}>
+                    <div 
+                      key={action.id} 
+                      className={`flex items-center justify-between gap-2.5 p-2.5 rounded-xl border transition-all ${
+                        action.isCompleted 
+                          ? 'bg-slate-100/70 border-slate-200 opacity-60' 
+                          : 'bg-white border-slate-200 hover:border-emerald-300 shadow-2xs'
+                      }`}
+                    >
+                      {/* Checkbox circular de completado */}
+                      <button 
+                        type="button" 
+                        onClick={() => toggleAction(action.id)} 
+                        className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors shrink-0 cursor-pointer ${
+                          action.isCompleted 
+                            ? 'bg-emerald-500 border-emerald-500' 
+                            : 'border-slate-300 hover:border-emerald-400 bg-slate-50'
+                        }`}
+                        title={action.isCompleted ? "Marcar como pendiente" : "Marcar como completado"}
+                      >
                         {action.isCompleted && <Check className="w-3 h-3 text-white"/>}
                       </button>
 
-                      <div className="flex-1 text-xs min-w-0">
+                      {/* Texto del paso (limpio, sin campos pesados) */}
+                      <div className="flex-1 min-w-0">
                         <span 
-                          onClick={() => startEditingAction(action)} 
-                          className={`block leading-tight font-medium truncate cursor-pointer hover:text-indigo-600 transition-colors ${action.isCompleted ? 'line-through text-slate-500' : 'text-slate-800'}`}
-                          title="Haz clic para editar el texto del paso"
+                          onClick={() => handleOpenEditActionModal(action)} 
+                          className={`block leading-snug font-medium text-xs truncate cursor-pointer hover:text-indigo-600 transition-colors ${
+                            action.isCompleted ? 'line-through text-slate-500' : 'text-slate-800'
+                          }`}
+                          title="Haz clic para editar este paso"
                         >
                           {action.text}
                         </span>
-
-                        <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">
-                          <User className="w-3 h-3 text-slate-400 shrink-0"/> 
-                          {/* Selector rápido de reasignación con 1 clic (vacaciones / ausencia) */}
-                          <select 
-                            value={action.assignee || ''} 
-                            onChange={e => handleQuickReassign(action.id, e.target.value)}
-                            className="bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 text-[10px] text-slate-700 font-bold rounded px-1.5 py-0.5 outline-none cursor-pointer truncate max-w-[190px] transition-colors"
-                            title="Reasignar este paso a otro asesor (ej. por vacaciones o suplencia)"
-                          >
-                            <option value={currentUser.email}>Asignado: Yo</option>
-                            {usersList.filter(u => u.email !== currentUser.email).map(u => (
-                              <option key={u.email} value={u.email}>
-                                Asignado: {u.name ? u.name : u.email.split('@')[0]}
-                              </option>
-                            ))}
-                            <option value="">Sin Asignar</option>
-                          </select>
-                        </div>
                       </div>
 
-                      <div className="flex items-center gap-1 shrink-0">
+                      {/* Badge / Pill del asignado (SIN desplegable, sólo lectura elegante) */}
+                      <div className="shrink-0">
+                        <span 
+                          onClick={() => handleOpenEditActionModal(action)}
+                          className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border truncate max-w-[140px] cursor-pointer hover:ring-1 hover:ring-indigo-300 transition-all ${
+                            isMe 
+                              ? 'bg-indigo-50 text-indigo-700 border-indigo-200' 
+                              : action.assignee 
+                              ? 'bg-slate-100 text-slate-700 border-slate-200' 
+                              : 'bg-amber-50 text-amber-700 border-amber-200'
+                          }`}
+                          title={`Asignado a: ${action.assignee || 'Sin asignar'} (clic para cambiar)`}
+                        >
+                          <User className="w-3 h-3 shrink-0 opacity-70" />
+                          <span className="truncate">{assigneeLabel}</span>
+                        </span>
+                      </div>
+
+                      {/* Acciones: Editar en modal y Eliminar */}
+                      <div className="flex items-center gap-0.5 shrink-0">
                         <button 
                           type="button" 
-                          onClick={() => startEditingAction(action)} 
-                          className="text-slate-400 hover:text-indigo-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
-                          title="Editar texto y responsable del paso"
+                          onClick={() => handleOpenEditActionModal(action)} 
+                          className="text-slate-400 hover:text-indigo-600 p-1.5 rounded-lg hover:bg-indigo-50 transition-colors cursor-pointer"
+                          title="Editar paso y reasignar responsable"
                         >
-                          <Pencil className="w-3 h-3"/>
+                          <Pencil className="w-3.5 h-3.5"/>
                         </button>
                         <button 
                           type="button" 
@@ -2828,7 +2875,7 @@ const ExpedienteModal = ({
                           className="text-slate-400 hover:text-rose-500 p-1.5 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
                           title="Eliminar paso GTD"
                         >
-                          <Trash2 className="w-3 h-3"/>
+                          <Trash2 className="w-3.5 h-3.5"/>
                         </button>
                       </div>
                     </div>
@@ -2843,6 +2890,7 @@ const ExpedienteModal = ({
                 )}
               </div>
 
+              {/* Formulario inferior para añadir nuevo paso */}
               <div className="p-3 bg-white border-t border-slate-200 shrink-0">
                 <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-1">Añadir Nuevo Paso GTD</label>
                 <div className="flex gap-2 items-center">
@@ -2855,7 +2903,7 @@ const ExpedienteModal = ({
                     className="flex-1 text-xs border border-slate-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                   
-                  <div className="relative w-[130px] shrink-0">
+                  <div className="relative w-[140px] shrink-0">
                     <input 
                       type="text" 
                       placeholder="Asignar a..."
@@ -2875,20 +2923,24 @@ const ExpedienteModal = ({
                         setTimeout(() => setShowSuggestions(false), 200);
                         if (!newActionAssignee.trim()) setNewActionAssignee('Yo');
                       }}
-                      className="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
                     />
                     
-                    {showSuggestions && newActionAssignee && (
+                    {showSuggestions && (
                       (() => {
                         const allOptions = ['Yo', ...(suggestedAssignees || [])];
+                        const query = newActionAssignee.toLowerCase().trim();
                         const matches = allOptions.filter(a => 
-                          a.toLowerCase().includes(newActionAssignee.toLowerCase())
+                          !query || a.toLowerCase().includes(query)
                         );
                         
-                        if (matches.length === 0 || (matches.length === 1 && matches[0] === newActionAssignee)) return null;
+                        if (matches.length === 0 || (matches.length === 1 && matches[0].toLowerCase() === query)) return null;
 
                         return (
-                          <div className="absolute bottom-full left-0 mb-1 w-full bg-white border border-slate-200 rounded-lg shadow-xl z-[9999] overflow-hidden">
+                          <div className="absolute bottom-full left-0 mb-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl z-[9999] overflow-hidden max-h-48 overflow-y-auto">
+                            <div className="px-2 py-1 text-[9px] font-bold text-slate-400 bg-slate-50 uppercase tracking-wide border-b border-slate-100">
+                              Equipo & Externos
+                            </div>
                             {matches.map((item, idx) => (
                               <div 
                                 key={idx} 
@@ -2896,9 +2948,14 @@ const ExpedienteModal = ({
                                   setNewActionAssignee(item === 'Yo' ? currentUser?.email : item);
                                   setShowSuggestions(false);
                                 }}
-                                className="p-2 text-xs hover:bg-slate-100 cursor-pointer text-slate-700 truncate"
+                                className="px-2.5 py-1.5 text-xs hover:bg-emerald-50 cursor-pointer text-slate-700 truncate font-medium border-b border-slate-50 last:border-0 flex items-center justify-between"
                               >
-                                {item}
+                                <span className="truncate">{item}</span>
+                                {item === 'Yo' ? (
+                                  <span className="text-[9px] text-emerald-600 font-bold shrink-0">Tú</span>
+                                ) : !item.includes('@') ? (
+                                  <span className="text-[9px] text-amber-600 font-bold shrink-0">Ext.</span>
+                                ) : null}
                               </div>
                             ))}
                           </div>
@@ -2994,13 +3051,141 @@ const ExpedienteModal = ({
               )}
             </div>
           )}
-                            
-
-          </div>
         </div>
       </div>
-    );
-  };
+
+      {/* DIÁLOGO MODAL PARA EDITAR PASO GTD (REQUERIMIENTO 1 & 2) */}
+      {editingActionItem && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200/90 w-full max-w-md p-5 space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex justify-between items-center pb-2.5 border-b border-slate-100">
+              <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center font-bold">
+                  <Pencil className="w-3.5 h-3.5" />
+                </div>
+                <span>Editar Paso GTD</span>
+              </h4>
+              <button
+                type="button"
+                onClick={() => setEditingActionItem(null)}
+                className="text-slate-400 hover:text-slate-700 w-6 h-6 rounded-full hover:bg-slate-100 flex items-center justify-center text-xs font-bold transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-1">
+                  Descripción de la Tarea / Trámite *
+                </label>
+                <textarea
+                  value={modalActionText}
+                  onChange={(e) => setModalActionText(e.target.value)}
+                  rows={3}
+                  placeholder="Escribe la acción concreta a realizar..."
+                  className="w-full text-xs font-medium border border-slate-300 rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none text-slate-800"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-1">
+                  Responsable Asignado (Equipo o Contacto Externo)
+                </label>
+                <div className="relative">
+                  <div className="flex items-center border border-slate-300 rounded-xl bg-white px-2.5 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500">
+                    <User className="w-3.5 h-3.5 text-slate-400 mr-2 shrink-0" />
+                    <input
+                      type="text"
+                      value={modalActionAssignee}
+                      onChange={(e) => {
+                        setModalActionAssignee(e.target.value);
+                        setModalShowSuggestions(true);
+                      }}
+                      onFocus={() => {
+                        if (modalActionAssignee === 'Yo' || modalActionAssignee === currentUser?.email) {
+                          setModalActionAssignee('');
+                        }
+                        setModalShowSuggestions(true);
+                      }}
+                      onBlur={() => {
+                        setTimeout(() => setModalShowSuggestions(false), 200);
+                        if (!modalActionAssignee.trim()) setModalActionAssignee('Yo');
+                      }}
+                      placeholder="Escribe 'Yo', asesor o contacto externo (ej: Paco Notaría)..."
+                      className="w-full text-xs font-semibold outline-none bg-transparent text-slate-800"
+                    />
+                  </div>
+
+                  {modalShowSuggestions && (
+                    (() => {
+                      const allOptions = ['Yo', ...(suggestedAssignees || [])];
+                      const query = modalActionAssignee.toLowerCase().trim();
+                      const matches = allOptions.filter(a => 
+                        !query || a.toLowerCase().includes(query)
+                      );
+
+                      if (matches.length === 0 || (matches.length === 1 && matches[0].toLowerCase() === query)) return null;
+
+                      return (
+                        <div className="absolute top-full left-0 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl z-[9999] overflow-hidden max-h-48 overflow-y-auto">
+                          <div className="px-2.5 py-1 text-[10px] font-bold text-slate-400 bg-slate-50 uppercase tracking-wide border-b border-slate-100">
+                            Equipo & Contactos Externos
+                          </div>
+                          {matches.map((item, idx) => (
+                            <div
+                              key={idx}
+                              onMouseDown={() => {
+                                setModalActionAssignee(item === 'Yo' ? currentUser?.email : item);
+                                setModalShowSuggestions(false);
+                              }}
+                              className="px-3 py-2 text-xs hover:bg-indigo-50 cursor-pointer text-slate-700 font-medium border-b border-slate-50 last:border-0 flex items-center justify-between"
+                            >
+                              <span>{item}</span>
+                              {item === 'Yo' ? (
+                                <span className="text-[10px] text-indigo-600 font-bold">Tú</span>
+                              ) : !item.includes('@') ? (
+                                <span className="text-[10px] text-amber-700 font-bold bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">Externo</span>
+                              ) : (
+                                <span className="text-[10px] text-slate-400">Equipo</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Admite texto libre. Si escribes un nombre nuevo (ej. <em>Paco Notaría</em>), quedará grabado para que todo el equipo lo use igual en futuros expedientes.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2.5 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setEditingActionItem(null)}
+                className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveActionModal}
+                disabled={!modalActionText.trim()}
+                className="px-4 py-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white rounded-xl shadow-xs transition-all cursor-pointer"
+              >
+                Guardar Cambios
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // --- GESTOR PRINCIPAL DE EXPEDIENTES (MAIN) ---
 const ExpedienteManager = ({ currentUser }) => {
@@ -3017,6 +3202,7 @@ const ExpedienteManager = ({ currentUser }) => {
   const [tramos, setTramos] = useState([]);
   const [estados, setEstados] = useState([]);
   const [plantillas, setPlantillas] = useState([]);
+  const [gtdAssignees, setGtdAssignees] = useState([]);
   const [usersList, setUsersList] = useState([]); 
   const [filterScope, setFilterScope] = useState(isInitialAdmin ? 'all' : 'mine'); 
   const [selectedDepts, setSelectedDepts] = useState([]);
@@ -3187,6 +3373,13 @@ const ExpedienteManager = ({ currentUser }) => {
       setPlantillas(data);
     }, (err) => console.warn("Error cargando plantillas_tareas:", err));
 
+    // Escuchar colección gtd_assignees en tiempo real (contactos externos para pasos GTD)
+    const unsubGtdAssignees = onSnapshot(collection(db, 'gtd_assignees'), (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      data.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      setGtdAssignees(data);
+    }, (err) => console.warn("Error cargando gtd_assignees:", err));
+
     // Escuchar expedientes (primaria) y tasks (compatibilidad)
     const unsubExpedientes = onSnapshot(collection(db, 'expedientes'), (snap) => {
       if (!snap.empty) {
@@ -3226,8 +3419,31 @@ const ExpedienteManager = ({ currentUser }) => {
       if (!isSuperAdmin && !preAuthIsAdmin) setFilterScope('mine');
     });
 
-    return () => { unsubUsers(); unsubExpedientes(); unsubAdmin(); unsubClientes(); unsubAreas(); unsubTramos(); unsubEstados(); unsubPlantillas(); };
+    return () => { unsubUsers(); unsubExpedientes(); unsubAdmin(); unsubClientes(); unsubAreas(); unsubTramos(); unsubEstados(); unsubPlantillas(); unsubGtdAssignees(); };
   }, [currentUser]);
+
+  const saveGtdAssignee = async (name) => {
+    if (!name || typeof name !== 'string') return;
+    const clean = name.trim();
+    if (!clean || clean.toLowerCase() === 'yo') return;
+
+    // Comprobar si coincide con un miembro del equipo
+    const isTeam = (usersList || []).some(u => 
+      (u.email || '').toLowerCase().trim() === clean.toLowerCase() ||
+      (u.name && u.name.toLowerCase().trim() === clean.toLowerCase())
+    );
+    if (isTeam) return;
+
+    const docId = clean.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 50);
+    try {
+      await setDoc(doc(db, 'gtd_assignees', docId), {
+        name: clean,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    } catch (err) {
+      console.warn("Error guardando contacto externo:", err);
+    }
+  };
 
   const logAction = async (action, details) => { 
     try { 
@@ -3671,6 +3887,8 @@ const ExpedienteManager = ({ currentUser }) => {
         tramos={tramos}
         estados={estados}
         plantillas={plantillas}
+        gtdAssignees={gtdAssignees}
+        saveGtdAssignee={saveGtdAssignee}
         logAction={logAction}
       />
     </div>
