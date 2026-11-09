@@ -84,13 +84,9 @@ const MASTERS = {
     'Otro Trámite'
   ],
   status: [
-    'En Plazo',
-    'Pendiente Documentación',
-    'En Revisión',
-    'Urgente / Próximo a Vencer',
-    'Presentado / Tramitado',
-    'Trámite Periódico',
-    'En Pausa / Suspendido',
+    'Abierto',
+    'En Riesgo',
+    'Con Retraso',
     'Cerrado'
   ]
 };
@@ -103,18 +99,63 @@ const DELAY_METRICS_TYPES = [
   'Trámite Administrativo'
 ];
 
-// Mapeador de compatibilidad para datos previos de transición
-const normalizeStatus = (status) => {
-  switch (status) {
-    case 'On Track': return 'En Plazo';
-    case 'Ongoing Task': return 'Trámite Periódico';
-    case 'Behind': return 'Pendiente Documentación';
-    case 'No Meet Goal': return 'Urgente / Próximo a Vencer';
-    case 'Completed': return 'Presentado / Tramitado';
-    case 'On Hold': return 'En Pausa / Suspendido';
+// Obtiene el estado efectivo del expediente calculando automáticamente si está fuera de plazo (SLA)
+export const getEffectiveStatus = (task) => {
+  if (!task) return 'Abierto';
+  return normalizeStatus(task.status, task.dueDate);
+};
+
+// Normalizador compatible con 4 estados oficiales del despacho:
+// 🟢 Verde: Abierto (en marcha y en plazo)
+// 🟡 Amarillo: En Riesgo (previsión de incidencias o demora)
+// 🔴 Rojo: Con Retraso (plazo superado automáticamente)
+// 🔵 Azul: Cerrado (finalizado)
+export const normalizeStatus = (status, dueDate) => {
+  if (!status) status = 'Abierto';
+  const s = String(status).trim();
+
+  // Si tiene fecha de vencimiento y ya pasó (< hoy), y no está cerrado -> AUTOMÁTICAMENTE 'Con Retraso' (Rojo)
+  if (dueDate && s !== 'Cerrado' && s !== 'Closed' && s !== 'Completed' && s !== 'Presentado / Tramitado') {
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (dueDate < todayStr) {
+      return 'Con Retraso';
+    }
+  }
+
+  switch (s) {
+    // 🟢 Verde: Abierto (en marcha y dentro de plazo)
+    case 'Abierto':
+    case 'En Plazo':
+    case 'On Track':
+    case 'Trámite Periódico':
+    case 'Ongoing Task':
+      return 'Abierto';
+
+    // 🟡 Amarillo: En Riesgo (previsión de incidencias o demora)
+    case 'En Riesgo':
+    case 'Pendiente Documentación':
+    case 'Behind':
+    case 'En Revisión':
+    case 'En Pausa / Suspendido':
+    case 'On Hold':
+      return 'En Riesgo';
+
+    // 🔴 Rojo: Con Retraso (plazo superado)
+    case 'Con Retraso':
+    case 'Fuera de Plazo':
+    case 'Urgente / Próximo a Vencer':
+    case 'No Meet Goal':
+      return 'Con Retraso';
+
+    // 🔵 Azul: Cerrado (tramitado y archivado)
+    case 'Cerrado':
     case 'Closed':
-    case 'Cerrado': return 'Cerrado';
-    default: return status || 'En Plazo';
+    case 'Presentado / Tramitado':
+    case 'Completed':
+      return 'Cerrado';
+
+    default:
+      return s;
   }
 };
 
@@ -161,21 +202,32 @@ const TextWithLinks = ({ text }) => {
 };
 
 const getDelayDays = (task) => {
-    if (!task || !task.originalDueDate || !task.dueDate) return 0;
-    const currentStatus = normalizeStatus(task.status);
-    if (currentStatus === 'Trámite Periódico' || currentStatus === 'Presentado / Tramitado' || currentStatus === 'Cerrado') return 0; 
-    if (task.originalDueDate === task.dueDate) return 0;
-    const original = new Date(task.originalDueDate);
-    const current = new Date(task.dueDate);
-    const diffTime = current - original;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays > 0 ? diffDays : 0; 
+    if (!task || !task.dueDate) return 0;
+    const currentStatus = getEffectiveStatus(task);
+    if (currentStatus === 'Cerrado') return 0; 
+    
+    // Si la fecha original fue pospuesta
+    if (task.originalDueDate && task.originalDueDate !== task.dueDate) {
+      const original = new Date(task.originalDueDate);
+      const current = new Date(task.dueDate);
+      const diffTime = current - original;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      if (diffDays > 0) return diffDays;
+    }
+
+    // O si ya venció respecto a hoy
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const due = new Date(task.dueDate);
+    const diff = Math.ceil((today - due) / (1000 * 60 * 60 * 24));
+    return diff > 0 ? diff : 0; 
 };
 
-const Badge = ({ text, size = 'xs' }) => {
+const Badge = ({ text, task, size = 'xs' }) => {
   const dynamicEstados = React.useContext(EstadosContext) || [];
-  if (!text) return null;
-  const norm = normalizeStatus(text);
+  const statusToEvaluate = task ? getEffectiveStatus(task) : text;
+  if (!statusToEvaluate) return null;
+  const norm = normalizeStatus(statusToEvaluate, task?.dueDate);
 
   // 1. Buscar en la colección de estados dinámicos de Firestore
   const matchedEstado = dynamicEstados.find(e => 
@@ -186,16 +238,13 @@ const Badge = ({ text, size = 'xs' }) => {
   if (matchedEstado && matchedEstado.color && STATUS_COLORS[matchedEstado.color]) {
     colorConfig = STATUS_COLORS[matchedEstado.color];
   } else {
-    // 2. Mapeo semántico de respaldo de alta fidelidad
+    // 2. Mapeo semántico oficial:
+    // Verde (Abierto), Amarillo (En Riesgo), Rojo (Con Retraso), Azul (Cerrado)
     switch (norm) {
-      case 'En Plazo': colorConfig = STATUS_COLORS.emerald; break;
-      case 'Pendiente Documentación': colorConfig = STATUS_COLORS.amber; break;
-      case 'En Revisión': colorConfig = STATUS_COLORS.purple; break;
-      case 'Urgente / Próximo a Vencer': colorConfig = STATUS_COLORS.rose; break;
-      case 'Trámite Periódico': colorConfig = STATUS_COLORS.indigo; break;
-      case 'Presentado / Tramitado': colorConfig = STATUS_COLORS.blue; break;
-      case 'En Pausa / Suspendido': colorConfig = STATUS_COLORS.slate; break;
-      case 'Cerrado': colorConfig = STATUS_COLORS.dark; break;
+      case 'Abierto': colorConfig = STATUS_COLORS.emerald; break;
+      case 'En Riesgo': colorConfig = STATUS_COLORS.amber; break;
+      case 'Con Retraso': colorConfig = STATUS_COLORS.rose; break;
+      case 'Cerrado': colorConfig = STATUS_COLORS.blue; break;
       default: colorConfig = STATUS_COLORS.slate;
     }
   }
@@ -340,8 +389,8 @@ const NotificationDropdown = ({ tasks, currentUser, onOpenTask }) => {
       const isInAssigneesList = t.assignees && t.assignees.some(email => email && email.toLowerCase() === userEmail);
       const isAssigned = isMainOwner || isInAssigneesList;
       if (!isAssigned) return false;
-      const normStatus = normalizeStatus(t.status);
-      if (normStatus === 'Presentado / Tramitado' || normStatus === 'En Pausa / Suspendido' || normStatus === 'Trámite Periódico' || normStatus === 'Cerrado') return false; 
+      const effectiveStatus = getEffectiveStatus(t);
+      if (effectiveStatus === 'Cerrado') return false; 
       if (!t.dueDate) return false;
       const today = new Date();
       today.setHours(0,0,0,0);
@@ -349,7 +398,7 @@ const NotificationDropdown = ({ tasks, currentUser, onOpenTask }) => {
       const diffTime = due - today;
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       const limitDays = normalizeType(t.type) === 'Vencimiento Fiscal' ? 30 : 10;
-      return diffDays <= limitDays;
+      return diffDays <= limitDays || effectiveStatus === 'Con Retraso' || effectiveStatus === 'En Riesgo';
     }).map(t => {
         const today = new Date();
         today.setHours(0,0,0,0);
@@ -456,8 +505,8 @@ const GTDView = ({ tasks, currentUser, onEditParent }) => {
     const s = localSearch.toLowerCase();
 
     tasks.forEach(task => {
-      const normStatus = normalizeStatus(task.status);
-      if (!task.actions || task.actions.length === 0 || normStatus === 'Presentado / Tramitado' || normStatus === 'Cerrado') return;
+      const effectiveStatus = getEffectiveStatus(task);
+      if (!task.actions || task.actions.length === 0 || effectiveStatus === 'Cerrado') return;
       task.actions.forEach(action => {
         if (action.isCompleted) return;
         const matchesSearch = (task.title || '').toLowerCase().includes(s) || 
@@ -723,11 +772,10 @@ const RoadmapView = ({ tasks, onEdit }) => {
     const buckets = useMemo(() => {
         const acc = { overdue: [], current: [], next: [], future: [] };
         tasks.forEach(task => {
-            const normStatus = normalizeStatus(task.status);
-            if (normStatus === 'Trámite Periódico') return;
+            const effectiveStatus = getEffectiveStatus(task);
             if (!task.dueDate) return;
             const due = new Date(task.dueDate);
-            const isCompleted = normStatus === 'Presentado / Tramitado' || normStatus === 'Cerrado';
+            const isCompleted = effectiveStatus === 'Cerrado';
             if (due < startOfCurrentMonth && !isCompleted) { acc.overdue.push(task); } 
             else if (due >= startOfCurrentMonth && due < startOfNextMonth) { acc.current.push(task); } 
             else if (due >= startOfNextMonth && due < startOfFuture) { acc.next.push(task); } 
@@ -743,7 +791,7 @@ const RoadmapView = ({ tasks, onEdit }) => {
             <div onClick={() => onEdit(task)} className="hover-card-elevate bg-white/95 backdrop-blur-xs p-3.5 rounded-xl border border-slate-200/80 shadow-xs hover:border-indigo-200/80 cursor-pointer group transition-all">
                 <div className="flex justify-between items-start mb-1.5">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{normalizeDepartment(task.department)}</span>
-                    <Badge text={task.status} size="[10px]"/>
+                    <Badge task={task} text={task.status} size="[10px]"/>
                 </div>
                 <h4 className="font-bold text-sm text-slate-800 leading-tight mb-1 group-hover:text-indigo-600 transition-colors line-clamp-2">{task.title}</h4>
                 {task.client && (
@@ -1594,58 +1642,47 @@ const AnalyticsView = ({ tasks }) => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   
   const annualTasks = useMemo(() => tasks.filter(t => {
-    const norm = normalizeStatus(t.status);
-    return norm === 'Trámite Periódico' || t.dueDate?.startsWith(selectedYear.toString());
+    return !t.dueDate || t.dueDate.startsWith(selectedYear.toString());
   }), [tasks, selectedYear]);
 
   const stats = useMemo(() => {
     const totalCount = annualTasks.length;
-    const periodicCount = annualTasks.filter(t => normalizeStatus(t.status) === 'Trámite Periódico').length;
-    const projectTasks = annualTasks.filter(t => normalizeStatus(t.status) !== 'Trámite Periódico'); 
-    const projectCount = projectTasks.length;
-    const completed = projectTasks.filter(t => normalizeStatus(t.status) === 'Presentado / Tramitado').length;
-    const closed = projectTasks.filter(t => normalizeStatus(t.status) === 'Cerrado').length;
-    const onTrack = projectTasks.filter(t => normalizeStatus(t.status) === 'En Plazo').length;
-    const behind = projectTasks.filter(t => normalizeStatus(t.status) === 'Pendiente Documentación').length;
-    const urgent = projectTasks.filter(t => normalizeStatus(t.status) === 'Urgente / Próximo a Vencer').length;
-    const inReview = projectTasks.filter(t => normalizeStatus(t.status) === 'En Revisión').length;
-    const onHold = projectTasks.filter(t => normalizeStatus(t.status) === 'En Pausa / Suspendido').length;
+    
+    const abiertoCount = annualTasks.filter(t => getEffectiveStatus(t) === 'Abierto').length;
+    const enRiesgoCount = annualTasks.filter(t => getEffectiveStatus(t) === 'En Riesgo').length;
+    const conRetrasoCount = annualTasks.filter(t => getEffectiveStatus(t) === 'Con Retraso').length;
+    const cerradoCount = annualTasks.filter(t => getEffectiveStatus(t) === 'Cerrado').length;
 
     const byDept = MASTERS.departments.map(dept => ({
       name: dept, 
-      value: projectTasks.filter(task => normalizeDepartment(task.department) === dept).length
+      value: annualTasks.filter(task => normalizeDepartment(task.department) === dept).length
     })).sort((a, b) => b.value - a.value);
 
     const byStatus = [
-        { name: 'Presentado', value: completed, color: 'bg-blue-500', hexColor: '#3b82f6' },
-        { name: 'Cerrado', value: closed, color: 'bg-slate-700', hexColor: '#334155' },
-        { name: 'En Plazo', value: onTrack, color: 'bg-emerald-500', hexColor: '#10b981' },
-        { name: 'Pendiente Doc.', value: behind, color: 'bg-amber-400', hexColor: '#facc15' },
-        { name: 'En Revisión', value: inReview, color: 'bg-purple-500', hexColor: '#a855f7' },
-        { name: 'Urgente', value: urgent, color: 'bg-rose-500', hexColor: '#f43f5e' },
-        { name: 'Suspendido', value: onHold, color: 'bg-slate-400', hexColor: '#94a3b8' }
+        { name: 'Abierto (En Plazo)', value: abiertoCount, color: 'bg-emerald-500', hexColor: '#10b981' },
+        { name: 'En Riesgo', value: enRiesgoCount, color: 'bg-amber-500', hexColor: '#f59e0b' },
+        { name: 'Con Retraso', value: conRetrasoCount, color: 'bg-rose-500', hexColor: '#f43f5e' },
+        { name: 'Cerrado', value: cerradoCount, color: 'bg-blue-500', hexColor: '#3b82f6' }
     ].filter(i => i.value > 0);
 
     const uniqueUsers = [...new Set(annualTasks.flatMap(t => t.assignees || (t.assigneeEmail ? [t.assigneeEmail] : [])))];
     const byUser = uniqueUsers.map(email => {
       const userTasks = annualTasks.filter(t => (t.assignees && t.assignees.includes(email)) || t.assigneeEmail === email);
       const statusCounts = { 
-          Completed: userTasks.filter(t => normalizeStatus(t.status) === 'Presentado / Tramitado').length, 
-          Closed: userTasks.filter(t => normalizeStatus(t.status) === 'Cerrado').length,
-          OnTrack: userTasks.filter(t => normalizeStatus(t.status) === 'En Plazo').length, 
-          Behind: userTasks.filter(t => normalizeStatus(t.status) === 'Pendiente Documentación').length, 
-          Urgent: userTasks.filter(t => normalizeStatus(t.status) === 'Urgente / Próximo a Vencer').length, 
-          OnHold: userTasks.filter(t => normalizeStatus(t.status) === 'En Pausa / Suspendido').length 
+          Abierto: userTasks.filter(t => getEffectiveStatus(t) === 'Abierto').length,
+          EnRiesgo: userTasks.filter(t => getEffectiveStatus(t) === 'En Riesgo').length,
+          ConRetraso: userTasks.filter(t => getEffectiveStatus(t) === 'Con Retraso').length,
+          Cerrado: userTasks.filter(t => getEffectiveStatus(t) === 'Cerrado').length
       };
       return { email, total: userTasks.length, statusCounts };
     }).sort((a, b) => b.total - a.total);
 
     const delayByType = DELAY_METRICS_TYPES.map(type => {
         const typeTasks = annualTasks.filter(t => {
-            const s = normalizeStatus(t.status);
-            return normalizeType(t.type) === type && s !== 'Trámite Periódico' && s !== 'Presentado / Tramitado' && s !== 'Cerrado';
+            const s = getEffectiveStatus(t);
+            return normalizeType(t.type) === type && s !== 'Cerrado';
         });
-        const typeDelayed = typeTasks.filter(t => getDelayDays(t) > 0);
+        const typeDelayed = typeTasks.filter(t => getDelayDays(t) > 0 || getEffectiveStatus(t) === 'Con Retraso');
         const typeTotalDelay = typeDelayed.reduce((acc, t) => acc + getDelayDays(t), 0);
         return {
             type,
@@ -1656,7 +1693,7 @@ const AnalyticsView = ({ tasks }) => {
         };
     });
 
-    return { totalCount, projectCount, periodicCount, completed, closed, onTrack, behind, urgent, inReview, onHold, byDept, byStatus, byUser, delayByType };
+    return { totalCount, abiertoCount, enRiesgoCount, conRetrasoCount, cerradoCount, byDept, byStatus, byUser, delayByType };
   }, [annualTasks]);
 
   return (
@@ -1673,26 +1710,32 @@ const AnalyticsView = ({ tasks }) => {
           </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <div className="bg-slate-800 text-white p-4 rounded-xl shadow-sm flex flex-col justify-between min-h-[100px]">
               <div className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Carga Total</div>
               <div className="text-3xl font-bold">{stats.totalCount}</div>
-              <div className="text-[10px] text-slate-300 flex items-center gap-1 mt-1"><Activity className="w-3 h-3"/> {stats.projectCount} Plazos + {stats.periodicCount} Recurrentes</div>
+              <div className="text-[10px] text-slate-300 flex items-center gap-1 mt-1"><Activity className="w-3 h-3"/> Expedientes del Año</div>
+          </div>
+          <div className="bg-white p-4 rounded-xl border-l-4 border-l-emerald-500 border border-slate-200 shadow-sm min-h-[100px]">
+              <div className="text-slate-500 text-[10px] uppercase font-bold">Abiertos (En Plazo)</div>
+              <div className="text-3xl font-bold text-emerald-600">{stats.abiertoCount}</div>
+              <div className="text-[10px] text-slate-400 mt-1">Previstos en fecha</div>
+          </div>
+          <div className="bg-white p-4 rounded-xl border-l-4 border-l-amber-500 border border-slate-200 shadow-sm min-h-[100px]">
+              <div className="text-slate-500 text-[10px] uppercase font-bold">En Riesgo</div>
+              <div className="text-3xl font-bold text-amber-600">{stats.enRiesgoCount}</div>
+              <div className="text-[10px] text-slate-400 mt-1">Posible demora</div>
+          </div>
+          <div className="bg-white p-4 rounded-xl border-l-4 border-l-rose-500 border border-slate-200 shadow-sm min-h-[100px]">
+              <div className="text-slate-500 text-[10px] uppercase font-bold">Con Retraso</div>
+              <div className="text-3xl font-bold text-rose-600">{stats.conRetrasoCount}</div>
+              <div className="text-[10px] text-slate-400 mt-1">Plazo superado</div>
           </div>
           <div className="bg-white p-4 rounded-xl border-l-4 border-l-blue-500 border border-slate-200 shadow-sm min-h-[100px]">
-              <div className="text-slate-500 text-[10px] uppercase font-bold">Presentados</div>
-              <div className="text-3xl font-bold text-blue-600">{stats.completed}</div>
-              <div className="text-[10px] text-slate-400 mt-1">{Math.round((stats.completed/(stats.projectCount || 1))*100)}% de Éxito</div>
-          </div>
-          <div className="bg-white p-4 rounded-xl border-l-4 border-l-slate-700 border border-slate-200 shadow-sm min-h-[100px]">
               <div className="text-slate-500 text-[10px] uppercase font-bold">Cerrados</div>
-              <div className="text-3xl font-bold text-slate-700">{stats.closed}</div>
-              <div className="text-[10px] text-slate-400 mt-1">{Math.round((stats.closed/(stats.projectCount || 1))*100)}% Definitivos</div>
+              <div className="text-3xl font-bold text-blue-600">{stats.cerradoCount}</div>
+              <div className="text-[10px] text-slate-400 mt-1">{Math.round((stats.cerradoCount/(stats.totalCount || 1))*100)}% Completados</div>
           </div>
-          <div className="bg-white p-4 rounded-xl border-l-4 border-l-emerald-500 border border-slate-200 shadow-sm min-h-[100px]"><div className="text-slate-500 text-[10px] uppercase font-bold">En Plazo</div><div className="text-3xl font-bold text-emerald-600">{stats.onTrack}</div></div>
-          <div className="bg-white p-4 rounded-xl border-l-4 border-l-amber-400 border border-slate-200 shadow-sm min-h-[100px]"><div className="text-slate-500 text-[10px] uppercase font-bold">Pendiente Doc.</div><div className="text-3xl font-bold text-amber-600">{stats.behind}</div></div>
-          <div className="bg-white p-4 rounded-xl border-l-4 border-l-rose-500 border border-slate-200 shadow-sm min-h-[100px]"><div className="text-slate-500 text-[10px] uppercase font-bold">Urgentes / Vencidos</div><div className="text-3xl font-bold text-rose-600">{stats.urgent}</div></div>
-          <div className="bg-white p-4 rounded-xl border-l-4 border-l-slate-400 border border-slate-200 shadow-sm min-h-[100px]"><div className="text-slate-500 text-[10px] uppercase font-bold">En Pausa</div><div className="text-3xl font-bold text-slate-500">{stats.onHold}</div></div>
       </div>
 
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
@@ -1716,18 +1759,6 @@ const AnalyticsView = ({ tasks }) => {
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm"><h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600"/> Distribución por Estado de Gestión</h3><SvgDonutChart data={stats.byStatus} /></div>
       </div>
 
-      {stats.periodicCount > 0 && (
-        <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
-          <div className="flex items-center gap-3">
-            <div className="bg-indigo-100 p-2 rounded-full"><Activity className="w-5 h-5 text-indigo-600"/></div>
-            <div>
-              <h4 className="font-bold text-indigo-900 text-sm">Carga Periódica y Recurrente ({stats.periodicCount} trámites continuos)</h4>
-              <p className="text-xs text-indigo-700">Asesorías recurrentes, conciliaciones y trámites continuos sin vencimiento fijo.</p>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
           <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><Users className="w-4 h-4 text-indigo-600"/> Carga de Trabajo por Asesor / Gestor</h3>
           <div className="space-y-4">
@@ -1735,12 +1766,10 @@ const AnalyticsView = ({ tasks }) => {
                   <div key={u.email} className="flex items-center gap-3 text-sm">
                       <div className="w-28 sm:w-48 font-medium text-slate-600 truncate text-right text-xs" title={u.email}>{u.email.split('@')[0]}</div>
                       <div className="flex-1 h-4 bg-slate-100 rounded-full overflow-hidden flex">
-                          <div className="bg-blue-500 h-full transition-all" title="Presentados" style={{width: `${(u.statusCounts.Completed/u.total)*100}%`}}></div>
-                          <div className="bg-slate-700 h-full transition-all" title="Cerrados" style={{width: `${(u.statusCounts.Closed/u.total)*100}%`}}></div>
-                          <div className="bg-emerald-500 h-full transition-all" title="En Plazo" style={{width: `${(u.statusCounts.OnTrack/u.total)*100}%`}}></div>
-                          <div className="bg-amber-400 h-full transition-all" title="Pendiente Doc." style={{width: `${(u.statusCounts.Behind/u.total)*100}%`}}></div>
-                          <div className="bg-rose-500 h-full transition-all" title="Urgente" style={{width: `${(u.statusCounts.Urgent/u.total)*100}%`}}></div>
-                          <div className="bg-slate-400 h-full transition-all" title="En Pausa" style={{width: `${(u.statusCounts.OnHold/u.total)*100}%`}}></div>
+                          <div className="bg-emerald-500 h-full transition-all" title="Abierto" style={{width: `${(u.statusCounts.Abierto/u.total)*100}%`}}></div>
+                          <div className="bg-amber-400 h-full transition-all" title="En Riesgo" style={{width: `${(u.statusCounts.EnRiesgo/u.total)*100}%`}}></div>
+                          <div className="bg-rose-500 h-full transition-all" title="Con Retraso" style={{width: `${(u.statusCounts.ConRetraso/u.total)*100}%`}}></div>
+                          <div className="bg-blue-500 h-full transition-all" title="Cerrado" style={{width: `${(u.statusCounts.Cerrado/u.total)*100}%`}}></div>
                       </div>
                       <div className="w-8 font-bold text-slate-700 text-xs text-center">{u.total}</div>
                   </div>
@@ -1973,7 +2002,7 @@ const ListView = ({ tasks, onEdit }) => {
     <div className="space-y-2.5 animate-in fade-in duration-300">
       {tasks.map(task => {
         const delay = getDelayDays(task);
-        const normStatus = normalizeStatus(task.status);
+        const effectiveStatus = getEffectiveStatus(task);
         const normType = normalizeType(task.type);
         const normDept = normalizeDepartment(task.department);
 
@@ -1984,13 +2013,10 @@ const ListView = ({ tasks, onEdit }) => {
           className="group hover-card-elevate bg-white/95 backdrop-blur-xs rounded-2xl p-4 sm:p-4.5 border border-slate-200/80 shadow-xs hover:border-indigo-200/80 transition-all cursor-pointer relative overflow-hidden"
         >
           <div className={`absolute left-0 top-0 bottom-0 w-1.5 transition-colors ${
-            normStatus === 'Presentado / Tramitado' ? 'bg-blue-500' : 
-            normStatus === 'En Plazo' ? 'bg-emerald-500' : 
-            normStatus === 'Trámite Periódico' ? 'bg-indigo-500' : 
-            normStatus === 'Urgente / Próximo a Vencer' ? 'bg-rose-500' : 
-            normStatus === 'Pendiente Documentación' ? 'bg-amber-500' : 
-            normStatus === 'En Revisión' ? 'bg-purple-500' : 
-            normStatus === 'Cerrado' ? 'bg-slate-700' : 'bg-slate-300'
+            effectiveStatus === 'Cerrado' ? 'bg-blue-500' : 
+            effectiveStatus === 'Abierto' ? 'bg-emerald-500' : 
+            effectiveStatus === 'En Riesgo' ? 'bg-amber-500' : 
+            effectiveStatus === 'Con Retraso' ? 'bg-rose-500' : 'bg-slate-300'
           }`}></div>
 
           <div className="flex flex-col md:flex-row gap-3.5 items-start md:items-center justify-between pl-3">
@@ -2021,15 +2047,10 @@ const ListView = ({ tasks, onEdit }) => {
                   )}
                 </div>
 
-                {normStatus !== 'Trámite Periódico' && (
+                {task.dueDate && (
                   <span className="flex items-center gap-1.5 font-medium text-slate-600">
                     <Clock className="w-3.5 h-3.5 text-slate-400"/> Vencimiento: {formatDateLocal(task.dueDate)} 
                     {delay > 0 && <span className="text-rose-600 font-bold ml-1 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100">(+{delay}d demora)</span>}
-                  </span>
-                )}
-                {normStatus === 'Trámite Periódico' && (
-                  <span className="flex items-center gap-1 text-indigo-600 font-semibold bg-indigo-50/50 px-2 py-0.5 rounded-full border border-indigo-100/60">
-                    <Activity className="w-3.5 h-3.5"/> Trámite Continuo
                   </span>
                 )}
                 {task.attachments?.length > 0 && (
@@ -2046,7 +2067,7 @@ const ListView = ({ tasks, onEdit }) => {
             </div>
             
             <div className="flex flex-col sm:items-end gap-1.5 shrink-0 self-end sm:self-center">
-              <Badge text={normStatus} />
+              <Badge task={task} text={effectiveStatus} />
               <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
                 <CalendarDays className="w-3 h-3 text-slate-400"/> Alta: {formatCreationDate(task.createdAt)}
               </span>
@@ -2079,19 +2100,13 @@ const ExpedienteModal = ({
   plantillas = [],
   logAction
 }) => {
+  const effectiveFormStatus = useMemo(() => {
+    return normalizeStatus(formData.status, formData.dueDate);
+  }, [formData.status, formData.dueDate]);
+
   const dynamicStatusList = useMemo(() => {
-    let list = [];
-    if (estados && estados.length > 0) {
-      list = estados.map(e => e.nombre || e.name).filter(Boolean);
-    } else {
-      list = MASTERS.status;
-    }
-    const currentNorm = normalizeStatus(formData.status);
-    if (currentNorm && !list.includes(currentNorm)) {
-      list = [currentNorm, ...list];
-    }
-    return list;
-  }, [estados, formData.status]);
+    return ['Abierto', 'En Riesgo', 'Con Retraso', 'Cerrado'];
+  }, []);
 
   const suggestedAssignees = useMemo(() => {
     const result = [];
@@ -2216,7 +2231,7 @@ const ExpedienteModal = ({
           ...formData,
           title: `${formData.title} (Copia)`,
           client: formData.client || '',
-          status: 'En Plazo', 
+          status: 'Abierto', 
           dueDate: new Date().toISOString().split('T')[0],
           originalDueDate: new Date().toISOString().split('T')[0],
           description: formData.description,
@@ -2460,16 +2475,62 @@ const ExpedienteModal = ({
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-0.5">Estado</label>
-                  <select value={normalizeStatus(formData.status)} onChange={e => setFormData({...formData, status: e.target.value, dueDate: e.target.value === 'Trámite Periódico' ? '' : formData.dueDate })} className="w-full border border-slate-300 py-1.5 px-2.5 rounded-lg bg-white font-medium text-xs text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500">
-                    {dynamicStatusList.map(s => <option key={s} value={s}>{s}</option>)}
+                  <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-0.5">Estado del Expediente</label>
+                  <select 
+                    value={effectiveFormStatus} 
+                    onChange={e => {
+                      const val = e.target.value;
+                      setFormData(prev => ({ ...prev, status: val }));
+                    }} 
+                    className="w-full border border-slate-300 py-1.5 px-2 rounded-lg bg-white font-bold text-xs text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                  >
+                    <option value="Abierto">🟢 Abierto (En Plazo)</option>
+                    <option value="En Riesgo">🟡 En Riesgo (Previsión de retraso)</option>
+                    <option value="Con Retraso">🔴 Con Retraso (Plazo vencido)</option>
+                    <option value="Cerrado">🔵 Cerrado (Finalizado)</option>
                   </select>
+                  {effectiveFormStatus === 'Abierto' && (
+                    <span className="text-[10px] text-emerald-600 font-medium flex items-center gap-1 mt-0.5">
+                      <CheckCircle2 className="w-2.5 h-2.5 shrink-0" /> En marcha y previsto en fecha
+                    </span>
+                  )}
+                  {effectiveFormStatus === 'En Riesgo' && (
+                    <span className="text-[10px] text-amber-600 font-medium flex items-center gap-1 mt-0.5">
+                      <Clock className="w-2.5 h-2.5 shrink-0" /> Riesgo de no terminar a tiempo
+                    </span>
+                  )}
+                  {effectiveFormStatus === 'Con Retraso' && (
+                    <span className="text-[10px] text-rose-600 font-bold flex items-center gap-1 mt-0.5">
+                      <AlertTriangle className="w-2.5 h-2.5 shrink-0" /> Plazo superado automáticamente
+                    </span>
+                  )}
+                  {effectiveFormStatus === 'Cerrado' && (
+                    <span className="text-[10px] text-blue-600 font-medium flex items-center gap-1 mt-0.5">
+                      <Check className="w-2.5 h-2.5 shrink-0" /> Expediente archivado y cerrado
+                    </span>
+                  )}
                 </div>
                 <div>
                     <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-0.5">Vencimiento Plazo</label>
-                    <input type="date" disabled={isOngoing} value={isOngoing ? '' : formData.dueDate} onChange={e => setFormData({...formData, dueDate: e.target.value})} className={`w-full border border-slate-300 py-1.5 px-2.5 rounded-lg text-xs outline-none ${isOngoing ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : ''}`} />
-                    {isOngoing && <div className="mt-0.5 text-[9px] text-indigo-600 flex items-center gap-1 font-medium"><PauseCircle className="w-2.5 h-2.5"/> Trámite continuo</div>}
-                    {!isOngoing && currentDelay > 0 && (<div className="mt-0.5 text-[9px] text-rose-600 bg-rose-50 border border-rose-100 px-1 py-0.5 rounded font-bold flex items-center gap-1"><AlertTriangle className="w-2.5 h-2.5"/> Aplazado {currentDelay}d</div>)}
+                    <input 
+                      type="date" 
+                      value={formData.dueDate || ''} 
+                      onChange={e => {
+                        const newDate = e.target.value;
+                        const todayStr = new Date().toISOString().split('T')[0];
+                        let newStatus = formData.status;
+                        if (formData.status !== 'Cerrado') {
+                          if (newDate && newDate < todayStr) {
+                            newStatus = 'Con Retraso';
+                          } else if (formData.status === 'Con Retraso') {
+                            newStatus = 'Abierto';
+                          }
+                        }
+                        setFormData(prev => ({ ...prev, dueDate: newDate, status: newStatus }));
+                      }} 
+                      className="w-full border border-slate-300 py-1.5 px-2.5 rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-500 font-medium" 
+                    />
+                    {currentDelay > 0 && (<div className="mt-0.5 text-[9px] text-rose-600 bg-rose-50 border border-rose-100 px-1 py-0.5 rounded font-bold flex items-center gap-1"><AlertTriangle className="w-2.5 h-2.5"/> Demora de {currentDelay}d</div>)}
                 </div>
               </div>
 
@@ -2855,16 +2916,12 @@ const ExpedienteManager = ({ currentUser }) => {
   }, [tramos]);
 
   const dynamicStatus = useMemo(() => {
-    if (estados.length > 0) return estados.map(e => e.nombre || e.name).filter(Boolean);
-    return MASTERS.status;
-  }, [estados]);
+    return ['Abierto', 'En Riesgo', 'Con Retraso', 'Cerrado'];
+  }, []);
 
   const completedStatusNames = useMemo(() => {
-    if (estados.length > 0) {
-      return estados.filter(e => e.isCompleted).map(e => (e.nombre || e.name || '').trim().toLowerCase());
-    }
-    return ['presentado / tramitado', 'cerrado', 'completed', 'closed'];
-  }, [estados]);
+    return ['cerrado', 'closed', 'presentado / tramitado', 'completed'];
+  }, []);
 
   const initialFormState = {
     title: '', 
@@ -2876,7 +2933,7 @@ const ExpedienteManager = ({ currentUser }) => {
     area: MASTERS.departments[0],
     type: MASTERS.types[0], 
     tramo: MASTERS.types[0],
-    status: MASTERS.status[0], 
+    status: 'Abierto', 
     assignees: [],
     dueDate: new Date().toISOString().split('T')[0],
     actions: [],
@@ -3090,18 +3147,14 @@ const ExpedienteManager = ({ currentUser }) => {
       if (!amIAssigned) return false;
     }
 
-    const normStatus = normalizeStatus(task.status);
+    const effectiveStatus = getEffectiveStatus(task);
     const normDept = normalizeDepartment(task.department);
     const normType = normalizeType(task.type);
 
-    if (hideCompleted && currentView !== 'analytics' && (
-      normStatus === 'Presentado / Tramitado' || 
-      normStatus === 'Cerrado' || 
-      completedStatusNames.includes(normStatus.toLowerCase())
-    )) return false;
+    if (hideCompleted && currentView !== 'analytics' && effectiveStatus === 'Cerrado') return false;
     if (selectedDepts.length > 0 && !selectedDepts.includes(normDept)) return false;
     if (selectedTypes.length > 0 && !selectedTypes.includes(normType)) return false;
-    if (selectedStatus.length > 0 && !selectedStatus.includes(normStatus)) return false; 
+    if (selectedStatus.length > 0 && !selectedStatus.includes(effectiveStatus)) return false; 
     
     if (searchTerm) {
         const term = searchTerm.toLowerCase();
@@ -3125,6 +3178,7 @@ const ExpedienteManager = ({ currentUser }) => {
       area: defaultDept,
       type: defaultType,
       tramo: defaultType,
+      status: 'Abierto',
       assignees: [currentUser.email]
     }); 
     setShowModal(true); 
@@ -3144,7 +3198,7 @@ const ExpedienteManager = ({ currentUser }) => {
       area: dept,
       type: typ, 
       tramo: typ,
-      status: normalizeStatus(task.status),
+      status: getEffectiveStatus(task),
       assignees: task.assignees || (task.assigneeEmail ? [task.assigneeEmail] : []), 
       dueDate: task.dueDate || '',
       originalDueDate: task.originalDueDate || task.dueDate || '',
@@ -3185,20 +3239,33 @@ const ExpedienteManager = ({ currentUser }) => {
       return;
     }
 
+    // Calcular estado definitivo asegurando coherencia con la fecha límite
+    let finalStatus = formData.status || 'Abierto';
+    if (finalStatus !== 'Cerrado' && finalStatus !== 'Closed') {
+      const todayStr = new Date().toISOString().split('T')[0];
+      if (formData.dueDate && formData.dueDate < todayStr) {
+        finalStatus = 'Con Retraso';
+      }
+    } else {
+      finalStatus = 'Cerrado';
+    }
+
     try {
       if (editingTask) { 
           const payload = { 
               ...formData, 
+              status: finalStatus,
               lastUpdated: serverTimestamp(),
               updatedBy: currentUser.email 
           };
           await updateDoc(doc(db, 'expedientes', editingTask.id), payload).catch(async () => {
             await updateDoc(doc(db, 'tasks', editingTask.id), payload);
           });
-          logAction('Actualizado Expediente', `Título: ${formData.title} - Cliente: ${formData.client || 'N/A'}`);
+          logAction('Actualizado Expediente', `Título: ${formData.title} - Estado: ${finalStatus} - Cliente: ${formData.client || 'N/A'}`);
       } else { 
           const newData = { 
               ...formData, 
+              status: finalStatus,
               originalDueDate: formData.dueDate, 
               createdBy: currentUser.email, 
               createdAt: serverTimestamp(), 
@@ -3206,7 +3273,7 @@ const ExpedienteManager = ({ currentUser }) => {
               updatedBy: currentUser.email 
           };
           await addDoc(collection(db, 'expedientes'), newData);
-          logAction('Creado Expediente', `Título: ${formData.title} - Cliente: ${formData.client || 'N/A'}`);
+          logAction('Creado Expediente', `Título: ${formData.title} - Estado: ${finalStatus} - Cliente: ${formData.client || 'N/A'}`);
       }
       setShowModal(false);
     } catch (error) { 

@@ -533,12 +533,19 @@ export default function BillingView({
 
                       {/* Estado del Trámite */}
                       <td className="py-3 px-3 whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-                          t.isClosedOrProcessed 
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
-                            : 'bg-slate-100 text-slate-700'
+                        <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                          t.status === 'Cerrado' ? 'bg-blue-50 text-blue-800 border-blue-200' :
+                          t.status === 'Con Retraso' ? 'bg-rose-50 text-rose-800 border-rose-200' :
+                          t.status === 'En Riesgo' ? 'bg-amber-50 text-amber-800 border-amber-200' :
+                          'bg-emerald-50 text-emerald-800 border-emerald-200'
                         }`}>
-                          {t.status || 'En trámite'}
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            t.status === 'Cerrado' ? 'bg-blue-500' :
+                            t.status === 'Con Retraso' ? 'bg-rose-500 animate-pulse' :
+                            t.status === 'En Riesgo' ? 'bg-amber-500' :
+                            'bg-emerald-500'
+                          }`}></span>
+                          {t.status || 'Abierto'}
                         </span>
                         {isClosedUnbilled && (
                           <span className="block text-[10px] text-amber-700 font-bold mt-0.5">

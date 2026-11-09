@@ -35,31 +35,31 @@ import {
 export const STATUS_COLORS = {
   emerald: {
     id: 'emerald',
-    label: 'Verde Esmeralda',
+    label: 'Verde (Abierto / En Plazo)',
     colorClass: 'bg-emerald-50 text-emerald-800 border-emerald-200/90',
     dotColor: 'bg-emerald-500',
     hex: '#10b981',
     bgClass: 'bg-emerald-500'
   },
-  rose: {
-    id: 'rose',
-    label: 'Rojo / Urgente',
-    colorClass: 'bg-rose-50 text-rose-800 border-rose-200/90',
-    dotColor: 'bg-rose-500 animate-pulse',
-    hex: '#f43f5e',
-    bgClass: 'bg-rose-500'
-  },
   amber: {
     id: 'amber',
-    label: 'Ámbar / En Espera',
+    label: 'Amarillo (En Riesgo)',
     colorClass: 'bg-amber-50 text-amber-800 border-amber-200/90',
     dotColor: 'bg-amber-500',
     hex: '#f59e0b',
     bgClass: 'bg-amber-500'
   },
+  rose: {
+    id: 'rose',
+    label: 'Rojo (Con Retraso / Vencido)',
+    colorClass: 'bg-rose-50 text-rose-800 border-rose-200/90',
+    dotColor: 'bg-rose-500 animate-pulse',
+    hex: '#f43f5e',
+    bgClass: 'bg-rose-500'
+  },
   blue: {
     id: 'blue',
-    label: 'Azul Tramitado',
+    label: 'Azul (Cerrado)',
     colorClass: 'bg-blue-50 text-blue-800 border-blue-200/90',
     dotColor: 'bg-blue-500',
     hex: '#3b82f6',
@@ -75,7 +75,7 @@ export const STATUS_COLORS = {
   },
   purple: {
     id: 'purple',
-    label: 'Púrpura / Revisión',
+    label: 'Púrpura / Especial',
     colorClass: 'bg-purple-50 text-purple-800 border-purple-200/90',
     dotColor: 'bg-purple-500',
     hex: '#a855f7',
@@ -99,7 +99,7 @@ export const STATUS_COLORS = {
   },
   slate: {
     id: 'slate',
-    label: 'Pizarra / En Pausa',
+    label: 'Pizarra / Neutro',
     colorClass: 'bg-slate-100 text-slate-700 border-slate-300',
     dotColor: 'bg-slate-400',
     hex: '#64748b',
@@ -107,7 +107,7 @@ export const STATUS_COLORS = {
   },
   dark: {
     id: 'dark',
-    label: 'Gris Oscuro / Cerrado',
+    label: 'Gris Oscuro',
     colorClass: 'bg-slate-800 text-slate-100 border-slate-700',
     dotColor: 'bg-slate-300',
     hex: '#1e293b',
@@ -140,15 +140,40 @@ export const DEFAULT_TRAMOS = [
   { nombre: 'Otro Trámite', descripcion: 'Trámites misceláneos no encuadrados en categorías anteriores' }
 ];
 
+// 4 Estados Operativos Oficiales del Despacho según SLA / Plazos:
 export const DEFAULT_ESTADOS = [
-  { nombre: 'En Plazo', color: 'emerald', categoria: 'activo', isCompleted: false, orden: 1, descripcion: 'En gestión activa y dentro de los plazos ordinarios' },
-  { nombre: 'Pendiente Documentación', color: 'amber', categoria: 'bloqueado', isCompleted: false, orden: 2, descripcion: 'A la espera de que el cliente o terceros aporten justificantes' },
-  { nombre: 'En Revisión', color: 'purple', categoria: 'activo', isCompleted: false, orden: 3, descripcion: 'Confeccionado, en fase de comprobación por el asesor senior' },
-  { nombre: 'Urgente / Próximo a Vencer', color: 'rose', categoria: 'urgente', isCompleted: false, orden: 4, descripcion: 'Plazo oficial inminente o requerimiento que vence en menos de 48h' },
-  { nombre: 'Trámite Periódico', color: 'indigo', categoria: 'informativo', isCompleted: false, orden: 5, descripcion: 'Gestión recurrente mensual o trimestral sin vencimiento único' },
-  { nombre: 'En Pausa / Suspendido', color: 'slate', categoria: 'bloqueado', isCompleted: false, orden: 6, descripcion: 'Paralizado temporalmente por instrucción expresa o causa de fuerza mayor' },
-  { nombre: 'Presentado / Tramitado', color: 'blue', categoria: 'completado', isCompleted: true, orden: 7, descripcion: 'Declaración o trámite liquidado con justificante de registro telemático' },
-  { nombre: 'Cerrado', color: 'dark', categoria: 'completado', isCompleted: true, orden: 8, descripcion: 'Expediente finalizado, facturado o archivado definitivamente' }
+  { 
+    nombre: 'Abierto', 
+    color: 'emerald', 
+    categoria: 'activo', 
+    isCompleted: false, 
+    orden: 1, 
+    descripcion: 'Proyecto en marcha y previsto para terminar en el día esperado (dentro de plazo)' 
+  },
+  { 
+    nombre: 'En Riesgo', 
+    color: 'amber', 
+    categoria: 'riesgo', 
+    isCompleted: false, 
+    orden: 2, 
+    descripcion: 'Incidencias detectadas o previsión de que no se terminará cuando estaba previsto' 
+  },
+  { 
+    nombre: 'Con Retraso', 
+    color: 'rose', 
+    categoria: 'urgente', 
+    isCompleted: false, 
+    orden: 3, 
+    descripcion: 'Plazo superado automáticamente sin haberse cerrado el expediente' 
+  },
+  { 
+    nombre: 'Cerrado', 
+    color: 'blue', 
+    categoria: 'completado', 
+    isCompleted: true, 
+    orden: 4, 
+    descripcion: 'Expediente concluido, tramitado y cerrado definitivamente' 
+  }
 ];
 
 const ClassificationManager = ({
@@ -399,6 +424,64 @@ const ClassificationManager = ({
     }
   };
 
+  // Configuración de los 4 estados operativos oficiales según SLA / Plazos
+  const handleApplyOfficial4States = async () => {
+    if (!window.confirm("¿Deseas configurar los 4 estados operativos oficiales del despacho?\n\n🟢 Abierto (Verde - En marcha y dentro de plazo)\n🟡 En Riesgo (Amarillo - Previsión de no terminar a tiempo)\n🔴 Con Retraso (Rojo - Plazo superado automáticamente)\n🔵 Cerrado (Azul - Completado y facturado)\n\nSe sincronizarán estos 4 estados en Firestore.")) {
+      return;
+    }
+
+    setIsSeeding(true);
+    try {
+      const batch = writeBatch(db);
+      
+      DEFAULT_ESTADOS.forEach(def => {
+        const existing = estados.find(e => 
+          (e.nombre || e.name || '').toLowerCase().trim() === def.nombre.toLowerCase().trim()
+        );
+
+        if (existing) {
+          const docRef = doc(db, 'estados', existing.id);
+          batch.update(docRef, {
+            nombre: def.nombre,
+            color: def.color,
+            categoria: def.categoria,
+            isCompleted: def.isCompleted,
+            orden: def.orden,
+            descripcion: def.descripcion,
+            updatedAt: serverTimestamp(),
+            updatedBy: currentUser?.email || 'Sistema'
+          });
+        } else {
+          const newDocRef = doc(collection(db, 'estados'));
+          batch.set(newDocRef, {
+            nombre: def.nombre,
+            color: def.color,
+            categoria: def.categoria,
+            isCompleted: def.isCompleted,
+            orden: def.orden,
+            descripcion: def.descripcion,
+            activo: true,
+            createdAt: serverTimestamp(),
+            createdBy: currentUser?.email || 'Sistema',
+            updatedAt: serverTimestamp(),
+            updatedBy: currentUser?.email || 'Sistema'
+          });
+        }
+      });
+
+      await batch.commit();
+      if (logAction) {
+        logAction('Configuración de Estados Oficiales', 'Sincronizados los 4 estados oficiales del despacho en Firestore');
+      }
+      alert('✅ ¡Los 4 estados oficiales (Abierto 🟢, En Riesgo 🟡, Con Retraso 🔴, Cerrado 🔵) han quedado configurados en Firestore!');
+    } catch (error) {
+      console.error('Error aplicando estados oficiales:', error);
+      alert('Error: ' + error.message);
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
   return (
     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
       
@@ -498,8 +581,23 @@ const ClassificationManager = ({
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+          {/* Botón de restablecer los 4 estados oficiales del despacho */}
+          {activeTab === 'estados' && (
+            <button
+              type="button"
+              onClick={handleApplyOfficial4States}
+              disabled={isSeeding}
+              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
+              title="Sincronizar los 4 Estados Oficiales de GestFlow: Abierto (Verde), En Riesgo (Amarillo), Con Retraso (Rojo) y Cerrado (Azul)"
+            >
+              {isSeeding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-indigo-600" />}
+              <span className="hidden sm:inline">Restablecer 4 Estados Oficiales</span>
+              <span className="sm:hidden">4 Estados</span>
+            </button>
+          )}
+
           {/* Botón de Carga Inicial si la colección tiene pocos elementos */}
-          {currentItems.length === 0 && (
+          {currentItems.length === 0 && activeTab !== 'estados' && (
             <button
               onClick={handleSeedDefaults}
               disabled={isSeeding}
