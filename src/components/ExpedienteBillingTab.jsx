@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { 
   Coins, 
   Receipt, 
@@ -19,7 +19,12 @@ import {
   Loader2,
   X,
   Paperclip,
-  Check
+  Check,
+  Printer,
+  Mail,
+  Send,
+  Download,
+  Share2
 } from 'lucide-react';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebase';
@@ -27,7 +32,9 @@ import { storage } from '../firebase';
 export default function ExpedienteBillingTab({ 
   formData, 
   setFormData, 
-  currentUser 
+  currentUser,
+  clientes = [],
+  logAction
 }) {
   const [showAddPayment, setShowAddPayment] = useState(false);
   const [showAddExpense, setShowAddExpense] = useState(false);
@@ -230,6 +237,272 @@ export default function ExpedienteBillingTab({
       ...formData,
       externalExpenses: externalExpenses.filter(e => e.id !== id)
     });
+  };
+
+  // Búsqueda inteligente del cliente en el censo de clientes
+  const selectedClient = useMemo(() => {
+    if (!clientes || clientes.length === 0) return null;
+    const formNif = (formData.clientNif || '').toUpperCase().trim();
+    const formClient = (formData.client || '').toLowerCase().trim();
+    
+    return clientes.find(c => {
+      const cNif = (c.nif || '').toUpperCase().trim();
+      const cRazon = (c.razonSocial || '').toLowerCase().trim();
+      if (formNif && formNif === cNif) return true;
+      if (cNif && formClient.includes(cNif.toLowerCase())) return true;
+      if (cRazon && formClient === cRazon) return true;
+      if (`${cRazon} (${cNif.toLowerCase()})` === formClient) return true;
+      return false;
+    }) || null;
+  }, [clientes, formData.client, formData.clientNif]);
+
+  const [recipientEmail, setRecipientEmail] = useState('');
+
+  useEffect(() => {
+    if (selectedClient?.email) {
+      setRecipientEmail(selectedClient.email);
+    } else if (formData.clientEmail) {
+      setRecipientEmail(formData.clientEmail);
+    }
+  }, [selectedClient, formData.clientEmail]);
+
+  // Generar e Imprimir / Guardar en PDF la liquidación económica
+  const handleGenerateLiquidationPdf = () => {
+    const clientName = selectedClient?.razonSocial || selectedClient?.nombreComercial || formData.client || 'Cliente';
+    const clientNif = selectedClient?.nif || formData.clientNif || 'No especificado';
+    const clientEmail = recipientEmail || selectedClient?.email || 'No indicado';
+    const clientPhone = selectedClient?.telefono || '-';
+    const expCode = formData.id ? `EXP-${String(formData.id).slice(-6).toUpperCase()}` : 'EXP-NUEVO';
+    const today = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    const htmlContent = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Liquidación Económica - ${expCode} - ${clientName}</title>
+  <style>
+    @page { size: A4; margin: 15mm; }
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { color: #1e293b; background: #ffffff; margin: 0; padding: 24px; font-size: 13px; line-height: 1.5; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 16px; margin-bottom: 20px; }
+    .brand-title { font-size: 22px; font-weight: 800; color: #0f172a; margin: 0 0 4px 0; }
+    .brand-sub { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; }
+    .doc-badge { background: #f8fafc; border: 1px solid #cbd5e1; padding: 8px 14px; border-radius: 8px; text-align: right; }
+    .doc-badge h2 { margin: 0; font-size: 14px; font-weight: 700; color: #0f172a; }
+    .doc-badge p { margin: 2px 0 0 0; font-size: 11px; color: #64748b; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+    .info-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; }
+    .info-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #475569; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+    .info-box p { margin: 2px 0; font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px; }
+    th { background: #0f172a; color: #ffffff; font-weight: 600; text-align: left; padding: 8px 10px; font-size: 11px; text-transform: uppercase; }
+    th.text-right, td.text-right { text-align: right; }
+    td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
+    tr:nth-child(even) td { background-color: #f8fafc; }
+    .summary-card { background: #0f172a; color: #ffffff; border-radius: 8px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; margin-top: 16px; }
+    .summary-label { font-size: 12px; font-weight: 600; text-transform: uppercase; color: #94a3b8; }
+    .summary-amount { font-size: 22px; font-weight: 800; color: #38bdf8; }
+    .bank-notice { margin-top: 20px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 12px 16px; font-size: 11px; color: #1e40af; }
+    .footer { margin-top: 30px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+    .no-print { position: fixed; top: 16px; right: 16px; z-index: 9999; }
+    .btn { background: #2563eb; color: white; border: none; padding: 10px 16px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+    .btn:hover { background: #1d4ed8; }
+    @media print { .no-print { display: none !important; } body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="no-print">
+    <button class="btn" onclick="window.print()">🖨️ Imprimir / Guardar como PDF</button>
+  </div>
+
+  <div class="header">
+    <div>
+      <div class="brand-title">GESTORÍA ADMINISTRATIVA</div>
+      <div class="brand-sub">Servicios Profesionales de Asesoría y Tramitación</div>
+    </div>
+    <div class="doc-badge">
+      <h2>LIQUIDACIÓN ECONÓMICA</h2>
+      <p><strong>Ref:</strong> ${expCode} | <strong>Fecha:</strong> ${today}</p>
+    </div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-box">
+      <div class="info-title">Datos del Cliente</div>
+      <p><strong>Razón Social:</strong> ${clientName}</p>
+      <p><strong>NIF / CIF:</strong> ${clientNif}</p>
+      <p><strong>Email:</strong> ${clientEmail}</p>
+      <p><strong>Teléfono:</strong> ${clientPhone}</p>
+    </div>
+    <div class="info-box">
+      <div class="info-title">Expediente de Referencia</div>
+      <p><strong>Título:</strong> ${formData.title || 'Expediente de Gestión'}</p>
+      <p><strong>Área:</strong> ${formData.department || formData.area || 'General'}</p>
+      <p><strong>Trámite:</strong> ${formData.type || formData.tramo || '-'}</p>
+      <p><strong>Estado Facturación:</strong> ${formData.billingStatus === 'paid' ? 'Cobrado' : (formData.billingStatus === 'invoiced' ? 'Facturado' : 'Liquidación Pendiente')}</p>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Concepto</th>
+        <th>Detalle / Factura Origen</th>
+        <th>Fecha</th>
+        <th class="text-right">Importe (€)</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${feeAmount > 0 ? `
+        <tr>
+          <td><strong>Honorarios de Gestión Profesional</strong></td>
+          <td>${formData.invoiceNumber ? 'Factura Nº: ' + formData.invoiceNumber : 'Servicios de tramitación'}</td>
+          <td>${today}</td>
+          <td class="text-right"><strong>${feeAmount.toFixed(2)} €</strong></td>
+        </tr>
+      ` : ''}
+      ${externalExpenses.map(e => `
+        <tr>
+          <td>${e.concept || 'Gasto suplido'} (${e.provider || 'Tercero'})</td>
+          <td>${e.invoiceNumber ? 'Factura/Tasa: ' + e.invoiceNumber : 'Justificante aportado'}</td>
+          <td>${e.date || '-'}</td>
+          <td class="text-right">+${Number(e.amount).toFixed(2)} €</td>
+        </tr>
+      `).join('')}
+      ${feeAmount === 0 && externalExpenses.length === 0 ? `
+        <tr><td colspan="4" style="text-align:center; color:#94a3b8; padding:14px;">Sin honorarios ni suplidos devengados.</td></tr>
+      ` : ''}
+      <tr style="background-color: #f1f5f9; font-weight: 700;">
+        <td colspan="3">SUBTOTAL BRUTO (Honorarios + Suplidos)</td>
+        <td class="text-right">${totalGross.toFixed(2)} €</td>
+      </tr>
+    </tbody>
+  </table>
+
+  ${downPayments.length > 0 ? `
+    <table>
+      <thead>
+        <tr>
+          <th>Entrega a Cuenta / Anticipo</th>
+          <th>Método de Pago</th>
+          <th>Fecha</th>
+          <th class="text-right">Importe Recibido (€)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${downPayments.map(p => `
+          <tr>
+            <td>${p.concept || 'Provisión recibida'}</td>
+            <td style="text-transform: capitalize;">${p.paymentMethod || 'Transferencia'}</td>
+            <td>${p.date || '-'}</td>
+            <td class="text-right" style="color: #15803d; font-weight: 600;">-${Number(p.amount).toFixed(2)} €</td>
+          </tr>
+        `).join('')}
+        <tr style="background-color: #f0fdf4; font-weight: 700;">
+          <td colspan="3" style="color: #166534;">TOTAL ANTICIPOS DEDUCIDOS</td>
+          <td class="text-right" style="color: #166534;">-${totalDownPayments.toFixed(2)} €</td>
+        </tr>
+      </tbody>
+    </table>
+  ` : ''}
+
+  <div class="summary-card">
+    <div>
+      <div class="summary-label">
+        ${pendingBalance > 0 ? 'Saldo Neto Pendiente de Cobro' : pendingBalance === 0 ? 'Liquidación Saldada' : 'Saldo a Favor del Cliente (Devolución)'}
+      </div>
+      <div style="font-size: 11px; color: #cbd5e1; margin-top: 2px;">
+        ${pendingBalance > 0 ? 'Total a transferir por el cliente' : pendingBalance === 0 ? 'No existe saldo pendiente' : 'Importe sobrante a reintegrar'}
+      </div>
+    </div>
+    <div class="summary-amount" style="color: ${pendingBalance > 0 ? '#38bdf8' : (pendingBalance === 0 ? '#4ade80' : '#fbbf24')};">
+      ${Math.abs(pendingBalance).toFixed(2)} €
+    </div>
+  </div>
+
+  ${pendingBalance > 0 ? `
+    <div class="bank-notice">
+      <p style="margin: 0 0 4px 0;"><strong>Instrucciones para el Abono / Transferencia:</strong></p>
+      <p style="margin: 0 0 2px 0;">Rogamos realicen el ingreso del importe en la siguiente cuenta:</p>
+      <p style="margin: 4px 0; font-family: monospace; font-size: 13px; font-weight: 700; color: #0f172a;">
+        IBAN: ES91 2100 0418 4502 0005 1332 (CaixaBank)
+      </p>
+      <p style="margin: 0; font-size: 10px; color: #475569;">
+        Concepto bancario obligatorio: <strong>${expCode} - ${clientName}</strong>
+      </p>
+    </div>
+  ` : ''}
+
+  <div class="footer">
+    Documento informativo de liquidación económica emitido el ${today}. Para consultas o aclaraciones contacte con su asesor.
+  </div>
+</body>
+</html>`;
+
+    const printWin = window.open('', '_blank');
+    if (printWin) {
+      printWin.document.open();
+      printWin.document.write(htmlContent);
+      printWin.document.close();
+    } else {
+      alert("Por favor habilita las ventanas emergentes del navegador para ver la liquidación.");
+    }
+  };
+
+  // Enviar liquidación por correo electrónico directamente al cliente
+  const handleSendBillingEmail = () => {
+    const emailToUse = (recipientEmail || selectedClient?.email || '').trim();
+    if (!emailToUse) {
+      alert("Por favor introduce el email del cliente para poder remitir la liquidación.");
+      return;
+    }
+
+    const clientName = selectedClient?.razonSocial || selectedClient?.nombreComercial || formData.client || 'Cliente';
+    const expCode = formData.id ? `EXP-${String(formData.id).slice(-6).toUpperCase()}` : 'EXP';
+    const subject = `Liquidación Económica - ${formData.title || 'Expediente'} (${expCode})`;
+
+    let bodyText = `Estimado/a ${clientName},\n\n`;
+    bodyText += `Le remitimos el desglose de liquidación económica correspondiente al trámite "${formData.title || 'de gestión'}".\n\n`;
+    bodyText += `DETALLE DE LA LIQUIDACIÓN:\n`;
+    bodyText += `--------------------------------------------------\n`;
+    if (feeAmount > 0) {
+      bodyText += `• Honorarios profesionales de gestión: ${feeAmount.toFixed(2)} €\n`;
+    }
+    if (externalExpenses.length > 0) {
+      bodyText += `• Suplidos y gastos de terceros: ${totalExternalExpenses.toFixed(2)} €\n`;
+      externalExpenses.forEach(e => {
+        bodyText += `   - ${e.concept || 'Suplido'} (${e.provider || 'Organismo'}${e.invoiceNumber ? ' - Fact/Tasa: ' + e.invoiceNumber : ''}): ${Number(e.amount).toFixed(2)} €\n`;
+      });
+    }
+    bodyText += `• Total Bruto de la operación: ${totalGross.toFixed(2)} €\n`;
+    if (downPayments.length > 0) {
+      bodyText += `• Anticipos / Entregas a cuenta recibidas: -${totalDownPayments.toFixed(2)} €\n`;
+    }
+    bodyText += `--------------------------------------------------\n`;
+    if (pendingBalance > 0) {
+      bodyText += `SALDO NETO A ABONAR: ${pendingBalance.toFixed(2)} €\n`;
+      bodyText += `--------------------------------------------------\n\n`;
+      bodyText += `Pueden realizar la transferencia bancaria con los siguientes datos:\n`;
+      bodyText += `IBAN: ES91 2100 0418 4502 0005 1332 (CaixaBank)\n`;
+      bodyText += `Concepto: ${expCode} - ${clientName}\n\n`;
+      bodyText += `Adjuntamos a este envío el documento de liquidación detallado en PDF emitido por la gestoría.\n\n`;
+    } else if (pendingBalance === 0) {
+      bodyText += `SALDO PENDIENTE: 0.00 € (Totalmente liquidado y pagado)\n`;
+      bodyText += `--------------------------------------------------\n\n`;
+    } else {
+      bodyText += `SALDO A FAVOR DEL CLIENTE: ${Math.abs(pendingBalance).toFixed(2)} €\n`;
+      bodyText += `--------------------------------------------------\n\n`;
+      bodyText += `Procederemos al reembolso de la provisión sobrante conforme a lo pactado.\n\n`;
+    }
+    bodyText += `Quedamos a su entera disposición para cualquier aclaración o duda.\n\n`;
+    bodyText += `Atentamente,\nEl equipo de su Gestoría Administrativa`;
+
+    const mailtoUrl = `mailto:${encodeURIComponent(emailToUse)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
+    window.location.href = mailtoUrl;
+
+    if (logAction) {
+      logAction('email_sent', `Liquidación enviada por email a ${emailToUse} (Saldo: ${pendingBalance.toFixed(2)} €)`);
+    }
   };
 
   return (
@@ -859,6 +1132,75 @@ export default function ExpedienteBillingTab({
             <span>Saldo pendiente: <strong>{pendingBalance.toFixed(2)} €</strong> (honorarios pactados + suplidos adelantados).</span>
           </p>
         )}
+      </div>
+
+      {/* TARJETA 5: ACCIONES DE COBRO & ENVÍO DE LIQUIDACIÓN AL CLIENTE (SIN N8N) */}
+      <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs space-y-2.5">
+        <div className="flex justify-between items-center pb-1.5 border-b border-slate-100">
+          <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+            <Send className="w-3.5 h-3.5 text-blue-600" />
+            Emisión de Liquidación & Comunicación al Cliente
+          </span>
+          <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
+            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Envío Directo (Sin n8n)
+          </span>
+        </div>
+
+        {/* Destinatario de correo del cliente */}
+        <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-1.5 text-xs">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-slate-500 font-medium">Cliente Asignado:</span>
+            <span className="font-bold text-slate-800 truncate max-w-[280px]">
+              {selectedClient?.razonSocial || formData.client || 'Sin cliente asignado'}
+              {selectedClient?.nif && ` (${selectedClient.nif})`}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 pt-1">
+            <Mail className="w-4 h-4 text-slate-400 shrink-0" />
+            <input
+              type="email"
+              placeholder="correo@cliente.com"
+              value={recipientEmail}
+              onChange={(e) => setRecipientEmail(e.target.value)}
+              className="flex-1 px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white text-slate-800 font-medium outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+          {selectedClient?.email ? (
+            <p className="text-[10px] text-emerald-700 flex items-center gap-1">
+              <Check className="w-3 h-3 text-emerald-600" /> Correo detectado automáticamente de la ficha del cliente.
+            </p>
+          ) : (
+            <p className="text-[10px] text-amber-600 flex items-center gap-1">
+              <AlertCircle className="w-3 h-3 text-amber-500" /> El cliente no tiene email registrado en su ficha. Puedes introducirlo arriba para este envío.
+            </p>
+          )}
+        </div>
+
+        {/* Botonera de acción */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+          <button
+            type="button"
+            onClick={handleGenerateLiquidationPdf}
+            className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white py-2 px-3 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
+          >
+            <Printer className="w-3.5 h-3.5 text-blue-400" />
+            <span>Generar / Descargar PDF</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSendBillingEmail}
+            className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2 px-3 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
+          >
+            <Mail className="w-3.5 h-3.5" />
+            <span>Enviar Liquidación por Email</span>
+          </button>
+        </div>
+
+        <p className="text-[10px] text-slate-400 text-center pt-0.5">
+          El botón de PDF genera el documento formal con membrete listo para imprimir o guardar. El botón de email redacta el correo con desglose completo y cuenta bancaria.
+        </p>
       </div>
 
     </div>
