@@ -315,12 +315,12 @@ export const translations = {
       title: 'Panell d\'Administració i Control',
       subtitle: 'Configuració del despatx, catàleg d\'estats, plantilles operatives i gestió de permisos.',
       tabs: {
-        classification: 'Àrees, Tràmits i Estats',
-        templates: 'Plantilles de Tràmits GTD',
-        billing: 'Liquidacions & Cobraments',
-        personal: 'Equip i Assessors',
-        clients: 'Cartera de Clients',
-        maintenance: 'Auditoria, Logs & Neteja'
+        classification: 'Classificació',
+        templates: 'Plantilles',
+        billing: 'Facturació',
+        personal: 'Equip',
+        clients: 'Clients',
+        maintenance: 'Auditoria & Logs'
       },
       clientsTab: {
         title: 'Cartera de Clients i Empreses',
@@ -823,12 +823,12 @@ export const translations = {
       title: 'Panel de Administración y Control',
       subtitle: 'Configuración del despacho, catálogo de estados, plantillas operativas y gestión de permisos.',
       tabs: {
-        classification: 'Áreas, Trámites y Estados',
-        templates: 'Plantillas de Trámites GTD',
-        billing: 'Liquidaciones & Cobros',
-        personal: 'Equipo y Asesores',
-        clients: 'Cartera de Clientes',
-        maintenance: 'Auditoría, Logs y Limpieza'
+        classification: 'Clasificación',
+        templates: 'Plantillas',
+        billing: 'Facturación',
+        personal: 'Equipo',
+        clients: 'Clientes',
+        maintenance: 'Auditoría & Logs'
       },
       clientsTab: {
         title: 'Cartera de Clientes y Empresas',
