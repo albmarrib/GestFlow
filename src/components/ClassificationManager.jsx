@@ -30,12 +30,14 @@ import {
   ShieldCheck,
   Filter
 } from 'lucide-react';
+import { translations } from '../i18n/translations';
 
 // Paleta de colores semántica para estados
 export const STATUS_COLORS = {
   emerald: {
     id: 'emerald',
     label: 'Verde (Abierto / En Plazo)',
+    label_ca: 'Verd (Obert / En Termini)',
     colorClass: 'bg-emerald-50 text-emerald-800 border-emerald-200/90',
     dotColor: 'bg-emerald-500',
     hex: '#10b981',
@@ -44,6 +46,7 @@ export const STATUS_COLORS = {
   amber: {
     id: 'amber',
     label: 'Amarillo (En Riesgo)',
+    label_ca: 'Groc (En Risc)',
     colorClass: 'bg-amber-50 text-amber-800 border-amber-200/90',
     dotColor: 'bg-amber-500',
     hex: '#f59e0b',
@@ -52,6 +55,7 @@ export const STATUS_COLORS = {
   rose: {
     id: 'rose',
     label: 'Rojo (Con Retraso / Vencido)',
+    label_ca: 'Vermell (Amb Retard / Vençut)',
     colorClass: 'bg-rose-50 text-rose-800 border-rose-200/90',
     dotColor: 'bg-rose-500 animate-pulse',
     hex: '#f43f5e',
@@ -60,6 +64,7 @@ export const STATUS_COLORS = {
   blue: {
     id: 'blue',
     label: 'Azul (Cerrado)',
+    label_ca: 'Blau (Tancat)',
     colorClass: 'bg-blue-50 text-blue-800 border-blue-200/90',
     dotColor: 'bg-blue-500',
     hex: '#3b82f6',
@@ -68,6 +73,7 @@ export const STATUS_COLORS = {
   indigo: {
     id: 'indigo',
     label: 'Índigo Corporativo',
+    label_ca: 'Índigo Corporatiu',
     colorClass: 'bg-indigo-50 text-indigo-800 border-indigo-200/90',
     dotColor: 'bg-indigo-500',
     hex: '#6366f1',
@@ -76,6 +82,7 @@ export const STATUS_COLORS = {
   purple: {
     id: 'purple',
     label: 'Púrpura / Especial',
+    label_ca: 'Púrpura / Especial',
     colorClass: 'bg-purple-50 text-purple-800 border-purple-200/90',
     dotColor: 'bg-purple-500',
     hex: '#a855f7',
@@ -84,6 +91,7 @@ export const STATUS_COLORS = {
   cyan: {
     id: 'cyan',
     label: 'Cian / Externo',
+    label_ca: 'Cian / Extern',
     colorClass: 'bg-cyan-50 text-cyan-800 border-cyan-200/90',
     dotColor: 'bg-cyan-500',
     hex: '#06b6d4',
@@ -92,6 +100,7 @@ export const STATUS_COLORS = {
   orange: {
     id: 'orange',
     label: 'Naranja Intenso',
+    label_ca: 'Taronja Intens',
     colorClass: 'bg-orange-50 text-orange-800 border-orange-200/90',
     dotColor: 'bg-orange-500',
     hex: '#f97316',
@@ -99,15 +108,8 @@ export const STATUS_COLORS = {
   },
   slate: {
     id: 'slate',
-    label: 'Pizarra / Neutro',
-    colorClass: 'bg-slate-100 text-slate-700 border-slate-300',
-    dotColor: 'bg-slate-400',
-    hex: '#64748b',
-    bgClass: 'bg-slate-400'
-  },
-  dark: {
-    id: 'dark',
     label: 'Gris Oscuro',
+    label_ca: 'Gris Fosc',
     colorClass: 'bg-slate-800 text-slate-100 border-slate-700',
     dotColor: 'bg-slate-300',
     hex: '#1e293b',
@@ -115,8 +117,68 @@ export const STATUS_COLORS = {
   }
 };
 
-// Valores iniciales recomendados para el despacho si las colecciones están vacías
-export const DEFAULT_AREAS = [
+// Valores recomendados en Catalán (Principal)
+export const DEFAULT_AREAS_CA = [
+  { nombre: 'Fiscal / Tributari', descripcion: 'Declaracions periòdiques, models tributaris, impostos i AEAT / ATC' },
+  { nombre: 'Comptable', descripcion: 'Portar comptabilitat, legalització de llibres i comptes anuals' },
+  { nombre: 'Laboral i Seguretat Social', descripcion: 'Nòmines, altes/baixes a TGSS, contractes i convenis' },
+  { nombre: 'Mercantil i Societari', descripcion: 'Constitució de societats, modificacions estatutàries i Registre Mercantil' },
+  { nombre: 'Jurídic / Legal', descripcion: 'Assessorament legal, contractes mercantils i procediments' },
+  { nombre: 'Tràmits DGT / Trànsit', descripcion: 'Transferències de vehicles, matriculacions i baixes DGT' },
+  { nombre: 'Estrangeria i Residències', descripcion: 'Permisos de residència, arrels, NIE i renovacions' },
+  { nombre: 'Facturació i Cobraments', descripcion: 'Emissió de factures del despatx i control de liquidacions' },
+  { nombre: 'Direcció / General', descripcion: 'Gestió interna i tràmits transversals del despatx' }
+];
+
+export const DEFAULT_TRAMOS_CA = [
+  { nombre: 'Venciment Fiscal', descripcion: 'Termini oficial improrrogable amb presentació telemàtica a AEAT / ATC' },
+  { nombre: 'Tancament Comptable / Llibres', descripcion: 'Tancament d\'exercici, legalització de llibres o dipòsit al Registre Mercantil' },
+  { nombre: 'Nòmines i Seg. Social', descripcion: 'Enviament d\'assegurances socials (SILTRA), contractes i confecció mensual' },
+  { nombre: 'Alta / Constitució', descripcion: 'Creació d\'empreses, altes a IAE/036/037 i tràmits d\'inici d\'activitat' },
+  { nombre: 'Requeriment / Notificació AEAT', descripcion: 'Resposta en termini a requeriments d\'informació o comprovacions' },
+  { nombre: 'Tràmit Administratiu', descripcion: 'Gestions davant d\'organismes locals, autonòmics o registres' },
+  { nombre: 'Declaració Renda (IRPF)', descripcion: 'Campanya anual de Renda i Patrimoni de persones físiques' },
+  { nombre: 'Consultoria i Assessorament', descripcion: 'Emissió de dictàmens, informes tributaris o consultes personalitzades' },
+  { nombre: 'Altre Tràmit', descripcion: 'Tràmits miscel·lanis no enquadrats en categories anteriors' }
+];
+
+export const DEFAULT_ESTADOS_CA = [
+  { 
+    nombre: 'Obert', 
+    color: 'emerald', 
+    categoria: 'activo', 
+    isCompleted: false, 
+    orden: 1, 
+    descripcion: 'Projecte en marxa i previst per acabar en el dia esperat (dins de termini)' 
+  },
+  { 
+    nombre: 'En Risc', 
+    color: 'amber', 
+    categoria: 'riesgo', 
+    isCompleted: false, 
+    orden: 2, 
+    descripcion: 'Incidències detectades o previsió que no s\'acabarà quan estava previst' 
+  },
+  { 
+    nombre: 'Amb Retard', 
+    color: 'rose', 
+    categoria: 'urgente', 
+    isCompleted: false, 
+    orden: 3, 
+    descripcion: 'Termini superat automàticament sense haver-se tancat l\'expedient' 
+  },
+  { 
+    nombre: 'Tancat', 
+    color: 'blue', 
+    categoria: 'completado', 
+    isCompleted: true, 
+    orden: 4, 
+    descripcion: 'Expedient conclòs, tramitat i tancat definitivament' 
+  }
+];
+
+// Valores en Castellano
+export const DEFAULT_AREAS_ES = [
   { nombre: 'Fiscal / Tributario', descripcion: 'Declaraciones periódicas, modelos tributarios, impuestos y AEAT' },
   { nombre: 'Contable', descripcion: 'Llevar contabilidad, legalización de libros y cuentas anuales' },
   { nombre: 'Laboral y Seguridad Social', descripcion: 'Nóminas, altas/bajas en TGSS, contratos y convenios' },
@@ -128,7 +190,7 @@ export const DEFAULT_AREAS = [
   { nombre: 'Dirección / General', descripcion: 'Gestión interna y trámites transversales del despacho' }
 ];
 
-export const DEFAULT_TRAMOS = [
+export const DEFAULT_TRAMOS_ES = [
   { nombre: 'Vencimiento Fiscal', descripcion: 'Plazo oficial improrrogable con presentación telemática en AEAT' },
   { nombre: 'Cierre Contable / Libros', descripcion: 'Cierre de ejercicio, legalización de libros o depósito en Registro Mercantil' },
   { nombre: 'Nóminas y Seg. Social', descripcion: 'Envío de seguros sociales (SILTRA), contratos y confección mensual' },
@@ -140,8 +202,7 @@ export const DEFAULT_TRAMOS = [
   { nombre: 'Otro Trámite', descripcion: 'Trámites misceláneos no encuadrados en categorías anteriores' }
 ];
 
-// 4 Estados Operativos Oficiales del Despacho según SLA / Plazos:
-export const DEFAULT_ESTADOS = [
+export const DEFAULT_ESTADOS_ES = [
   { 
     nombre: 'Abierto', 
     color: 'emerald', 
@@ -176,14 +237,23 @@ export const DEFAULT_ESTADOS = [
   }
 ];
 
+// Compatibilidad retroactiva
+export const DEFAULT_AREAS = DEFAULT_AREAS_CA;
+export const DEFAULT_TRAMOS = DEFAULT_TRAMOS_CA;
+export const DEFAULT_ESTADOS = DEFAULT_ESTADOS_CA;
+
 const ClassificationManager = ({
   areas = [],
   tramos = [],
   estados = [],
   tasks = [],
   currentUser,
-  logAction
+  logAction,
+  lang = 'ca'
 }) => {
+  const t = translations[lang] || translations.ca;
+  const isCa = lang === 'ca';
+
   const [activeTab, setActiveTab] = useState('areas'); // 'areas' | 'tramos' | 'estados'
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -218,19 +288,14 @@ const ClassificationManager = ({
   const usageCounts = useMemo(() => {
     const counts = {};
     tasks.forEach(t => {
-      if (activeTab === 'areas') {
-        const areaName = (t.department || t.area || '').trim();
-        if (areaName) counts[areaName] = (counts[areaName] || 0) + 1;
-      } else if (activeTab === 'tramos') {
-        const tramoName = (t.type || t.tramo || '').trim();
-        if (tramoName) counts[tramoName] = (counts[tramoName] || 0) + 1;
-      } else {
-        const estadoName = (t.status || '').trim();
-        if (estadoName) counts[estadoName] = (counts[estadoName] || 0) + 1;
-      }
+      if (t.area) counts[t.area] = (counts[t.area] || 0) + 1;
+      if (t.department) counts[t.department] = (counts[t.department] || 0) + 1;
+      if (t.type) counts[t.type] = (counts[t.type] || 0) + 1;
+      if (t.tramo) counts[t.tramo] = (counts[t.tramo] || 0) + 1;
+      if (t.status) counts[t.status] = (counts[t.status] || 0) + 1;
     });
     return counts;
-  }, [tasks, activeTab]);
+  }, [tasks]);
 
   // Abrir modal de creación
   const handleOpenCreate = () => {
@@ -240,7 +305,7 @@ const ClassificationManager = ({
     setFormColor('emerald');
     setFormCategoria('activo');
     setFormIsCompleted(false);
-    setFormOrden((estados.length || 0) + 1);
+    setFormOrden((currentItems.length || 0) + 1);
     setFormError('');
     setIsModalOpen(true);
   };
@@ -258,23 +323,24 @@ const ClassificationManager = ({
     setIsModalOpen(true);
   };
 
-  // Guardar (Crear o Actualizar)
+  // Guardar creación o edición
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const cleanNombre = formNombre.trim();
-    if (!cleanNombre) {
-      setFormError('El nombre es obligatorio.');
+    if (!formNombre.trim()) {
+      setFormError(isCa ? 'El nom és obligatori.' : 'El nombre es obligatorio.');
       return;
     }
 
-    // Verificar duplicados (salvo el que estamos editando)
-    const exists = currentItems.some(item => 
-      (item.id !== editingItem?.id) && 
-      (item.nombre || item.name || '').toLowerCase() === cleanNombre.toLowerCase()
+    // Comprobar duplicados por nombre
+    const isDuplicate = currentItems.some(item => 
+      item.id !== editingItem?.id && 
+      (item.nombre || item.name || '').toLowerCase().trim() === formNombre.toLowerCase().trim()
     );
-    if (exists) {
-      const typeLabel = activeTab === 'areas' ? 'área' : activeTab === 'tramos' ? 'tramo' : 'estado';
-      setFormError(`Ya existe un ${typeLabel} con el nombre "${cleanNombre}".`);
+
+    if (isDuplicate) {
+      setFormError(isCa 
+        ? `Ja existeix un element amb el nom "${formNombre.trim()}".` 
+        : `Ya existe un elemento con el nombre "${formNombre.trim()}".`);
       return;
     }
 
@@ -283,69 +349,64 @@ const ClassificationManager = ({
 
     try {
       const payload = {
-        nombre: cleanNombre,
+        nombre: formNombre.trim(),
         descripcion: formDescripcion.trim(),
         updatedAt: serverTimestamp(),
-        updatedBy: currentUser?.email || 'Sistema'
+        updatedBy: currentUser?.email || 'Admin'
       };
 
       if (activeTab === 'estados') {
         payload.color = formColor;
         payload.categoria = formCategoria;
-        payload.isCompleted = Boolean(formIsCompleted);
+        payload.isCompleted = formIsCompleted;
         payload.orden = Number(formOrden) || 1;
       }
 
       if (editingItem) {
-        // Actualizar
-        const itemRef = doc(db, currentCollectionName, editingItem.id);
-        await updateDoc(itemRef, payload);
-
+        // Actualizar existente
+        const docRef = doc(db, currentCollectionName, editingItem.id);
+        await updateDoc(docRef, payload);
         if (logAction) {
-          const typeLabel = activeTab === 'areas' ? 'Área' : activeTab === 'tramos' ? 'Tramo' : 'Estado';
           logAction(
-            `Actualizado ${typeLabel}`, 
-            `Nombre: ${cleanNombre} (ID: ${editingItem.id})`
+            isCa ? `Modificació de ${currentCollectionName}` : `Modificación de ${currentCollectionName}`, 
+            `ID: ${editingItem.id} -> ${formNombre.trim()}`
           );
         }
       } else {
         // Crear nuevo
-        payload.activo = true;
         payload.createdAt = serverTimestamp();
-        payload.createdBy = currentUser?.email || 'Sistema';
-
+        payload.createdBy = currentUser?.email || 'Admin';
+        payload.activo = true;
         await addDoc(collection(db, currentCollectionName), payload);
-
         if (logAction) {
-          const typeLabel = activeTab === 'areas' ? 'Área' : activeTab === 'tramos' ? 'Tramo' : 'Estado';
           logAction(
-            `Creado ${typeLabel}`, 
-            `Nombre: ${cleanNombre}`
+            isCa ? `Alta de ${currentCollectionName}` : `Alta de ${currentCollectionName}`, 
+            `Nou element: ${formNombre.trim()}`
           );
         }
       }
 
       setIsModalOpen(false);
-      setEditingItem(null);
-      setFormNombre('');
-      setFormDescripcion('');
     } catch (error) {
-      console.error(`Error guardando en ${currentCollectionName}:`, error);
-      setFormError(`Error al guardar: ${error.message}`);
+      console.error(`Error guardant a ${currentCollectionName}:`, error);
+      setFormError(error.message || (isCa ? 'Error en desar.' : 'Error al guardar.'));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Eliminar un elemento
+  // Eliminar elemento
   const handleDelete = async (item) => {
-    const itemName = item.nombre || item.name || 'Sin nombre';
-    const usedCount = usageCounts[itemName] || 0;
-    const typeLabel = activeTab === 'areas' ? 'área' : activeTab === 'tramos' ? 'tramo' : 'estado';
+    const itemName = item.nombre || item.name || 'aquest element';
+    const usage = usageCounts[itemName] || 0;
 
-    let confirmMsg = `¿Seguro que deseas eliminar el ${typeLabel} "${itemName}"?`;
-    if (usedCount > 0) {
-      confirmMsg = `⚠️ ¡ADVERTENCIA!\n\nHay ${usedCount} expediente(s) asociados actualmente a este ${typeLabel} "${itemName}".\n\nSi lo eliminas, los expedientes existentes mantendrán el texto histórico, pero no estará disponible para nuevas asignaciones.\n\n¿Deseas eliminarlo de todas formas?`;
+    let confirmMsg = isCa 
+      ? `Segur que voleu eliminar "${itemName}" de ${currentCollectionName}?` 
+      : `¿Seguro que deseas eliminar "${itemName}" de ${currentCollectionName}?`;
+    if (usage > 0) {
+      confirmMsg += isCa 
+        ? `\n\n⚠️ Atenció: Actualment hi ha ${usage} expedient(s) utilitzant aquest valor.` 
+        : `\n\n⚠️ Atención: Actualmente hay ${usage} expediente(s) usando este valor.`;
     }
 
     if (!window.confirm(confirmMsg)) return;
@@ -354,24 +415,37 @@ const ClassificationManager = ({
       await deleteDoc(doc(db, currentCollectionName, item.id));
       if (logAction) {
         logAction(
-          `Eliminado ${activeTab === 'areas' ? 'Área' : activeTab === 'tramos' ? 'Tramo' : 'Estado'}`, 
-          `Nombre: ${itemName} (ID: ${item.id})`
+          isCa ? `Eliminació a ${currentCollectionName}` : `Eliminación en ${currentCollectionName}`, 
+          `Eliminat: ${itemName}`
         );
       }
     } catch (error) {
-      console.error(`Error eliminando de ${currentCollectionName}:`, error);
-      alert(`Error al eliminar: ${error.message}`);
+      console.error(`Error eliminant de ${currentCollectionName}:`, error);
+      alert((isCa ? 'Error en eliminar: ' : 'Error al eliminar: ') + error.message);
     }
   };
 
-  // Carga masiva de valores estándar recomendados
+  // Carga Masiva Inicial / Restauración
   const handleSeedDefaults = async () => {
-    const defaults = activeTab === 'areas' ? DEFAULT_AREAS : activeTab === 'tramos' ? DEFAULT_TRAMOS : DEFAULT_ESTADOS;
-    const countName = activeTab === 'areas' ? 'Áreas' : activeTab === 'tramos' ? 'Tramos' : 'Estados';
+    let defaults = [];
+    let countName = '';
 
-    if (!window.confirm(`¿Deseas inicializar los ${defaults.length} ${countName.toLowerCase()} estándar de gestoría en Firestore? Solo se añadirán los que no existan todavía.`)) {
-      return;
+    if (activeTab === 'areas') {
+      defaults = isCa ? DEFAULT_AREAS_CA : DEFAULT_AREAS_ES;
+      countName = isCa ? 'Àrees' : 'Áreas';
+    } else if (activeTab === 'tramos') {
+      defaults = isCa ? DEFAULT_TRAMOS_CA : DEFAULT_TRAMOS_ES;
+      countName = isCa ? 'Tràmits' : 'Trámites';
+    } else if (activeTab === 'estados') {
+      defaults = isCa ? DEFAULT_ESTADOS_CA : DEFAULT_ESTADOS_ES;
+      countName = isCa ? 'Estats' : 'Estados';
     }
+
+    const confirmMsg = isCa 
+      ? `Voleu afegir a Firestore els valors estàndard en Català que encara no estiguin registrats a la col·lecció de ${countName}?`
+      : `¿Deseas añadir a Firestore los valores estándar que aún no estén registrados en la colección de ${countName}?`;
+
+    if (!window.confirm(confirmMsg)) return;
 
     setIsSeeding(true);
     try {
@@ -410,15 +484,22 @@ const ClassificationManager = ({
       if (added > 0) {
         await batch.commit();
         if (logAction) {
-          logAction(`Carga Masiva Inicial de ${countName}`, `${added} elementos añadidos a Firestore.`);
+          logAction(
+            isCa ? `Càrrega Inicial de ${countName}` : `Carga Masiva Inicial de ${countName}`, 
+            `${added} elements afegits a Firestore.`
+          );
         }
-        alert(`✅ Se han añadido ${added} ${countName.toLowerCase()} a la base de datos correctamente.`);
+        alert(isCa 
+          ? `✅ S'han afegit ${added} ${countName.toLowerCase()} a la base de dades correctament.` 
+          : `✅ Se han añadido ${added} ${countName.toLowerCase()} a la base de datos correctamente.`);
       } else {
-        alert(`Todos los valores predeterminados ya existen en la colección.`);
+        alert(isCa 
+          ? `Tots els valors predeterminats ja existeixen a la col·lecció.` 
+          : `Todos los valores predeterminados ya existen en la colección.`);
       }
     } catch (error) {
       console.error(`Error en seeding de ${currentCollectionName}:`, error);
-      alert(`Error al inicializar: ${error.message}`);
+      alert((isCa ? 'Error en inicialitzar: ' : 'Error al inicializar: ') + error.message);
     } finally {
       setIsSeeding(false);
     }
@@ -426,15 +507,21 @@ const ClassificationManager = ({
 
   // Configuración de los 4 estados operativos oficiales según SLA / Plazos
   const handleApplyOfficial4States = async () => {
-    if (!window.confirm("¿Deseas configurar los 4 estados operativos oficiales del despacho?\n\n🟢 Abierto (Verde - En marcha y dentro de plazo)\n🟡 En Riesgo (Amarillo - Previsión de no terminar a tiempo)\n🔴 Con Retraso (Rojo - Plazo superado automáticamente)\n🔵 Cerrado (Azul - Completado y facturado)\n\nSe sincronizarán estos 4 estados en Firestore.")) {
+    const confirmMsg = isCa 
+      ? "Voleu configurar els 4 estats operatius oficials del despatx en Català?\n\n🟢 Obert (Verd - En marxa i dins de termini)\n🟡 En Risc (Groc - Previsió de no acabar a temps)\n🔴 Amb Retard (Vermell - Termini superat automàticament)\n🔵 Tancat (Blau - Completat i liquidat)\n\nEs sincronitzaran aquests 4 estats a Firestore."
+      : "¿Deseas configurar los 4 estados operativos oficiales del despacho?\n\n🟢 Abierto (Verde - En marcha y dentro de plazo)\n🟡 En Riesgo (Amarillo - Previsión de no terminar a tiempo)\n🔴 Con Retraso (Rojo - Plazo superado automáticamente)\n🔵 Cerrado (Azul - Completado y facturado)\n\nSe sincronizarán estos 4 estados en Firestore.";
+
+    if (!window.confirm(confirmMsg)) {
       return;
     }
 
     setIsSeeding(true);
+    const targetDefaults = isCa ? DEFAULT_ESTADOS_CA : DEFAULT_ESTADOS_ES;
+
     try {
       const batch = writeBatch(db);
       
-      DEFAULT_ESTADOS.forEach(def => {
+      targetDefaults.forEach(def => {
         const existing = estados.find(e => 
           (e.nombre || e.name || '').toLowerCase().trim() === def.nombre.toLowerCase().trim()
         );
@@ -471,15 +558,26 @@ const ClassificationManager = ({
 
       await batch.commit();
       if (logAction) {
-        logAction('Configuración de Estados Oficiales', 'Sincronizados los 4 estados oficiales del despacho en Firestore');
+        logAction(
+          isCa ? 'Configuració d\'Estats Oficials' : 'Configuración de Estados Oficiales', 
+          isCa ? 'Sincronitzats els 4 estats oficials del despatx a Firestore' : 'Sincronizados los 4 estados oficiales del despacho en Firestore'
+        );
       }
-      alert('✅ ¡Los 4 estados oficiales (Abierto 🟢, En Riesgo 🟡, Con Retraso 🔴, Cerrado 🔵) han quedado configurados en Firestore!');
+      alert(isCa 
+        ? '✅ Els 4 estats oficials (Obert 🟢, En Risc 🟡, Amb Retard 🔴, Tancat 🔵) han quedat configurats a Firestore!' 
+        : '✅ ¡Los 4 estados oficiales (Abierto 🟢, En Riesgo 🟡, Con Retraso 🔴, Cerrado 🔵) han quedado configurados en Firestore!');
     } catch (error) {
-      console.error('Error aplicando estados oficiales:', error);
+      console.error('Error aplicant estats oficials:', error);
       alert('Error: ' + error.message);
     } finally {
       setIsSeeding(false);
     }
+  };
+
+  const getTabLabel = (tab) => {
+    if (tab === 'areas') return isCa ? 'Àrees' : 'Áreas';
+    if (tab === 'tramos') return isCa ? 'Trams' : 'Tramos';
+    return isCa ? 'Estats' : 'Estados';
   };
 
   return (
@@ -493,10 +591,10 @@ const ClassificationManager = ({
           </div>
           <div>
             <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-              Clasificación Dinámica y Catálogo de Estados
+              {t.classification.title}
             </h2>
             <p className="text-xs text-slate-500">
-              Configura las Áreas, Tipos de Trámites y la paleta de Estados con colores semánticos sincronizados en tiempo real.
+              {t.classification.subtitle}
             </p>
           </div>
         </div>
@@ -513,7 +611,7 @@ const ClassificationManager = ({
             }`}
           >
             <Briefcase className="w-3.5 h-3.5 text-indigo-500" />
-            <span>Áreas / Departamentos</span>
+            <span>{t.classification.tabs.areas}</span>
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
               activeTab === 'areas' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-200 text-slate-600'
             }`}>
@@ -531,7 +629,7 @@ const ClassificationManager = ({
             }`}
           >
             <Tag className="w-3.5 h-3.5 text-indigo-500" />
-            <span>Tramos / Trámites</span>
+            <span>{t.classification.tabs.tramos}</span>
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
               activeTab === 'tramos' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-200 text-slate-600'
             }`}>
@@ -549,7 +647,7 @@ const ClassificationManager = ({
             }`}
           >
             <Palette className="w-3.5 h-3.5 text-indigo-500" />
-            <span>Estados y Colores</span>
+            <span>{t.classification.tabs.estados}</span>
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
               activeTab === 'estados' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-200 text-slate-600'
             }`}>
@@ -567,7 +665,7 @@ const ClassificationManager = ({
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder={`Buscar en ${activeTab === 'areas' ? 'Áreas' : activeTab === 'tramos' ? 'Tramos' : 'Estados'}...`}
+            placeholder={t.classification.searchIn.replace('{tab}', getTabLabel(activeTab))}
             className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 bg-slate-50 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
           />
           {searchTerm && (
@@ -588,11 +686,13 @@ const ClassificationManager = ({
               onClick={handleApplyOfficial4States}
               disabled={isSeeding}
               className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
-              title="Sincronizar los 4 Estados Oficiales de GestFlow: Abierto (Verde), En Riesgo (Amarillo), Con Retraso (Rojo) y Cerrado (Azul)"
+              title={isCa 
+                ? "Sincronitzar els 4 Estats Oficials de GestFlow: Obert (Verd), En Risc (Groc), Amb Retard (Vermell) i Tancat (Blau)" 
+                : "Sincronizar los 4 Estados Oficiales de GestFlow: Abierto (Verde), En Riesgo (Amarillo), Con Retraso (Rojo) y Cerrado (Azul)"}
             >
               {isSeeding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-indigo-600" />}
-              <span className="hidden sm:inline">Restablecer 4 Estados Oficiales</span>
-              <span className="sm:hidden">4 Estados</span>
+              <span className="hidden sm:inline">{t.classification.resetOfficialStates}</span>
+              <span className="sm:hidden">{isCa ? '4 Estats' : '4 Estados'}</span>
             </button>
           )}
 
@@ -602,10 +702,10 @@ const ClassificationManager = ({
               onClick={handleSeedDefaults}
               disabled={isSeeding}
               className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
-              title="Cargar catálogo estándar inicial en Firestore"
+              title={isCa ? "Carregar catàleg estàndard inicial a Firestore" : "Cargar catálogo estándar inicial en Firestore"}
             >
               {isSeeding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-emerald-600" />}
-              <span>Cargar Predeterminados</span>
+              <span>{t.classification.loadDefaults}</span>
             </button>
           )}
 
@@ -615,7 +715,13 @@ const ClassificationManager = ({
             className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md shadow-indigo-100 flex items-center gap-1.5 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>{activeTab === 'areas' ? 'Nueva Área' : activeTab === 'tramos' ? 'Nuevo Tramo' : 'Nuevo Estado'}</span>
+            <span>
+              {activeTab === 'areas' 
+                ? t.classification.newArea 
+                : activeTab === 'tramos' 
+                ? t.classification.newTramo 
+                : t.classification.newState}
+            </span>
           </button>
         </div>
       </div>
@@ -626,17 +732,17 @@ const ClassificationManager = ({
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider">
-                <th className="p-3.5 pl-4">{activeTab === 'estados' ? 'Estado / Color' : 'Nombre'}</th>
-                {activeTab === 'estados' && <th className="p-3.5">Categoría / Tipo</th>}
-                {activeTab === 'estados' && <th className="p-3.5 text-center">Filtro Finalizado</th>}
-                <th className="p-3.5">Descripción</th>
-                <th className="p-3.5 text-center">Expedientes en Uso</th>
-                <th className="p-3.5 text-right pr-4">Acciones</th>
+                <th className="p-3.5 pl-4">{activeTab === 'estados' ? t.classification.tableHeaders.stateColor : t.classification.tableHeaders.name}</th>
+                {activeTab === 'estados' && <th className="p-3.5">{t.classification.tableHeaders.category}</th>}
+                {activeTab === 'estados' && <th className="p-3.5 text-center">{t.classification.tableHeaders.filterFinished}</th>}
+                <th className="p-3.5">{t.classification.tableHeaders.description}</th>
+                <th className="p-3.5 text-center">{t.classification.tableHeaders.inUse}</th>
+                <th className="p-3.5 text-right pr-4">{t.classification.tableHeaders.actions}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredItems.map((item) => {
-                const itemName = item.nombre || item.name || 'Sin nombre';
+                const itemName = item.nombre || item.name || (isCa ? 'Sense nom' : 'Sin nombre');
                 const usage = usageCounts[itemName] || 0;
                 const colorConfig = STATUS_COLORS[item.color] || STATUS_COLORS.slate;
 
@@ -663,7 +769,7 @@ const ClassificationManager = ({
                     {activeTab === 'estados' && (
                       <td className="p-3.5 whitespace-nowrap">
                         <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 capitalize">
-                          {item.categoria || 'activo'}
+                          {item.categoria || 'actiu'}
                         </span>
                       </td>
                     )}
@@ -672,10 +778,10 @@ const ClassificationManager = ({
                       <td className="p-3.5 text-center whitespace-nowrap">
                         {item.isCompleted ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <Check className="w-3 h-3" /> Se Oculta al Terminar
+                            <Check className="w-3 h-3" /> {t.classification.tableBody.hiddenOnFinish}
                           </span>
                         ) : (
-                          <span className="text-slate-400 text-[10px]">En Proceso</span>
+                          <span className="text-slate-400 text-[10px]">{t.classification.tableBody.inProgress}</span>
                         )}
                       </td>
                     )}
@@ -687,7 +793,7 @@ const ClassificationManager = ({
                           {item.descripcion || item.description}
                         </span>
                       ) : (
-                        <span className="text-slate-400 italic text-[11px]">Sin descripción</span>
+                        <span className="text-slate-400 italic text-[11px]">{t.classification.tableBody.noDescription}</span>
                       )}
                     </td>
 
@@ -695,11 +801,13 @@ const ClassificationManager = ({
                     <td className="p-3.5 text-center whitespace-nowrap">
                       {usage > 0 ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
-                          {usage} {usage === 1 ? 'expediente' : 'expedientes'}
+                          {usage === 1 
+                            ? t.classification.tableBody.singleExp 
+                            : t.classification.tableBody.multiExp.replace('{count}', usage)}
                         </span>
                       ) : (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] text-slate-400 bg-slate-100">
-                          0 expedientes
+                          0 {isCa ? 'expedients' : 'expedientes'}
                         </span>
                       )}
                     </td>
@@ -710,14 +818,14 @@ const ClassificationManager = ({
                         <button
                           onClick={() => handleOpenEdit(item)}
                           className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
-                          title="Editar elemento"
+                          title={isCa ? "Editar element" : "Editar elemento"}
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => handleDelete(item)}
                           className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                          title="Eliminar elemento"
+                          title={isCa ? "Eliminar element" : "Eliminar elemento"}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -734,22 +842,22 @@ const ClassificationManager = ({
                       <Layers className="w-8 h-8 text-slate-300 stroke-1" />
                       <p className="text-sm font-medium text-slate-600">
                         {searchTerm 
-                          ? `No hay elementos que coincidan con "${searchTerm}".`
-                          : `No hay ${activeTab === 'areas' ? 'áreas' : activeTab === 'tramos' ? 'tramos' : 'estados'} creados en Firestore.`}
+                          ? t.classification.tableBody.emptyFilter.replace('{term}', searchTerm)
+                          : t.classification.tableBody.emptyCollection.replace('{tab}', getTabLabel(activeTab).toLowerCase())}
                       </p>
                       {!searchTerm && (
                         <div className="mt-2 flex items-center gap-3">
                           <button
                             onClick={handleOpenCreate}
-                            className="text-xs bg-indigo-600 text-white font-bold px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors"
+                            className="text-xs bg-indigo-600 text-white font-bold px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer"
                           >
-                            + Crear primer {activeTab === 'areas' ? 'Área' : activeTab === 'tramos' ? 'Tramo' : 'Estado'}
+                            {t.classification.tableBody.createFirst.replace('{singular}', activeTab === 'areas' ? (isCa ? 'Àrea' : 'Área') : activeTab === 'tramos' ? (isCa ? 'Tram' : 'Tramo') : (isCa ? 'Estat' : 'Estado'))}
                           </button>
                           <button
                             onClick={handleSeedDefaults}
-                            className="text-xs bg-slate-100 text-slate-700 font-bold px-3 py-1.5 rounded-lg hover:bg-slate-200 border border-slate-200 transition-colors"
+                            className="text-xs bg-slate-100 text-slate-700 font-bold px-3 py-1.5 rounded-lg hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer"
                           >
-                            Cargar valores estándar
+                            {t.classification.tableBody.loadStandardValues}
                           </button>
                         </div>
                       )}
@@ -765,7 +873,10 @@ const ClassificationManager = ({
       {/* PIE DE TABLA / RESUMEN */}
       <div className="flex flex-col sm:flex-row justify-between items-center text-xs text-slate-500 pt-2 border-t border-slate-100 gap-2">
         <span>
-          Mostrando {filteredItems.length} de {currentItems.length} {activeTab === 'areas' ? 'áreas' : activeTab === 'tramos' ? 'tramos' : 'estados'} en Firestore
+          {t.classification.footer.showing
+            .replace('{filtered}', filteredItems.length)
+            .replace('{total}', currentItems.length)
+            .replace('{tab}', getTabLabel(activeTab).toLowerCase())}
         </span>
         <button
           onClick={handleSeedDefaults}
@@ -773,7 +884,7 @@ const ClassificationManager = ({
           className="text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 hover:underline disabled:opacity-50 cursor-pointer"
         >
           <Sparkles className="w-3 h-3" />
-          <span>Restaurar / Añadir valores estándar ausentes</span>
+          <span>{t.classification.footer.restoreMissing}</span>
         </button>
       </div>
 
@@ -791,11 +902,11 @@ const ClassificationManager = ({
                 <div>
                   <h3 className="text-base font-bold text-slate-800">
                     {editingItem 
-                      ? `Editar ${activeTab === 'areas' ? 'Área' : activeTab === 'tramos' ? 'Tramo' : 'Estado'}` 
-                      : `Nuevo ${activeTab === 'areas' ? 'Área' : activeTab === 'tramos' ? 'Tramo' : 'Estado'}`}
+                      ? (activeTab === 'areas' ? t.classification.editArea : activeTab === 'tramos' ? t.classification.editTramo : t.classification.editState)
+                      : (activeTab === 'areas' ? t.classification.newArea : activeTab === 'tramos' ? t.classification.newTramo : t.classification.newState)}
                   </h3>
                   <p className="text-[11px] text-slate-400">
-                    Colección de Firestore: <code className="text-indigo-600 font-mono font-bold">{currentCollectionName}</code>
+                    {isCa ? 'Col·lecció de Firestore:' : 'Colección de Firestore:'} <code className="text-indigo-600 font-mono font-bold">{currentCollectionName}</code>
                   </p>
                 </div>
               </div>
@@ -820,10 +931,10 @@ const ClassificationManager = ({
               {/* Vista previa en tiempo real si es Estado */}
               {activeTab === 'estados' && (
                 <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-500">Vista previa del Badge:</span>
+                  <span className="text-xs font-semibold text-slate-500">{t.classification.modal.badgePreview}</span>
                   <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${STATUS_COLORS[formColor]?.colorClass || STATUS_COLORS.slate.colorClass} shadow-2xs`}>
                     <span className={`w-2 h-2 rounded-full ${STATUS_COLORS[formColor]?.dotColor || STATUS_COLORS.slate.dotColor}`}></span>
-                    <span>{formNombre || 'Nombre del Estado'}</span>
+                    <span>{formNombre || (isCa ? 'Nom de l\'Estat' : 'Nombre del Estado')}</span>
                   </span>
                 </div>
               )}
@@ -831,14 +942,20 @@ const ClassificationManager = ({
               {/* Campo Nombre */}
               <div>
                 <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1">
-                  Nombre del {activeTab === 'areas' ? 'Área / Departamento' : activeTab === 'tramos' ? 'Tramo / Trámite' : 'Estado'} <span className="text-rose-500">*</span>
+                  {t.classification.modal.nameLabel.replace('{entity}', activeTab === 'areas' ? (isCa ? 'l\'Àrea / Departament' : 'el Área / Departamento') : activeTab === 'tramos' ? (isCa ? 'el Tram / Tràmit' : 'el Tramo / Trámite') : (isCa ? 'l\'Estat' : 'el Estado'))} <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   required
                   value={formNombre}
                   onChange={(e) => setFormNombre(e.target.value)}
-                  placeholder={activeTab === 'areas' ? 'Ej. Fiscal / Tributario' : activeTab === 'tramos' ? 'Ej. Vencimiento Fiscal' : 'Ej. Pendiente Firma Notarial'}
+                  placeholder={
+                    activeTab === 'areas' 
+                      ? t.classification.modal.namePlaceholderArea 
+                      : activeTab === 'tramos' 
+                      ? t.classification.modal.namePlaceholderTramo 
+                      : t.classification.modal.namePlaceholderState
+                  }
                   className="w-full border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
                   autoFocus
                 />
@@ -848,11 +965,12 @@ const ClassificationManager = ({
               {activeTab === 'estados' && (
                 <div>
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-2">
-                    Color Distintivo del Estado
+                    {t.classification.modal.colorLabel}
                   </label>
                   <div className="grid grid-cols-5 gap-2">
                     {Object.values(STATUS_COLORS).map((c) => {
                       const isSelected = formColor === c.id;
+                      const colorName = isCa ? (c.label_ca || c.label) : c.label;
                       return (
                         <button
                           key={c.id}
@@ -863,13 +981,13 @@ const ClassificationManager = ({
                               ? 'border-indigo-600 bg-indigo-50/60 ring-2 ring-indigo-500/30 shadow-xs' 
                               : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                           }`}
-                          title={c.label}
+                          title={colorName}
                         >
                           <span className={`w-4 h-4 rounded-full ${c.bgClass} shadow-2xs flex items-center justify-center text-white`}>
                             {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                           </span>
                           <span className="text-[10px] font-semibold text-slate-700 truncate max-w-full text-center">
-                            {c.label.split(' ')[0]}
+                            {colorName.split(' ')[0]}
                           </span>
                         </button>
                       );
@@ -883,24 +1001,23 @@ const ClassificationManager = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <div>
                     <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1">
-                      Categoría
+                      {t.classification.modal.categoryLabel}
                     </label>
                     <select
                       value={formCategoria}
                       onChange={(e) => setFormCategoria(e.target.value)}
                       className="w-full border border-slate-300 rounded-xl p-2 text-xs text-slate-800 focus:border-indigo-500 outline-none"
                     >
-                      <option value="activo">Activo (En curso ordinario)</option>
-                      <option value="urgente">Urgente (Plazo inminente / Alerta)</option>
-                      <option value="bloqueado">Bloqueado (En espera de cliente/terceros)</option>
-                      <option value="informativo">Informativo (Periódico / Recurrente)</option>
-                      <option value="completado">Completado (Presentado o Cerrado)</option>
+                      <option value="activo">{t.classification.modal.catActive}</option>
+                      <option value="riesgo">{t.classification.modal.catRisk}</option>
+                      <option value="urgente">{t.classification.modal.catUrgent}</option>
+                      <option value="completado">{t.classification.modal.catCompleted}</option>
                     </select>
                   </div>
 
                   <div>
                     <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1">
-                      Orden de prioridad
+                      {t.classification.modal.orderLabel}
                     </label>
                     <input
                       type="number"
@@ -924,9 +1041,11 @@ const ClassificationManager = ({
                     className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 mt-0.5 cursor-pointer"
                   />
                   <label htmlFor="isCompletedCheck" className="text-xs text-slate-700 cursor-pointer">
-                    <span className="font-bold text-slate-800 block">¿Es un estado finalizado / tramitado?</span>
+                    <span className="font-bold text-slate-800 block">
+                      {isCa ? 'És un estat finalitzat / tramitat?' : '¿Es un estado finalizado / tramitado?'}
+                    </span>
                     <span className="text-[11px] text-slate-500">
-                      Al activarse, este estado se ocultará cuando los gestores pulsen el botón del ojo ("Ocultar presentados/cerrados") en los filtros.
+                      {t.classification.modal.autoHide}
                     </span>
                   </label>
                 </div>
@@ -935,12 +1054,12 @@ const ClassificationManager = ({
               {/* Campo Descripción */}
               <div>
                 <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1">
-                  Descripción u observaciones (Opcional)
+                  {t.classification.modal.descLabel}
                 </label>
                 <textarea
                   value={formDescripcion}
                   onChange={(e) => setFormDescripcion(e.target.value)}
-                  placeholder="Detalles sobre qué expedientes o situaciones comprende..."
+                  placeholder={t.classification.modal.descPlaceholder}
                   rows="2"
                   className="w-full border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
                 />
@@ -954,7 +1073,7 @@ const ClassificationManager = ({
                   disabled={isSubmitting}
                   className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
                 >
-                  Cancelar
+                  {t.common.cancel}
                 </button>
                 <button
                   type="submit"
@@ -962,7 +1081,7 @@ const ClassificationManager = ({
                   className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-100 flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>{editingItem ? 'Guardar Cambios' : 'Crear'}</span>
+                  <span>{editingItem ? (isCa ? 'Desar Canvis' : 'Guardar Cambios') : (isCa ? 'Crear' : 'Crear')}</span>
                 </button>
               </div>
             </form>

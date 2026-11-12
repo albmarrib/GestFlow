@@ -137,8 +137,10 @@ export default function TemplateManager({
   tramos = [], 
   usersList = [], 
   currentUser, 
-  logAction 
+  logAction,
+  lang = 'ca'
 }) {
+  const isCa = lang === 'ca';
   const [plantillas, setPlantillas] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAreaFilter, setSelectedAreaFilter] = useState('');
@@ -351,13 +353,15 @@ export default function TemplateManager({
           </div>
           <div>
             <h2 className="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
-              Plantillas de Trámites y Tareas Predefinidas
+              {isCa ? 'Plantilles de Tràmits i Tasques Predefinides' : 'Plantillas de Trámites y Tareas Predefinidas'}
               <span className="bg-amber-100 text-amber-800 text-[11px] font-semibold px-2 py-0.5 rounded-full border border-amber-200/60">
-                {plantillas.length} activas
+                {plantillas.length} {isCa ? 'actives' : 'activas'}
               </span>
             </h2>
             <p className="text-xs text-slate-500">
-              Diseña plantillas con pasos GTD, asignaciones y precios por defecto para agilizar la creación de expedientes recurrentes.
+              {isCa 
+                ? 'Dissenya plantilles amb passos GTD, assignacions i preus per defecte per agilitzar la creació d\'expedients recurrents.' 
+                : 'Diseña plantillas con pasos GTD, asignaciones y precios por defecto para agilizar la creación de expedientes recurrentes.'}
             </p>
           </div>
         </div>
@@ -367,19 +371,19 @@ export default function TemplateManager({
             <button
               onClick={handleSeedDefaults}
               disabled={isSeeding}
-              className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs"
+              className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
             >
               <Sparkles className="w-4 h-4 text-amber-600" />
-              <span>{isSeeding ? 'Cargando...' : 'Cargar Plantillas Recomendadas'}</span>
+              <span>{isSeeding ? (isCa ? 'Carregant...' : 'Cargando...') : (isCa ? 'Carregar Plantilles Recomanades' : 'Cargar Plantillas Recomendadas')}</span>
             </button>
           )}
 
           <button
             onClick={openNewModal}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs hover:shadow-premium-hover flex items-center gap-1.5 transition-all"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs hover:shadow-premium-hover flex items-center gap-1.5 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>Nueva Plantilla</span>
+            <span>{isCa ? 'Nova Plantilla' : 'Nueva Plantilla'}</span>
           </button>
         </div>
       </div>
@@ -390,7 +394,7 @@ export default function TemplateManager({
           <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Buscar por nombre, trámite o descripción..."
+            placeholder={isCa ? "Cercar per nom, tràmit o descripció..." : "Buscar por nombre, trámite o descripción..."}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-3 py-2 bg-slate-50/80 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-slate-800"
@@ -401,9 +405,9 @@ export default function TemplateManager({
           <select
             value={selectedAreaFilter}
             onChange={(e) => setSelectedAreaFilter(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20"
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
           >
-            <option value="">Todas las Áreas</option>
+            <option value="">{isCa ? 'Totes les Àrees' : 'Todas las Áreas'}</option>
             {areas.map(a => (
               <option key={a.id || a.nombre} value={a.nombre || a.name}>{a.nombre || a.name}</option>
             ))}
@@ -415,25 +419,27 @@ export default function TemplateManager({
       {filteredPlantillas.length === 0 ? (
         <div className="text-center py-12 px-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50">
           <Layers className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-          <h4 className="text-sm font-bold text-slate-700">No hay plantillas registradas</h4>
+          <h4 className="text-sm font-bold text-slate-700">{isCa ? 'Sense plantilles configurades' : 'No hay plantillas registradas'}</h4>
           <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
-            Crea tu primera plantilla para expedientes recurrentes o pulsa en "Cargar Plantillas Recomendadas" para importar los 6 trámites más frecuentes de una gestoría.
+            {isCa 
+              ? 'Crea la teva primera plantilla per a expedients recurrents o prem a "Carregar Plantilles Recomanades" per importar els 6 tràmits més freqüents d\'una gestoria.' 
+              : 'Crea tu primera plantilla para expedientes recurrentes o pulsa en "Cargar Plantillas Recomendadas" para importar los 6 trámites más frecuentes de una gestoría.'}
           </p>
           <div className="mt-4 flex justify-center gap-2">
             <button
               onClick={handleSeedDefaults}
               disabled={isSeeding}
-              className="bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all"
+              className="bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Cargar 6 Plantillas de Asesoría</span>
+              <span>{isCa ? 'Carregar 6 Plantilles d\'Assessoria' : 'Cargar 6 Plantillas de Asesoría'}</span>
             </button>
             <button
               onClick={openNewModal}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Crear Manualmente</span>
+              <span>{isCa ? 'Crear Manualment' : 'Crear Manualmente'}</span>
             </button>
           </div>
         </div>

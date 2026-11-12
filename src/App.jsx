@@ -1323,6 +1323,9 @@ const AdminView = ({
   billingSettings = {},
   lang = 'ca'
 }) => {
+  const t = translations[lang] || translations.ca;
+  const isCa = lang === 'ca';
+
   const [selectedTasks, setSelectedTasks] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [adminList, setAdminList] = useState([]);
@@ -1593,10 +1596,10 @@ const AdminView = ({
             </div>
             <div>
               <h1 className="text-lg font-bold text-slate-900 tracking-tight">
-                Panel de Administración y Control
+                {t.admin.title}
               </h1>
               <p className="text-xs text-slate-500">
-                Configuración del despacho, catálogo de estados, plantillas operativas y gestión de permisos.
+                {t.admin.subtitle}
               </p>
             </div>
           </div>
@@ -1614,7 +1617,7 @@ const AdminView = ({
             }`}
           >
             <Palette className="w-3.5 h-3.5 text-indigo-500" />
-            <span>Áreas, Trámites y Estados</span>
+            <span>{t.admin.tabs.classification}</span>
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
               adminTab === 'clasificacion' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-200 text-slate-600'
             }`}>
@@ -1632,7 +1635,7 @@ const AdminView = ({
             }`}
           >
             <Layers className="w-3.5 h-3.5 text-amber-500" />
-            <span>Plantillas de Trámites GTD</span>
+            <span>{t.admin.tabs.templates}</span>
           </button>
 
           <button
@@ -1645,7 +1648,7 @@ const AdminView = ({
             }`}
           >
             <Coins className="w-3.5 h-3.5 text-emerald-500" />
-            <span>Liquidaciones & Cobros</span>
+            <span>{t.admin.tabs.billing}</span>
           </button>
 
           <button
@@ -1658,7 +1661,7 @@ const AdminView = ({
             }`}
           >
             <Users className="w-3.5 h-3.5 text-indigo-500" />
-            <span>Equipo y Asesores</span>
+            <span>{t.admin.tabs.personal}</span>
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
               adminTab === 'personal' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-200 text-slate-600'
             }`}>
@@ -1676,7 +1679,7 @@ const AdminView = ({
             }`}
           >
             <Building2 className="w-3.5 h-3.5 text-blue-500" />
-            <span>Cartera de Clientes</span>
+            <span>{t.admin.tabs.clients}</span>
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
               adminTab === 'clientes' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-200 text-slate-600'
             }`}>
@@ -1694,7 +1697,7 @@ const AdminView = ({
             }`}
           >
             <ShieldAlert className="w-3.5 h-3.5 text-rose-500" />
-            <span>Auditoría & Limpieza</span>
+            <span>{t.admin.tabs.maintenance}</span>
           </button>
         </div>
       </div>
@@ -1708,6 +1711,7 @@ const AdminView = ({
           tasks={tasks}
           currentUser={currentUser}
           logAction={logAction}
+          lang={lang}
         />
       )}
 
@@ -1719,6 +1723,7 @@ const AdminView = ({
           usersList={usersList}
           currentUser={currentUser}
           logAction={logAction}
+          lang={lang}
         />
       )}
 
@@ -1728,6 +1733,7 @@ const AdminView = ({
           billingSettings={billingSettings}
           currentUser={currentUser}
           logAction={logAction}
+          lang={lang}
         />
       )}
 
@@ -1740,9 +1746,11 @@ const AdminView = ({
                 <Building2 className="w-5 h-5" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-slate-800">Cartera de Clientes y Empresas</h2>
+                <h2 className="text-lg font-bold text-slate-800">{t.admin.clientsTab.title}</h2>
                 <p className="text-xs text-slate-500">
-                  Actualmente hay <span className="font-bold text-indigo-600">{clientesCount}</span> clientes activos registrados con validación de NIF/CIF.
+                  {t.admin.clientsTab.activeClients ? t.admin.clientsTab.activeClients.replace('{count}', clientesCount) : (
+                    <>Actualmente hay <span className="font-bold text-indigo-600">{clientesCount}</span> clientes activos registrados con validación de NIF/CIF.</>
+                  )}
                 </p>
               </div>
             </div>
@@ -1752,30 +1760,30 @@ const AdminView = ({
                 onClick={onNavigateToClientes}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-xs hover:shadow-premium-hover flex items-center gap-2 transition-all shrink-0 cursor-pointer"
               >
-                <Building2 className="w-4 h-4" /> <span>Abrir Módulo Completo de Clientes</span>
+                <Building2 className="w-4 h-4" /> <span>{t.admin.clientsTab.openModule}</span>
               </button>
             )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Total en Cartera</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">{t.admin.clientsTab.totalInPortfolio}</span>
               <span className="text-2xl font-black text-slate-800">{clientesCount}</span>
-              <p className="text-[11px] text-slate-400 mt-1">Sociedades, autónomos y particulares</p>
+              <p className="text-[11px] text-slate-400 mt-1">{t.admin.clientsTab.portfolioDesc}</p>
             </div>
             <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Validación Obligatoria</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">{t.admin.clientsTab.mandatoryValidation}</span>
               <span className="text-sm font-bold text-emerald-600 flex items-center gap-1 mt-1">
-                <CheckCircle2 className="w-4 h-4" /> NIF / CIF Verificado
+                <CheckCircle2 className="w-4 h-4" /> {t.admin.clientsTab.verifiedTaxId}
               </span>
-              <p className="text-[11px] text-slate-400 mt-1">Garantiza trazabilidad legal y fiscal en expedientes</p>
+              <p className="text-[11px] text-slate-400 mt-1">{t.admin.clientsTab.taxIdDesc}</p>
             </div>
             <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Herramientas</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">{t.admin.clientsTab.tools}</span>
               <span className="text-sm font-bold text-indigo-600 flex items-center gap-1 mt-1">
-                <FileSpreadsheet className="w-4 h-4" /> Carga Masiva CSV
+                <FileSpreadsheet className="w-4 h-4" /> {t.admin.clientsTab.massCsv}
               </span>
-              <p className="text-[11px] text-slate-400 mt-1">Importa carteras completas de programas contables</p>
+              <p className="text-[11px] text-slate-400 mt-1">{t.admin.clientsTab.massCsvDesc}</p>
             </div>
           </div>
         </div>
@@ -1788,14 +1796,14 @@ const AdminView = ({
             <div>
               <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                 <Users className="text-indigo-600 w-5 h-5"/>
-                <span>Gestión del Equipo de Asesores y Empleados</span>
+                <span>{t.admin.teamTab.title}</span>
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Controla las altas, permisos y accesos autorizados. Solo el personal registrado aquí podrá acceder a GestFlow.
+                {t.admin.teamTab.subtitle}
               </p>
             </div>
             <span className="text-xs font-semibold px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-100">
-              {usersList.length} asesores en plantilla
+              {t.admin.teamTab.advisorsCount ? t.admin.teamTab.advisorsCount.replace('{count}', usersList.length) : `${usersList.length} assessors`}
             </span>
           </div>
 
@@ -1803,12 +1811,12 @@ const AdminView = ({
           <form onSubmit={handleSaveEmployee} className="bg-slate-50/80 p-4 rounded-xl border border-slate-200/80 space-y-3">
             <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
               <UserPlus className="w-4 h-4 text-indigo-600" />
-              <span>Dar de Alta y Autorizar Nuevo Asesor / Empleado</span>
+              <span>{t.admin.teamTab.newMemberTitle}</span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div>
-                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Correo Electrónico *</label>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">{t.admin.teamTab.email}</label>
                 <input
                   type="email"
                   required
@@ -1820,18 +1828,18 @@ const AdminView = ({
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Nombre Completo</label>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">{t.admin.teamTab.fullName}</label>
                 <input
                   type="text"
                   value={newEmployee.name}
                   onChange={e => setNewEmployee({ ...newEmployee, name: e.target.value })}
-                  placeholder="Ej. Carmen Gómez"
+                  placeholder={isCa ? "Ex. Carme Gómez" : "Ej. Carmen Gómez"}
                   className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Área / Especialidad</label>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">{t.admin.teamTab.area}</label>
                 <select
                   value={newEmployee.department}
                   onChange={e => setNewEmployee({ ...newEmployee, department: e.target.value })}
@@ -1845,14 +1853,14 @@ const AdminView = ({
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Rol y Permisos</label>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">{t.admin.teamTab.role}</label>
                 <select
                   value={newEmployee.role}
                   onChange={e => setNewEmployee({ ...newEmployee, role: e.target.value })}
                   className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
                 >
-                  <option value="gestor">Gestor / Asesor (Solo sus expedientes)</option>
-                  <option value="admin">Administrador (Control global)</option>
+                  <option value="gestor">{t.admin.teamTab.roleAdvisor}</option>
+                  <option value="admin">{t.admin.teamTab.roleAdmin}</option>
                 </select>
               </div>
             </div>
@@ -1870,7 +1878,7 @@ const AdminView = ({
                 className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
               >
                 <UserPlus className="w-3.5 h-3.5" />
-                <span>Registrar y Autorizar Empleado</span>
+                <span>{t.admin.teamTab.registerBtn}</span>
               </button>
             </div>
           </form>
@@ -1880,11 +1888,11 @@ const AdminView = ({
             <table className="w-full text-xs text-left">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase">
                 <tr>
-                  <th className="p-3">Asesor / Empleado</th>
-                  <th className="p-3">Área / Especialidad</th>
-                  <th className="p-3">Rol</th>
-                  <th className="p-3">Estado</th>
-                  <th className="p-3 text-right">Acciones</th>
+                  <th className="p-3">{t.admin.teamTab.table.member}</th>
+                  <th className="p-3">{t.admin.teamTab.table.area}</th>
+                  <th className="p-3">{t.admin.teamTab.table.role}</th>
+                  <th className="p-3">{t.admin.teamTab.table.status}</th>
+                  <th className="p-3 text-right">{t.admin.teamTab.table.actions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -1917,26 +1925,26 @@ const AdminView = ({
                       <td className="p-3">
                         {isSuper ? (
                           <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 font-bold text-[10px] flex items-center gap-1 w-fit">
-                            <Crown className="w-3 h-3" /> Super Admin
+                            <Crown className="w-3 h-3" /> {t.admin.teamTab.table.superAdmin}
                           </span>
                         ) : isUserAdmin ? (
                           <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold text-[10px] flex items-center gap-1 w-fit">
-                            <Shield className="w-3 h-3" /> Administrador
+                            <Shield className="w-3 h-3" /> {t.admin.teamTab.table.admin}
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 font-medium text-[10px] flex items-center gap-1 w-fit">
-                            <User className="w-3 h-3 text-slate-500" /> Gestor / Asesor
+                            <User className="w-3 h-3 text-slate-500" /> {t.admin.teamTab.table.advisor}
                           </span>
                         )}
                       </td>
                       <td className="p-3">
                         {isInactive ? (
                           <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 font-semibold text-[10px]">
-                            Acceso Revocado
+                            {t.admin.teamTab.table.revoked}
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold text-[10px]">
-                            Activo
+                            {t.admin.teamTab.table.active}
                           </span>
                         )}
                       </td>
@@ -1946,10 +1954,10 @@ const AdminView = ({
                             type="button"
                             onClick={() => handleOpenEditUser(user)}
                             className="px-2 py-1 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-semibold transition-colors cursor-pointer flex items-center gap-1 border border-indigo-200"
-                            title="Editar empleado (nombre, departamento, rol)"
+                            title={isCa ? "Editar empleat (nom, departament, rol)" : "Editar empleado (nombre, departamento, rol)"}
                           >
                             <Pencil className="w-3 h-3" />
-                            <span>Editar</span>
+                            <span>{t.admin.teamTab.table.edit}</span>
                           </button>
 
                           {!isSuper && !isSelf && (
@@ -1958,15 +1966,15 @@ const AdminView = ({
                                 type="button"
                                 onClick={() => handleToggleUserStatus(user)}
                                 className={`px-2 py-1 rounded text-[10px] font-semibold transition-colors cursor-pointer ${isInactive ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200' : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'}`}
-                                title={isInactive ? "Permitir Acceso" : "Suspender Acceso"}
+                                title={isInactive ? (isCa ? "Permetre Accés" : "Permitir Acceso") : (isCa ? "Suspendre Accés" : "Suspender Acceso")}
                               >
-                                {isInactive ? "Reactivar" : "Suspender"}
+                                {isInactive ? t.admin.teamTab.table.reactivate : t.admin.teamTab.table.suspend}
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleDeleteUser(user)}
                                 className="p-1 rounded text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                                title="Eliminar del Despacho"
+                                title={t.admin.teamTab.table.delete}
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -1980,7 +1988,7 @@ const AdminView = ({
                 {usersList.length === 0 && (
                   <tr>
                     <td colSpan="5" className="p-4 text-center text-slate-400">
-                      Sin asesores registrados aún.
+                      {t.admin.teamTab.table.empty}
                     </td>
                   </tr>
                 )}
@@ -1995,7 +2003,7 @@ const AdminView = ({
                 <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50">
                   <div className="flex items-center gap-2">
                     <Pencil className="w-4 h-4 text-indigo-600" />
-                    <h3 className="font-bold text-sm text-slate-800">Modificar Ficha de Empleado</h3>
+                    <h3 className="font-bold text-sm text-slate-800">{t.admin.teamTab.editModal.title}</h3>
                   </div>
                   <button
                     type="button"
@@ -2008,7 +2016,7 @@ const AdminView = ({
 
                 <form onSubmit={handleSaveEditUser} className="p-5 space-y-3.5">
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Correo Electrónico (Identificador)</label>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">{t.admin.teamTab.editModal.email}</label>
                     <input
                       type="email"
                       disabled
@@ -2018,19 +2026,19 @@ const AdminView = ({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Nombre Completo *</label>
+                    <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">{t.admin.teamTab.editModal.fullName}</label>
                     <input
                       type="text"
                       required
                       value={editUserForm.name}
                       onChange={e => setEditUserForm({ ...editUserForm, name: e.target.value })}
                       className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500"
-                      placeholder="Nombre del asesor"
+                      placeholder={t.admin.teamTab.editModal.fullNamePlaceholder}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Departamento / Área Asignada *</label>
+                    <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">{t.admin.teamTab.editModal.department}</label>
                     <select
                       value={editUserForm.department}
                       onChange={e => setEditUserForm({ ...editUserForm, department: e.target.value })}
@@ -2045,14 +2053,14 @@ const AdminView = ({
 
                   {!SUPER_ADMINS.includes((editingUser.email || editingUser.id || '').toLowerCase().trim()) && (
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Rol y Permisos</label>
+                      <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">{t.admin.teamTab.editModal.role}</label>
                       <select
                         value={editUserForm.role}
                         onChange={e => setEditUserForm({ ...editUserForm, role: e.target.value })}
                         className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                       >
-                        <option value="gestor">Gestor / Asesor (Solo sus expedientes)</option>
-                        <option value="admin">Administrador (Acceso y control global)</option>
+                        <option value="gestor">{t.admin.teamTab.editModal.roleAdvisor}</option>
+                        <option value="admin">{t.admin.teamTab.editModal.roleAdmin}</option>
                       </select>
                     </div>
                   )}
@@ -2069,14 +2077,14 @@ const AdminView = ({
                       onClick={() => setEditingUser(null)}
                       className="px-3.5 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
                     >
-                      Cancelar
+                      {t.admin.teamTab.editModal.cancel}
                     </button>
                     <button
                       type="submit"
                       className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
                     >
                       <Save className="w-3.5 h-3.5" />
-                      <span>Guardar Cambios</span>
+                      <span>{t.admin.teamTab.editModal.save}</span>
                     </button>
                   </div>
                 </form>
@@ -2092,33 +2100,33 @@ const AdminView = ({
           <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-premium">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                <FileText className="text-indigo-600"/> Registro de Auditoría de Expedientes
+                <FileText className="text-indigo-600"/> {t.admin.auditTab.title}
               </h2>
               <button 
                 onClick={exportAuditLogs} 
                 className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg border border-slate-200 flex items-center gap-1 transition-colors cursor-pointer font-semibold"
               >
-                <Download className="w-3.5 h-3.5"/> Descargar Auditoría
+                <Download className="w-3.5 h-3.5"/> {t.admin.auditTab.downloadAudit}
               </button>
             </div>
             <div className="overflow-x-auto max-h-72 border border-slate-100 rounded-xl">
               <table className="w-full text-xs text-left">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase sticky top-0">
                   <tr>
-                    <th className="p-3">Fecha y Hora</th>
-                    <th className="p-3">Asesor / Usuario</th>
-                    <th className="p-3">Acción</th>
-                    <th className="p-3">Detalles</th>
+                    <th className="p-3">{t.admin.auditTab.dateCol}</th>
+                    <th className="p-3">{t.admin.auditTab.userCol}</th>
+                    <th className="p-3">{t.admin.auditTab.actionCol}</th>
+                    <th className="p-3">{t.admin.auditTab.detailsCol}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {auditLogs.map(log => (
                     <tr key={log.id} className="hover:bg-slate-50">
-                      <td className="p-3 text-slate-400 whitespace-nowrap">{log.timestamp ? new Date(log.timestamp.seconds * 1000).toLocaleString('es-ES') : '-'}</td>
+                      <td className="p-3 text-slate-400 whitespace-nowrap">{log.timestamp ? new Date(log.timestamp.seconds * 1000).toLocaleString(isCa ? 'ca-ES' : 'es-ES') : '-'}</td>
                       <td className="p-3 font-medium text-slate-700">{log.user}</td>
                       <td className="p-3">
-                        <span className={`px-2 py-0.5 rounded-full border ${log.action && log.action.includes('Eliminado') ? 'bg-rose-50 text-rose-700 border-rose-100' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-                          {log.action || 'Desconocida'}
+                        <span className={`px-2 py-0.5 rounded-full border ${log.action && (log.action.includes('Eliminado') || log.action.includes('Eliminat')) ? 'bg-rose-50 text-rose-700 border-rose-100' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                          {log.action || (isCa ? 'Desconeguda' : 'Desconocida')}
                         </span>
                       </td>
                       <td className="p-3 text-slate-500 truncate max-w-xs" title={log.details}>{log.details}</td>
@@ -2126,7 +2134,7 @@ const AdminView = ({
                   ))}
                   {auditLogs.length === 0 && (
                     <tr>
-                      <td colSpan="4" className="p-4 text-center text-slate-400">Sin actividad registrada todavía.</td>
+                      <td colSpan="4" className="p-4 text-center text-slate-400">{t.admin.auditTab.empty}</td>
                     </tr>
                   )}
                 </tbody>
@@ -2138,23 +2146,23 @@ const AdminView = ({
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div>
                 <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                  <Database className="text-indigo-600"/> Gestión y Depuración de Expedientes
+                  <Database className="text-indigo-600"/> {t.admin.auditTab.managementTitle}
                 </h2>
-                <p className="text-xs text-slate-500">Selecciona expedientes para su eliminación permanente o archivado forzado.</p>
+                <p className="text-xs text-slate-500">{t.admin.auditTab.managementDesc}</p>
               </div>
               <button 
                 onClick={deleteSelected} 
                 disabled={selectedTasks.length === 0 || isProcessing} 
                 className="bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white border border-rose-200 px-4 py-2 rounded-xl font-bold text-xs transition-colors flex items-center gap-2 disabled:opacity-50 cursor-pointer"
               >
-                <Trash2 className="w-4 h-4"/> Eliminar Seleccionados ({selectedTasks.length})
+                <Trash2 className="w-4 h-4"/> {t.admin.auditTab.deleteSelected} ({selectedTasks.length})
               </button>
             </div>
             <div className="relative">
               <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400"/>
               <input 
                 type="text" 
-                placeholder="Buscar expedientes o clientes para eliminar..." 
+                placeholder={t.admin.auditTab.searchPlaceholder} 
                 value={adminSearchTerm} 
                 onChange={e => setAdminSearchTerm(e.target.value)} 
                 className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
@@ -2175,12 +2183,12 @@ const AdminView = ({
                         checked={filteredAdminTasks.length > 0 && selectedTasks.length === filteredAdminTasks.length} 
                       />
                     </th>
-                    <th className="p-3">Expediente</th>
-                    <th className="p-3">Cliente</th>
-                    <th className="p-3">Tipo</th>
-                    <th className="p-3">Área</th>
-                    <th className="p-3">Estado</th>
-                    <th className="p-3">Creado por</th>
+                    <th className="p-3">{t.admin.auditTab.expedienteCol}</th>
+                    <th className="p-3">{t.admin.auditTab.clientCol}</th>
+                    <th className="p-3">{t.admin.auditTab.typeCol}</th>
+                    <th className="p-3">{t.admin.auditTab.areaCol}</th>
+                    <th className="p-3">{t.admin.auditTab.statusCol}</th>
+                    <th className="p-3">{t.admin.auditTab.createdByCol}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -2203,7 +2211,7 @@ const AdminView = ({
                   ))}
                   {filteredAdminTasks.length === 0 && (
                     <tr>
-                      <td colSpan="7" className="p-4 text-center text-slate-400">No se encontraron expedientes que coincidan.</td>
+                      <td colSpan="7" className="p-4 text-center text-slate-400">{t.admin.auditTab.noResults}</td>
                     </tr>
                   )}
                 </tbody>
