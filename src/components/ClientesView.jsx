@@ -24,7 +24,8 @@ const ClientesView = ({
   currentUser, 
   logAction,
   onBackToAdmin,
-  onNavigateToClientExpedientes
+  onNavigateToClientExpedientes,
+  isAdmin = true
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTypeFilter, setSelectedTypeFilter] = useState('');
@@ -346,11 +347,11 @@ const ClientesView = ({
             {onBackToAdmin && (
               <button
                 onClick={onBackToAdmin}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-xl text-xs font-semibold shadow-2xs flex items-center gap-1.5 transition-all"
-                title="Volver a la vista de Administración"
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-xl text-xs font-semibold shadow-2xs flex items-center gap-1.5 transition-all cursor-pointer"
+                title={isAdmin ? "Volver a la vista de Administración" : "Volver a Expedientes"}
               >
                 <ArrowLeft className="w-4 h-4 text-slate-500" />
-                <span>Volver a Admin</span>
+                <span>{isAdmin ? "Volver a Admin" : "Volver a Expedientes"}</span>
               </button>
             )}
 

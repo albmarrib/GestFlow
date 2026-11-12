@@ -39,7 +39,7 @@ import {
   Paperclip, FileText, Download, Loader2, XCircle, ExternalLink, Pencil, Save, Map, 
   Activity, PauseCircle, BookOpen, Link as LinkIcon, File, Menu, Copy, Target, Eye, EyeOff,
   Building2, Scale, UserCheck, CalendarCheck, RefreshCw, Crown, Shield, UserPlus,
-  Coins, Receipt, CreditCard, Sparkles, CheckSquare, Palette
+  Coins, Receipt, CreditCard, Sparkles, CheckSquare, Palette, UploadCloud
 } from 'lucide-react';
 import ClientAutocomplete from './components/ClientAutocomplete';
 import ClientesView from './components/ClientesView';
@@ -1491,6 +1491,68 @@ const AdminView = ({
     }
   };
 
+  // Estados y funciones para Edición de Asesores / Empleados (Requisito: cambiar departamento, nombre, rol)
+  const [editingUser, setEditingUser] = useState(null);
+  const [editUserForm, setEditUserForm] = useState({ name: '', department: '', role: 'gestor' });
+  const [editFeedback, setEditFeedback] = useState({ text: '', type: '' });
+
+  const handleOpenEditUser = (user) => {
+    setEditingUser(user);
+    const userEmail = (user.email || user.id || '').toLowerCase().trim();
+    const isUserAdmin = adminList.includes(userEmail) || user.role === 'admin';
+    setEditUserForm({
+      name: user.name || userEmail.split('@')[0],
+      department: user.department || areas[0]?.nombre || 'General',
+      role: isUserAdmin ? 'admin' : (user.role || 'gestor')
+    });
+    setEditFeedback({ text: '', type: '' });
+  };
+
+  const handleSaveEditUser = async (e) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    const userEmail = (editingUser.email || editingUser.id || '').toLowerCase().trim();
+    const isSuper = SUPER_ADMINS.includes(userEmail);
+    const finalRole = isSuper ? 'admin' : editUserForm.role;
+
+    try {
+      await updateDoc(doc(db, 'users', userEmail), {
+        name: editUserForm.name.trim(),
+        department: editUserForm.department || 'General',
+        role: finalRole,
+        lastUpdated: serverTimestamp()
+      }).catch(async () => {
+        await setDoc(doc(db, 'users', userEmail), {
+          email: userEmail,
+          name: editUserForm.name.trim(),
+          department: editUserForm.department || 'General',
+          role: finalRole,
+          status: editingUser.status || 'active'
+        }, { merge: true });
+      });
+
+      // Sincronizar admin en settings/config si no es Super Admin
+      if (!isSuper) {
+        if (finalRole === 'admin') {
+          await updateDoc(doc(db, 'settings', 'config'), { admins: arrayUnion(userEmail) }).catch(async () => {
+            await setDoc(doc(db, 'settings', 'config'), { admins: [userEmail] }, { merge: true });
+          });
+        } else {
+          await updateDoc(doc(db, 'settings', 'config'), { admins: arrayRemove(userEmail) }).catch(console.warn);
+        }
+      }
+
+      await logAction('Modificación Empleado', `Email: ${userEmail} - Nombre: ${editUserForm.name} - Dpto: ${editUserForm.department} - Rol: ${finalRole}`);
+      setEditFeedback({ text: 'Empleado actualizado con éxito.', type: 'success' });
+      setTimeout(() => {
+        setEditingUser(null);
+        setEditFeedback({ text: '', type: '' });
+      }, 700);
+    } catch (err) {
+      setEditFeedback({ text: 'Error al actualizar: ' + err.message, type: 'error' });
+    }
+  };
+
   const exportAuditLogs = async () => {
       if(!confirm("¿Descargar historial completo de auditoría?")) return;
       try {
@@ -1877,34 +1939,38 @@ const AdminView = ({
                         )}
                       </td>
                       <td className="p-3 text-right">
-                        {!isSuper && !isSelf && (
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleUserRole(user)}
-                              className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-semibold transition-colors cursor-pointer"
-                              title={isUserAdmin ? "Degradar a Gestor" : "Hacer Administrador"}
-                            >
-                              {isUserAdmin ? "Quitar Admin" : "Hacer Admin"}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleToggleUserStatus(user)}
-                              className={`px-2 py-1 rounded text-[10px] font-semibold transition-colors cursor-pointer ${isInactive ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200' : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'}`}
-                              title={isInactive ? "Permitir Acceso" : "Suspender Acceso"}
-                            >
-                              {isInactive ? "Reactivar" : "Suspender"}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteUser(user)}
-                              className="p-1 rounded text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                              title="Eliminar del Despacho"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        )}
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditUser(user)}
+                            className="px-2 py-1 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-semibold transition-colors cursor-pointer flex items-center gap-1 border border-indigo-200"
+                            title="Editar empleado (nombre, departamento, rol)"
+                          >
+                            <Pencil className="w-3 h-3" />
+                            <span>Editar</span>
+                          </button>
+
+                          {!isSuper && !isSelf && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleUserStatus(user)}
+                                className={`px-2 py-1 rounded text-[10px] font-semibold transition-colors cursor-pointer ${isInactive ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200' : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'}`}
+                                title={isInactive ? "Permitir Acceso" : "Suspender Acceso"}
+                              >
+                                {isInactive ? "Reactivar" : "Suspender"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteUser(user)}
+                                className="p-1 rounded text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                title="Eliminar del Despacho"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -1919,6 +1985,102 @@ const AdminView = ({
               </tbody>
             </table>
           </div>
+
+          {/* MODAL EDICIÓN DE ASESOR / EMPLEADO (Departamento, Nombre, Rol) */}
+          {editingUser && (
+            <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+              <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden">
+                <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50">
+                  <div className="flex items-center gap-2">
+                    <Pencil className="w-4 h-4 text-indigo-600" />
+                    <h3 className="font-bold text-sm text-slate-800">Modificar Ficha de Empleado</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditingUser(null)}
+                    className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSaveEditUser} className="p-5 space-y-3.5">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Correo Electrónico (Identificador)</label>
+                    <input
+                      type="email"
+                      disabled
+                      value={editingUser.email || editingUser.id || ''}
+                      className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-500 cursor-not-allowed font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Nombre Completo *</label>
+                    <input
+                      type="text"
+                      required
+                      value={editUserForm.name}
+                      onChange={e => setEditUserForm({ ...editUserForm, name: e.target.value })}
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500"
+                      placeholder="Nombre del asesor"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Departamento / Área Asignada *</label>
+                    <select
+                      value={editUserForm.department}
+                      onChange={e => setEditUserForm({ ...editUserForm, department: e.target.value })}
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                    >
+                      {areas.length > 0 
+                        ? areas.map(a => <option key={a.id || a.nombre} value={a.nombre || a.name}>{a.nombre || a.name}</option>)
+                        : MASTERS.departments.map(d => <option key={d} value={d}>{d}</option>)
+                      }
+                    </select>
+                  </div>
+
+                  {!SUPER_ADMINS.includes((editingUser.email || editingUser.id || '').toLowerCase().trim()) && (
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Rol y Permisos</label>
+                      <select
+                        value={editUserForm.role}
+                        onChange={e => setEditUserForm({ ...editUserForm, role: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                      >
+                        <option value="gestor">Gestor / Asesor (Solo sus expedientes)</option>
+                        <option value="admin">Administrador (Acceso y control global)</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {editFeedback.text && (
+                    <p className={`text-xs font-semibold text-center ${editFeedback.type === 'error' ? 'text-rose-600' : 'text-emerald-600'}`}>
+                      {editFeedback.text}
+                    </p>
+                  )}
+
+                  <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setEditingUser(null)}
+                      className="px-3.5 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      <span>Guardar Cambios</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -2588,6 +2750,7 @@ const ExpedienteModal = ({
   };
 
   const [isUploading, setIsUploading] = useState(false);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
   const fileInputRef = useRef(null);
   const [editingUpdateIndex, setEditingUpdateIndex] = useState(null);
   const [editedUpdateText, setEditedUpdateText] = useState('');
@@ -2711,13 +2874,13 @@ const ExpedienteModal = ({
       });
   };
 
-  const handleFileUpload = async (e) => {
-    if (!e.target.files[0]) return;
-    const file = e.target.files[0];
+  const processFileUpload = async (file) => {
+    if (!file) return;
     setIsUploading(true);
     try {
       const parentId = task?.id || ('nuevo_' + Date.now());
-      const storageRef = ref(storage, `expedientes/${parentId}/${Date.now()}_${file.name}`);
+      const cleanFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const storageRef = ref(storage, `expedientes/${parentId}/${Date.now()}_${cleanFileName}`);
       await uploadBytes(storageRef, file);
       const downloadURL = await getDownloadURL(storageRef);
       const newAttachment = { 
@@ -2725,8 +2888,9 @@ const ExpedienteModal = ({
         url: downloadURL, 
         path: storageRef.fullPath, 
         type: 'file', 
+        size: file.size,
         uploadedAt: new Date().toISOString(), 
-        uploadedBy: currentUser.email 
+        uploadedBy: currentUser?.email || 'gestor' 
       };
 
       const currentList = task?.attachments || formData.attachments || [];
@@ -2740,12 +2904,22 @@ const ExpedienteModal = ({
         setEditingTask(prev => ({ ...prev, attachments: updatedAttachments }));
       }
       setFormData(prev => ({ ...prev, attachments: updatedAttachments }));
+      if (logAction) {
+        logAction('Adjunto Subido', `Archivo: ${file.name} en ${task?.title || formData.title}`);
+      }
     } catch (error) { 
       console.error(error); 
       alert("Error al subir el archivo: " + (error.message || error)); 
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
-    setIsUploading(false);
-    if(fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleFileUpload = (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      Array.from(e.target.files).forEach(f => processFileUpload(f));
+    }
   };
 
   const handleAddLinkAttachment = async () => {
@@ -3431,10 +3605,39 @@ const ExpedienteModal = ({
             </div>
           )}
 
-          {/* PESTAÑA 4: ADJUNTOS CON ELIMINACIÓN Y GESTIÓN ÁGIL */}
+          {/* PESTAÑA 4: ADJUNTOS CON DRAG & DROP DIRECTO Y ELIMINACIÓN ÁGIL */}
           {rightTab === 'docs' && (
-            <div className="flex-1 flex flex-col h-full overflow-hidden bg-white p-4">
-              <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-100 shrink-0">
+            <div 
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDraggingFile(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDraggingFile(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDraggingFile(false);
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                  Array.from(e.dataTransfer.files).forEach(f => processFileUpload(f));
+                }
+              }}
+              className="flex-1 flex flex-col h-full overflow-hidden bg-white p-4 relative"
+            >
+              {/* Overlay visual cuando se arrastra un archivo encima */}
+              {isDraggingFile && (
+                <div className="absolute inset-0 bg-indigo-600/90 backdrop-blur-xs z-30 flex flex-col items-center justify-center text-white border-2 border-dashed border-white m-2 rounded-2xl animate-in fade-in duration-150">
+                  <UploadCloud className="w-12 h-12 text-white animate-bounce mb-2" />
+                  <p className="font-bold text-sm">Suelta tus archivos aquí para adjuntarlos</p>
+                  <p className="text-xs text-indigo-200 mt-1">Se guardarán automáticamente en este expediente</p>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center mb-2.5 pb-2 border-b border-slate-100 shrink-0">
                 <span className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
                   <Paperclip className="w-3.5 h-3.5 text-blue-600" /> Archivos y Documentación
                 </span>
@@ -3449,11 +3652,23 @@ const ExpedienteModal = ({
                     <span>+ Enlace Web</span>
                   </button>
                   <label className="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-2.5 py-1 rounded-lg font-semibold cursor-pointer flex items-center gap-1 transition-colors">
-                    {isUploading ? <Loader2 className="w-3 h-3 animate-spin"/> : <Plus className="w-3 h-3"/>}
-                    <span>Subir Archivo</span>
-                    <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" disabled={isUploading} />
+                    {isUploading ? <Loader2 className="w-3 h-3 animate-spin"/> : <UploadCloud className="w-3 h-3"/>}
+                    <span>{isUploading ? "Subiendo..." : "Subir Archivo"}</span>
+                    <input type="file" ref={fileInputRef} onChange={handleFileUpload} multiple className="hidden" disabled={isUploading} />
                   </label>
                 </div>
+              </div>
+
+              {/* Zona dropzone visual para arrastrar o hacer clic */}
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="mb-2.5 p-2.5 border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-slate-50/70 hover:bg-indigo-50/30 rounded-xl transition-all cursor-pointer text-center group shrink-0"
+              >
+                <div className="flex items-center justify-center gap-2 text-xs text-slate-600 group-hover:text-indigo-600 font-medium">
+                  <UploadCloud className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                  <span>Arrastra archivos aquí o <span className="underline font-bold text-indigo-600">examinar desde el equipo</span></span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-0.5">Admite PDF, imágenes, justificantes bancarios y documentos</p>
               </div>
               <div className="flex-1 overflow-y-auto space-y-2">
                 {(resourceLinks.length === 0 && fileAttachments.length === 0) ? (
@@ -4215,6 +4430,7 @@ const ExpedienteManager = ({ currentUser }) => {
                   <button onClick={() => setCurrentView('plan')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'plan' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><BarChart3 className="w-3.5 h-3.5"/> Plan Fiscal</button>
                   <button onClick={() => setCurrentView('roadmap')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'roadmap' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><CalendarCheck className="w-3.5 h-3.5"/> Vencimientos</button>
                   <button onClick={() => setCurrentView('gtd')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'gtd' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><Target className="w-3.5 h-3.5"/> Trámites GTD</button>
+                  <button onClick={() => setCurrentView('clientes')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'clientes' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><Building2 className="w-3.5 h-3.5"/> Clientes</button>
                   <button onClick={() => setCurrentView('billing')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'billing' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><Coins className="w-3.5 h-3.5"/> Facturación</button>
                   <button onClick={() => setCurrentView('analytics')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'analytics' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><PieChart className="w-3.5 h-3.5"/> Informes</button>
                   {isAdmin && (<button onClick={() => setCurrentView('admin')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'admin' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><Database className="w-3.5 h-3.5"/> Admin</button>)}
@@ -4252,6 +4468,7 @@ const ExpedienteManager = ({ currentUser }) => {
                       <button onClick={() => navigateTo('plan')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'plan' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><BarChart3 className="w-4 h-4"/> Plan Fiscal</button>
                       <button onClick={() => navigateTo('roadmap')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'roadmap' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><CalendarCheck className="w-4 h-4"/> Vencimientos</button>
                       <button onClick={() => navigateTo('gtd')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'gtd' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><Target className="w-4 h-4"/> Trámites GTD</button>
+                      <button onClick={() => navigateTo('clientes')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'clientes' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><Building2 className="w-4 h-4"/> Cartera de Clientes</button>
                       <button onClick={() => navigateTo('billing')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'billing' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><Coins className="w-4 h-4"/> Facturación & Honorarios</button>
                       <button onClick={() => navigateTo('analytics')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'analytics' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><PieChart className="w-4 h-4"/> Informes</button>
                       {isAdmin && (<button onClick={() => navigateTo('admin')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'admin' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><Database className="w-4 h-4"/> Panel Admin</button>)}
@@ -4283,18 +4500,32 @@ const ExpedienteManager = ({ currentUser }) => {
                  usersList={usersList}
                  billingSettings={billingSettings}
                />
-             ) : <div className="text-center p-10 text-rose-500 font-bold">Acceso Denegado</div>
+             ) : (
+               <ClientesView 
+                  clientes={clientes} 
+                  tasks={tasks} 
+                  currentUser={currentUser} 
+                  logAction={logAction} 
+                  onBackToAdmin={() => setCurrentView('list')}
+                  onNavigateToClientExpedientes={(nifOrName) => {
+                    setSearchTerm(nifOrName);
+                    setCurrentView('list');
+                  }}
+                  isAdmin={false}
+               />
+             )
         ) : currentView === 'clientes' ? (
              <ClientesView 
                 clientes={clientes} 
                 tasks={tasks} 
                 currentUser={currentUser} 
                 logAction={logAction} 
-                onBackToAdmin={() => setCurrentView('admin')}
+                onBackToAdmin={() => setCurrentView(isAdmin ? 'admin' : 'list')}
                 onNavigateToClientExpedientes={(nifOrName) => {
                   setSearchTerm(nifOrName);
                   setCurrentView('list');
                 }}
+                isAdmin={isAdmin}
              />
         ) : currentView === 'billing' ? (
              <BillingView 
