@@ -25,6 +25,8 @@ const ClientesView = ({
   logAction,
   onBackToAdmin,
   onNavigateToClientExpedientes,
+  formalizeData = null,
+  onClearFormalizeData,
   isAdmin = true,
   lang = 'ca'
 }) => {
@@ -37,6 +39,17 @@ const ClientesView = ({
   const [isProcessingCsv, setIsProcessingCsv] = useState(false);
   const [csvResultModal, setCsvResultModal] = useState(null);
   const fileInputRef = useRef(null);
+  const [clientSubTab, setClientSubTab] = useState('official'); // 'official' | 'provisional'
+  const [mergeModalTarget, setMergeModalTarget] = useState(null);
+
+  // Escuchar si viene una petición directa de formalización desde otra vista
+  useEffect(() => {
+    if (formalizeData) {
+      setEditingCliente(formalizeData);
+      setIsModalOpen(true);
+      if (onClearFormalizeData) onClearFormalizeData();
+    }
+  }, [formalizeData]);
 
   // Set de NIFs existentes normalizados en mayúsculas
   const existingNifs = useMemo(() => {
@@ -72,6 +85,39 @@ const ClientesView = ({
       });
     });
     return counts;
+  }, [tasks, clientes]);
+
+  // Lista de clientes provisionales deducida de los expedientes en tiempo real
+  const provisionalClientsList = useMemo(() => {
+    if (!tasks || tasks.length === 0) return [];
+    const map = new Map();
+    tasks.forEach(task => {
+      if (!task.client) return;
+      const cName = task.client.trim();
+      const isOfficial = clientes.some(c => {
+        const cNif = (c.nif || '').toLowerCase().trim();
+        const cRazon = (c.razonSocial || '').toLowerCase().trim();
+        const tClient = cName.toLowerCase();
+        return (cNif && tClient.includes(cNif)) || (cRazon && tClient === cRazon) || `${cRazon} (${cNif})` === tClient;
+      });
+
+      if (!isOfficial || task.isProvisionalClient) {
+        const key = cName.toLowerCase();
+        if (map.has(key)) {
+          const existing = map.get(key);
+          existing.count += 1;
+          existing.taskIds.push(task.id);
+        } else {
+          map.set(key, {
+            name: cName,
+            count: 1,
+            taskIds: [task.id],
+            firstCreated: task.createdAt || task.lastUpdated || null
+          });
+        }
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => b.count - a.count);
   }, [tasks, clientes]);
 
   // Filtrado de clientes por texto y tipo
@@ -298,6 +344,46 @@ const ClientesView = ({
       if (logAction) {
         logAction('Creado Cliente', `${clientData.razonSocial} (${normalizedNif})`);
       }
+
+      // Si se está formalizando un cliente provisional, actualizar todos sus expedientes vinculados
+      if (existingCliente?.fromProvisionalName) {
+        const provName = existingCliente.fromProvisionalName.trim().toLowerCase();
+        const linked = tasks.filter(t => {
+          if (!t.client) return false;
+          const clean = t.client.trim().toLowerCase();
+          return clean === provName || clean === `${provName} (provisional)`;
+        });
+
+        if (linked.length > 0) {
+          const taskBatch = writeBatch(db);
+          const targetLabel = `${clientData.razonSocial} (${normalizedNif})`;
+
+          linked.forEach(t => {
+            taskBatch.update(doc(db, 'expedientes', t.id), {
+              client: targetLabel,
+              clientNif: normalizedNif,
+              isProvisionalClient: false,
+              lastUpdated: serverTimestamp(),
+              updatedBy: currentUser?.email || 'admin'
+            });
+            taskBatch.update(doc(db, 'tasks', t.id), {
+              client: targetLabel,
+              clientNif: normalizedNif,
+              isProvisionalClient: false,
+              lastUpdated: serverTimestamp(),
+              updatedBy: currentUser?.email || 'admin'
+            }).catch(() => {});
+          });
+
+          await taskBatch.commit();
+          if (logAction) {
+            logAction(
+              isCa ? 'Formalitzat Client Provisional' : 'Formalizado Cliente Provisional',
+              `"${existingCliente.fromProvisionalName}" -> "${targetLabel}" (${linked.length} expedients)`
+            );
+          }
+        }
+      }
     }
   };
 
@@ -407,9 +493,12 @@ const ClientesView = ({
         </div>
 
         {/* CONTADORES RESUMEN */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-slate-100">
-          <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/60 shadow-2xs">
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{isCa ? 'Total Clients' : 'Total Clientes'}</div>
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-6 pt-6 border-t border-slate-100">
+          <div 
+            onClick={() => setClientSubTab('official')}
+            className={`p-3.5 rounded-xl border shadow-2xs cursor-pointer transition-all ${clientSubTab === 'official' ? 'bg-indigo-50/80 border-indigo-300 ring-2 ring-indigo-500/20' : 'bg-slate-50/80 border-slate-200/60 hover:bg-slate-100'}`}
+          >
+            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{isCa ? 'Total Oficials' : 'Total Oficiales'}</div>
             <div className="text-2xl font-extrabold text-slate-900 mt-0.5">{clientes.length}</div>
           </div>
           <div className="bg-indigo-50/50 p-3.5 rounded-xl border border-indigo-100/70 shadow-2xs">
@@ -419,18 +508,57 @@ const ClientesView = ({
             </div>
           </div>
           <div className="bg-emerald-50/50 p-3.5 rounded-xl border border-emerald-100/70 shadow-2xs">
-            <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">{isCa ? 'Autònoms / Professionals' : 'Autónomos / Profesionales'}</div>
+            <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">{isCa ? 'Autònoms' : 'Autónomos'}</div>
             <div className="text-2xl font-extrabold text-emerald-900 mt-0.5">
               {clientes.filter(c => (c.tipo || '').includes('Autónomo') || (c.tipo || '').includes('Particular')).length}
             </div>
           </div>
-          <div className="bg-amber-50/50 p-3.5 rounded-xl border border-amber-100/70 shadow-2xs">
-            <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">{isCa ? 'Amb Expedients Actius' : 'Con Expedientes Activos'}</div>
-            <div className="text-2xl font-extrabold text-amber-900 mt-0.5">
+          <div className="bg-blue-50/50 p-3.5 rounded-xl border border-blue-100/70 shadow-2xs">
+            <div className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">{isCa ? 'Amb Tràmits Actius' : 'Con Trámites Activos'}</div>
+            <div className="text-2xl font-extrabold text-blue-900 mt-0.5">
               {Object.keys(clientTaskCounts).length}
             </div>
           </div>
+          <div 
+            onClick={() => setClientSubTab('provisional')}
+            className={`p-3.5 rounded-xl border shadow-2xs cursor-pointer transition-all ${clientSubTab === 'provisional' ? 'bg-amber-100/80 border-amber-400 ring-2 ring-amber-500/20' : 'bg-amber-50/60 border-amber-200/80 hover:bg-amber-100/50'}`}
+          >
+            <div className="text-[10px] font-bold text-amber-700 uppercase tracking-wider flex items-center justify-between">
+              <span>{isCa ? 'Provisores Pendents' : 'Provisionales Pendientes'}</span>
+              <Clock className="w-3.5 h-3.5 text-amber-500" />
+            </div>
+            <div className="text-2xl font-extrabold text-amber-900 mt-0.5">
+              {provisionalClientsList.length}
+            </div>
+          </div>
         </div>
+      </div>
+
+      {/* SELECTOR DE SUBPESTAÑA: OFICIALES VS PROVISIONALES */}
+      <div className="flex items-center gap-2 p-1 bg-slate-200/60 rounded-xl w-fit">
+        <button
+          type="button"
+          onClick={() => setClientSubTab('official')}
+          className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            clientSubTab === 'official' ? 'bg-white text-indigo-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Building2 className="w-3.5 h-3.5" />
+          <span>{isCa ? 'Clients Oficials Registrats' : 'Clientes Oficiales Registrados'} ({clientes.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setClientSubTab('provisional')}
+          className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            clientSubTab === 'provisional' 
+              ? 'bg-amber-500 text-white shadow-2xs' 
+              : 'text-amber-800 hover:bg-amber-100/60'
+          }`}
+        >
+          <Clock className="w-3.5 h-3.5" />
+          <span>{isCa ? 'Pendents d\'Alta / Provisores' : 'Pendientes de Alta / Provisionales'} ({provisionalClientsList.length})</span>
+        </button>
       </div>
 
       {/* BARRA DE BÚSQUEDA Y FILTRADO */}
@@ -479,7 +607,121 @@ const ClientesView = ({
         </div>
       </div>
 
-      {/* TABLA PRINCIPAL DE CLIENTES */}
+      {/* VISTA CONDICIONAL: TABLA DE PROVISIONALES O TABLA OFICIAL */}
+      {clientSubTab === 'provisional' ? (
+        <div className="bg-white/95 backdrop-blur-xs rounded-2xl border border-amber-200/80 shadow-xs overflow-hidden space-y-0">
+          <div className="p-4 bg-amber-50/60 border-b border-amber-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-600" />
+                <span>{isCa ? 'Clients Provisores Detectats en Expedients' : 'Clientes Provisionales Detectados en Expedientes'}</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {isCa 
+                  ? 'Aquestes persones o empreses han tingut expedients sense estar donats d\'alta formalment. Formalitza la seva fitxa fiscal o fusiona\'ls amb un client existent.'
+                  : 'Estas personas o empresas han tenido expedientes sin estar dados de alta formalmente. Formaliza su ficha fiscal o fusiónalos con un cliente existente.'}
+              </p>
+            </div>
+            <span className="text-xs font-bold px-3 py-1 bg-amber-200/80 text-amber-900 rounded-full shrink-0">
+              {provisionalClientsList.length} {isCa ? 'provisores pendents' : 'provisionales pendientes'}
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider">
+                  <th className="p-4">{isCa ? 'Nom del Client Provisional' : 'Nombre del Cliente Provisional'}</th>
+                  <th className="p-4 text-center">{isCa ? 'Expedients Associats' : 'Expedientes Asociados'}</th>
+                  <th className="p-4">{isCa ? 'Estat de Formalització' : 'Estado de Formalización'}</th>
+                  <th className="p-4 text-right pr-6">{isCa ? 'Accions Recomanades' : 'Acciones Recomendadas'}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {provisionalClientsList.map((prov) => (
+                  <tr key={prov.name} className="hover:bg-amber-50/40 transition-colors">
+                    <td className="p-4 font-bold text-slate-900 text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0"></span>
+                        <span>{prov.name}</span>
+                      </div>
+                    </td>
+
+                    <td className="p-4 text-center">
+                      <button
+                        type="button"
+                        onClick={() => onNavigateToClientExpedientes && onNavigateToClientExpedientes(prov.name)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100 transition-colors cursor-pointer"
+                        title={isCa ? "Veure expedients vinculats" : "Ver expedientes vinculados"}
+                      >
+                        <span>{prov.count} {prov.count === 1 ? (isCa ? 'expedient' : 'expediente') : (isCa ? 'expedients' : 'expedientes')}</span>
+                        <ExternalLink className="w-3 h-3 text-amber-700" />
+                      </button>
+                    </td>
+
+                    <td className="p-4">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                        <AlertCircle className="w-3 h-3 text-amber-600" />
+                        <span>{isCa ? 'Pendent de Fitxa Fiscal' : 'Pendiente de Ficha Fiscal'}</span>
+                      </span>
+                    </td>
+
+                    <td className="p-4 text-right pr-6 whitespace-nowrap">
+                      <div className="inline-flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingCliente({
+                              razonSocial: prov.name,
+                              fromProvisionalName: prov.name,
+                              linkedTasksCount: prov.count
+                            });
+                            setIsModalOpen(true);
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                          title={isCa ? "Formalitzar com a client oficial" : "Formalizar como cliente oficial"}
+                        >
+                          <UserPlus className="w-3.5 h-3.5" />
+                          <span>{isCa ? 'Formalitzar Fitxa' : 'Formalizar Ficha'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setMergeModalTarget(prov.name)}
+                          className="px-3 py-1.5 rounded-lg bg-white hover:bg-amber-50 text-amber-900 border border-amber-300 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                          title={isCa ? "Fusionar amb un client oficial existent" : "Fusionar con un cliente oficial existente"}
+                        >
+                          <GitMerge className="w-3.5 h-3.5 text-amber-600" />
+                          <span>{isCa ? 'Fusionar' : 'Fusionar'}</span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+
+                {provisionalClientsList.length === 0 && (
+                  <tr>
+                    <td colSpan="4" className="p-12 text-center text-slate-400">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3">
+                        <CheckCircle2 className="w-6 h-6" />
+                      </div>
+                      <h4 className="font-bold text-slate-800 text-sm">
+                        {isCa ? 'Cap client provisional pendent' : 'Ningún cliente provisional pendiente'}
+                      </h4>
+                      <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                        {isCa 
+                          ? 'Tots els expedients de la gestoria estan degudament associats a clients oficials registrats.' 
+                          : 'Todos los expedientes de la gestoría están debidamente asociados a clientes oficiales registrados.'}
+                      </p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+      /* TABLA PRINCIPAL DE CLIENTES OFICIALES */
       <div className="bg-white/95 backdrop-blur-xs rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -657,6 +899,24 @@ const ClientesView = ({
           <span className="text-[11px] text-slate-400">{isCa ? 'NIFs únics indexats com a clau primària a Firestore' : 'NIFs únicos indexados como clave primaria en Firestore'}</span>
         </div>
       </div>
+      )}
+
+      {/* MODAL DE FUSIÓN DE CLIENTE PROVISIONAL */}
+      <MergeClientModal
+        show={Boolean(mergeModalTarget)}
+        onClose={() => setMergeModalTarget(null)}
+        provisionalClientName={mergeModalTarget}
+        tasks={tasks}
+        clientes={clientes}
+        currentUser={currentUser}
+        logAction={logAction}
+        onOpenCreateOfficialClient={(prefilled) => {
+          setEditingCliente(prefilled);
+          setIsModalOpen(true);
+        }}
+        onSuccess={(msg) => alert(msg)}
+        lang={lang}
+      />
 
       {/* MODAL PARA CREACIÓN / EDICIÓN */}
       <ClienteModal

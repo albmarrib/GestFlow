@@ -42,6 +42,7 @@ import {
   Coins, Receipt, CreditCard, Sparkles, CheckSquare, Palette, UploadCloud
 } from 'lucide-react';
 import ClientAutocomplete from './components/ClientAutocomplete';
+import MergeClientModal from './components/MergeClientModal';
 import ClientesView from './components/ClientesView';
 import ClassificationManager, { STATUS_COLORS, DEFAULT_ESTADOS } from './components/ClassificationManager';
 import DynamicClassificationSelect from './components/DynamicClassificationSelect';
@@ -2668,9 +2669,18 @@ const ListView = ({ tasks, onEdit, lang = 'ca' }) => {
               </div>
               
               {task.client && (
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-indigo-50/70 text-indigo-700 font-semibold text-xs border border-indigo-100/70 mb-2">
-                  <Building2 className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                <div className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg font-semibold text-xs border mb-2 ${
+                  task.isProvisionalClient 
+                    ? 'bg-amber-50/90 text-amber-900 border-amber-200' 
+                    : 'bg-indigo-50/70 text-indigo-700 border-indigo-100/70'
+                }`}>
+                  <Building2 className={`w-3.5 h-3.5 shrink-0 ${task.isProvisionalClient ? 'text-amber-600' : 'text-indigo-500'}`} />
                   <span className="truncate max-w-md">{task.client}</span>
+                  {task.isProvisionalClient && (
+                    <span className="text-[9px] font-bold bg-amber-200/80 text-amber-900 px-1.5 py-0.2 rounded shrink-0">
+                      {lang === 'ca' ? 'Provisional' : 'Provisional'}
+                    </span>
+                  )}
                 </div>
               )}
 
@@ -2743,6 +2753,7 @@ const ExpedienteModal = ({
   saveGtdAssignee,
   billingSettings = {},
   logAction,
+  onOpenMergeModal,
   lang = 'ca'
 }) => {
   const t = translations[lang] || translations.ca;
@@ -2788,8 +2799,8 @@ const ExpedienteModal = ({
     return result.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
   }, [tasks, usersList, gtdAssignees, currentUser]);
 
-  // Validación estricta: Comprobar si el cliente seleccionado existe en la colección de clientes
-  const isValidClientSelected = useMemo(() => {
+  // Comprobar si el cliente seleccionado es oficial o provisional
+  const isOfficialClient = useMemo(() => {
     if (!formData.client && !formData.clientNif) return false;
     if (!clientes || clientes.length === 0) return false;
     return clientes.some(c => {
@@ -2806,10 +2817,19 @@ const ExpedienteModal = ({
     });
   }, [clientes, formData.client, formData.clientNif]);
 
+  const isProvisionalClient = Boolean(formData.isProvisionalClient || (!isOfficialClient && formData.client && formData.client.trim().length > 0));
+
+  const isValidClientSelected = useMemo(() => {
+    if (!formData.client || !formData.client.trim()) return false;
+    return isOfficialClient || isProvisionalClient;
+  }, [formData.client, isOfficialClient, isProvisionalClient]);
+
   const handleSubmitForm = (e) => {
     e.preventDefault();
     if (!isValidClientSelected) {
-      alert("⚠️ Bloqueo de seguridad: No se puede crear ni actualizar el expediente sin asociarlo a un cliente existente en la base de datos.");
+      alert(lang === 'ca'
+        ? "⚠️ És obligatori indicar un client oficial o un nom de client provisional."
+        : "⚠️ Es obligatorio indicar un cliente oficial o un nombre de cliente provisional.");
       return;
     }
     onSave(e);
@@ -3160,27 +3180,62 @@ const ExpedienteModal = ({
                 </label>
                 <ClientAutocomplete
                   clientes={clientes}
+                  tasks={tasks}
                   value={formData.client || ''}
                   selectedNif={formData.clientNif || ''}
+                  isProvisional={isProvisionalClient}
                   onChange={(selected) => {
                     if (selected) {
-                      setFormData({
-                        ...formData,
-                        client: `${selected.razonSocial} (${selected.nif})`,
-                        clientNif: selected.nif,
-                        clientRazonSocial: selected.razonSocial
-                      });
+                      if (selected.isProvisional) {
+                        setFormData({
+                          ...formData,
+                          client: selected.razonSocial,
+                          clientNif: '',
+                          clientRazonSocial: selected.razonSocial,
+                          isProvisionalClient: true
+                        });
+                      } else {
+                        setFormData({
+                          ...formData,
+                          client: `${selected.razonSocial} (${selected.nif})`,
+                          clientNif: selected.nif,
+                          clientRazonSocial: selected.razonSocial,
+                          isProvisionalClient: false
+                        });
+                      }
                     } else {
                       setFormData({
                         ...formData,
                         client: '',
                         clientNif: '',
-                        clientRazonSocial: ''
+                        clientRazonSocial: '',
+                        isProvisionalClient: false
                       });
                     }
                   }}
                   error={!isValidClientSelected && Boolean(formData.client)}
+                  lang={lang}
                 />
+                {isProvisionalClient && formData.client && (
+                  <div className="mt-1.5 p-2.5 bg-amber-50/90 border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-1.5 text-amber-900 min-w-0">
+                      <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span className="text-[11px] font-medium">
+                        {t.provisionalClient.provisionalNotice}
+                      </span>
+                    </div>
+                    {onOpenMergeModal && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenMergeModal(formData.client)}
+                        className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] rounded-lg transition-colors shrink-0 shadow-2xs flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <GitMerge className="w-3 h-3" />
+                        <span>{t.provisionalClient.formalizeBtn} / {t.provisionalClient.mergeBtn}</span>
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -3977,6 +4032,8 @@ const ExpedienteManager = ({ currentUser }) => {
   const [plantillas, setPlantillas] = useState([]);
   const [gtdAssignees, setGtdAssignees] = useState([]);
   const [billingSettings, setBillingSettings] = useState(DEFAULT_BILLING_SETTINGS);
+  const [formalizeModalData, setFormalizeModalData] = useState(null);
+  const [mergeModalTarget, setMergeModalTarget] = useState(null);
   const [usersList, setUsersList] = useState([]); 
   const [filterScope, setFilterScope] = useState(isInitialAdmin ? 'all' : 'mine'); 
   const [selectedDepts, setSelectedDepts] = useState([]);
@@ -4390,7 +4447,7 @@ const ExpedienteManager = ({ currentUser }) => {
   const handleSaveTask = async (e) => {
     e.preventDefault();
 
-    // Verificación estricta: El cliente debe existir en la base de datos de Clientes
+    // Verificación: Identificar si es cliente oficial o provisional
     const clientExists = clientes.some(c => {
       const cNif = (c.nif || '').toUpperCase().trim();
       const cRazon = (c.razonSocial || '').toLowerCase().trim();
@@ -4404,8 +4461,11 @@ const ExpedienteManager = ({ currentUser }) => {
       return false;
     });
 
-    if (!clientExists) {
-      alert("⚠️ Operación bloqueada: No se puede crear ni actualizar el expediente sin asociarlo a un cliente existente en la base de datos de Clientes.");
+    const isProvisional = Boolean(formData.isProvisionalClient || !clientExists);
+    if (!formData.client || !formData.client.trim()) {
+      alert(lang === 'ca'
+        ? "⚠️ És obligatori indicar un client oficial o un nom de client provisional."
+        : "⚠️ Es obligatorio indicar un cliente oficial o un nombre de cliente provisional.");
       return;
     }
 
@@ -4425,6 +4485,7 @@ const ExpedienteManager = ({ currentUser }) => {
           const payload = { 
               ...formData, 
               status: finalStatus,
+              isProvisionalClient: isProvisional,
               lastUpdated: serverTimestamp(),
               updatedBy: currentUser.email 
           };
@@ -4436,6 +4497,7 @@ const ExpedienteManager = ({ currentUser }) => {
           const newData = { 
               ...formData, 
               status: finalStatus,
+              isProvisionalClient: isProvisional,
               originalDueDate: formData.dueDate, 
               createdBy: currentUser.email, 
               createdAt: serverTimestamp(), 
@@ -4667,6 +4729,8 @@ const ExpedienteManager = ({ currentUser }) => {
                     setCurrentView('list');
                   }}
                   isAdmin={false}
+                  formalizeData={formalizeModalData}
+                  onClearFormalizeData={() => setFormalizeModalData(null)}
                   lang={lang}
                />
              )
@@ -4682,6 +4746,8 @@ const ExpedienteManager = ({ currentUser }) => {
                   setCurrentView('list');
                 }}
                 isAdmin={isAdmin}
+                formalizeData={formalizeModalData}
+                onClearFormalizeData={() => setFormalizeModalData(null)}
                 lang={lang}
              />
         ) : currentView === 'billing' ? (
@@ -4776,6 +4842,7 @@ const ExpedienteManager = ({ currentUser }) => {
       {/* MODAL FICHA DE EXPEDIENTE */}
       <ExpedienteModal 
         tasks={tasks} 
+        onOpenMergeModal={(cName) => setMergeModalTarget(cName)} 
         show={showModal} 
         onClose={() => setShowModal(false)} 
         task={editingTask} 
@@ -4797,6 +4864,23 @@ const ExpedienteManager = ({ currentUser }) => {
         saveGtdAssignee={saveGtdAssignee}
         billingSettings={billingSettings}
         logAction={logAction}
+        lang={lang}
+      />
+
+      {/* MODAL DE FUSIÓN Y FORMALIZACIÓN DE CLIENTES PROVISIONALES */}
+      <MergeClientModal
+        show={Boolean(mergeModalTarget)}
+        onClose={() => setMergeModalTarget(null)}
+        provisionalClientName={mergeModalTarget}
+        tasks={tasks}
+        clientes={clientes}
+        currentUser={currentUser}
+        logAction={logAction}
+        onOpenCreateOfficialClient={(prefilled) => {
+          setFormalizeModalData(prefilled);
+          setCurrentView('clientes');
+        }}
+        onSuccess={(msg) => alert(msg)}
         lang={lang}
       />
     </div>

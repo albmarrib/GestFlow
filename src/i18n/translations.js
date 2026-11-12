@@ -476,6 +476,28 @@ export const translations = {
         saving: 'Desant...'
       }
     },
+    provisionalClient: {
+      badge: 'Client Provisional',
+      pendingRegistration: 'Pendent d\'Alta',
+      useAsProvisional: 'Utilitzar "{name}" com a Client Provisional',
+      existingProvisional: 'Client provisional existent ({count} expedients)',
+      provisionalNotice: 'Aquest expedient pertany a un client provisional no registrat a la base de dades oficial.',
+      formalizeBtn: 'Formalitzar Fitxa',
+      mergeBtn: 'Fusionar amb Client Oficial',
+      mergeModalTitle: 'Fusionar Client Provisional',
+      mergeModalDesc: 'Reassignarà automàticament tots els expedients de "{provisionalName}" a un client oficial registrat.',
+      selectOfficialClient: 'Cerca i selecciona el client oficial de destí:',
+      confirmMerge: 'Confirmar Fusió d\'Expedients',
+      cancel: 'Cancel·lar',
+      merging: 'Fusionant...',
+      mergeSuccess: 'S\'han actualitzat {count} expedient(s) al client oficial "{clientName}".',
+      tabProvisional: 'Pendents d\'Alta ({count})',
+      tabOfficial: 'Clients Oficials',
+      tabAll: 'Tots els Clients',
+      noProvisional: 'No hi ha cap client provisional pendent. Tots els expedients estan associats a clients oficials.',
+      provisionalKpi: 'Provisores Pendents',
+      linkedExpedientes: '{count} expedients vinculats'
+    },
     // Plantillas GTD
     templates: {
       title: 'Plantilles de Tràmits GTD i Fluxos Predefinits',
@@ -961,6 +983,28 @@ export const translations = {
         save: 'Guardar Cambios',
         saving: 'Guardando...'
       }
+    },
+    provisionalClient: {
+      badge: 'Cliente Provisional',
+      pendingRegistration: 'Pendiente de Alta',
+      useAsProvisional: 'Usar "{name}" como Cliente Provisional',
+      existingProvisional: 'Cliente provisional existente ({count} expedientes)',
+      provisionalNotice: 'Este expediente pertenece a un cliente provisional no registrado en la base de datos oficial.',
+      formalizeBtn: 'Formalizar Ficha',
+      mergeBtn: 'Fusionar con Cliente Oficial',
+      mergeModalTitle: 'Fusionar Cliente Provisional',
+      mergeModalDesc: 'Reasignará automáticamente todos los expedientes de "{provisionalName}" a un cliente oficial registrado.',
+      selectOfficialClient: 'Busca y selecciona el cliente oficial de destino:',
+      confirmMerge: 'Confirmar Fusión de Expedientes',
+      cancel: 'Cancelar',
+      merging: 'Fusionando...',
+      mergeSuccess: 'Se han actualizado {count} expediente(s) al cliente oficial "{clientName}".',
+      tabProvisional: 'Pendientes de Alta ({count})',
+      tabOfficial: 'Clientes Oficiales',
+      tabAll: 'Todos los Clientes',
+      noProvisional: 'No hay ningún cliente provisional pendiente. Todos los expedientes están asociados a clientes oficiales.',
+      provisionalKpi: 'Provisionales Pendientes',
+      linkedExpedientes: '{count} expedientes vinculados'
     },
     // Plantillas GTD
     templates: {

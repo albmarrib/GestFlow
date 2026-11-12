@@ -148,17 +148,21 @@ const ClienteModal = ({
         {/* Cabecera del modal */}
         <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-white">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${cliente?.fromProvisionalName ? 'bg-amber-100 text-amber-700' : 'bg-indigo-50 text-indigo-600'}`}>
               <Building2 className="w-5 h-5" />
             </div>
             <div>
               <h3 className="text-lg font-bold text-slate-800">
-                {cliente 
+                {cliente?.fromProvisionalName
+                  ? (isCa ? 'Formalitzar Fitxa de Client' : 'Formalizar Ficha de Cliente')
+                  : cliente 
                   ? (isCa ? 'Editar Fitxa de Client' : 'Editar Ficha de Cliente') 
                   : (isCa ? 'Alta de Nou Client' : 'Alta de Nuevo Cliente')}
               </h3>
               <p className="text-xs text-slate-500">
-                {cliente 
+                {cliente?.fromProvisionalName
+                  ? (isCa ? `Completant dades oficials per a "${cliente.fromProvisionalName}"` : `Completando datos oficiales para "${cliente.fromProvisionalName}"`)
+                  : cliente 
                   ? (isCa ? `Modificant dades de ${cliente.razonSocial}` : `Modificando datos de ${cliente.razonSocial}`) 
                   : (isCa ? 'Registra un client a la base de dades de GestFlow' : 'Registra un cliente en la base de datos de GestFlow')}
               </p>
@@ -176,6 +180,17 @@ const ClienteModal = ({
         {/* Formulario */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
           
+          {cliente?.fromProvisionalName && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-center gap-2.5">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>
+                {isCa 
+                  ? `ℹ️ Estàs formalitzant el client provisional "${cliente.fromProvisionalName}". En desar aquesta fitxa, tots els seus expedients passaran a ser oficials automàticament.`
+                  : `ℹ️ Estás formalizando el cliente provisional "${cliente.fromProvisionalName}". Al guardar esta ficha, todos sus expedientes pasarán a ser oficiales automáticamente.`}
+              </span>
+            </div>
+          )}
+
           {errors.general && (
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0" />
