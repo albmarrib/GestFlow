@@ -522,9 +522,20 @@ const ClassificationManager = ({
       const batch = writeBatch(db);
       
       targetDefaults.forEach(def => {
-        const existing = estados.find(e => 
-          (e.nombre || e.name || '').toLowerCase().trim() === def.nombre.toLowerCase().trim()
-        );
+        const existing = estados.find(e => {
+          const eName = (e.nombre || e.name || '').toLowerCase().trim();
+          const targetName = def.nombre.toLowerCase().trim();
+          if (eName === targetName) return true;
+          if (targetName === 'obert' && (eName === 'abierto' || eName === 'en plazo')) return true;
+          if (targetName === 'en risc' && eName === 'en riesgo') return true;
+          if (targetName === 'amb retard' && eName === 'con retraso') return true;
+          if (targetName === 'tancat' && eName === 'cerrado') return true;
+          if (targetName === 'abierto' && (eName === 'obert' || eName === 'en termini')) return true;
+          if (targetName === 'en riesgo' && eName === 'en risc') return true;
+          if (targetName === 'con retraso' && eName === 'amb retard') return true;
+          if (targetName === 'cerrado' && eName === 'tancat') return true;
+          return false;
+        });
 
         if (existing) {
           const docRef = doc(db, 'estados', existing.id);
@@ -725,6 +736,29 @@ const ClassificationManager = ({
           </button>
         </div>
       </div>
+
+      {/* Avís informatiu bilingüe per a Estats */}
+      {activeTab === 'estados' && (
+        <div className="p-3 bg-indigo-50/70 border border-indigo-100 rounded-xl text-xs text-indigo-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-base shrink-0">🌐</span>
+            <span className="text-[11px] font-medium leading-relaxed">
+              {isCa 
+                ? "Els 4 estats oficials (Obert, En Risc, Amb Retard i Tancat) es tradueixen automàticament al català o castellà segons l'idioma seleccionat per cada usuari a la seva interfície." 
+                : "Los 4 estados oficiales (Abierto, En Riesgo, Con Retraso y Cerrado) se traducen automáticamente al catalán o castellano según el idioma seleccionado por cada usuario en su interfaz."}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleApplyOfficial4States}
+            disabled={isSeeding}
+            className="text-[11px] font-bold text-indigo-700 bg-white hover:bg-indigo-100/70 border border-indigo-200 px-3 py-1 rounded-lg shrink-0 transition-colors shadow-2xs cursor-pointer flex items-center gap-1.5"
+          >
+            <Sparkles className="w-3 h-3 text-indigo-600" />
+            <span>{isCa ? "Sincronitzar Nomenclatura en Català" : "Sincronizar Nomenclatura en Castellano"}</span>
+          </button>
+        </div>
+      )}
 
       {/* TABLA PRINCIPAL DE ELEMENTOS */}
       <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">

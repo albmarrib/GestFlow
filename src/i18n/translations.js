@@ -320,7 +320,7 @@ export const translations = {
         billing: 'Liquidacions & Cobraments',
         personal: 'Equip i Assessors',
         clients: 'Cartera de Clients',
-        maintenance: 'Auditoria & Neteja'
+        maintenance: 'Auditoria, Logs & Neteja'
       },
       clientsTab: {
         title: 'Cartera de Clients i Empreses',
@@ -828,7 +828,7 @@ export const translations = {
         billing: 'Liquidaciones & Cobros',
         personal: 'Equipo y Asesores',
         clients: 'Cartera de Clientes',
-        maintenance: 'Auditoría & Limpieza'
+        maintenance: 'Auditoría, Logs y Limpieza'
       },
       clientsTab: {
         title: 'Cartera de Clientes y Empresas',

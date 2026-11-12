@@ -2763,6 +2763,8 @@ const ExpedienteModal = ({
   billingSettings = {},
   logAction,
   onOpenMergeModal,
+  onDelete,
+  isAdmin = false,
   lang = 'ca'
 }) => {
   const t = translations[lang] || translations.ca;
@@ -3140,6 +3142,16 @@ const ExpedienteModal = ({
                       <Copy className="w-3 h-3"/> {t.expedienteModal.duplicate}
                     </button>
                   )}
+                  {task && isAdmin && onDelete && (
+                    <button 
+                      type="button" 
+                      onClick={() => onDelete(task.id)} 
+                      className="text-[11px] bg-rose-50 hover:bg-rose-100 text-rose-600 px-2.5 py-1 rounded-full font-semibold border border-rose-200 hover:border-rose-300 flex items-center gap-1 transition-all cursor-pointer" 
+                      title={lang === 'ca' ? "Eliminar permanentment aquest expedient" : "Eliminar permanentemente este expediente"}
+                    >
+                      <Trash2 className="w-3 h-3"/> {lang === 'ca' ? "Eliminar" : "Eliminar"}
+                    </button>
+                  )}
                   <button type="button" onClick={onClose} className="w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-colors text-xs font-bold">✕</button>
               </div>
             </div>
@@ -3372,7 +3384,9 @@ const ExpedienteModal = ({
               )}
 
               <div className="pt-2 flex gap-2">
-                <button type="button" onClick={onClose} className="flex-1 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium transition-colors text-xs">Cancelar</button>
+                <button type="button" onClick={onClose} className="flex-1 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium transition-colors text-xs">
+                  {t.common?.cancel || (lang === 'ca' ? 'Cancel·lar' : 'Cancelar')}
+                </button>
                 <button 
                   type="submit" 
                   disabled={!isValidClientSelected}
@@ -4525,6 +4539,31 @@ const ExpedienteManager = ({ currentUser }) => {
     }
   };
 
+  const handleDeleteSingleTask = async (taskId) => {
+    if (!taskId) return;
+    const taskToDelete = tasks.find(t => t.id === taskId);
+    const confirmMsg = lang === 'ca'
+      ? `Segur que voleu eliminar permanentment l'expedient "${taskToDelete?.title || ''}"? Aquesta acció és irreversible.`
+      : `¿Seguro que deseas eliminar permanentemente el expediente "${taskToDelete?.title || ''}"? Esta acción es irreversible.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const batch = writeBatch(db);
+      batch.delete(doc(db, 'expedientes', taskId));
+      batch.delete(doc(db, 'tasks', taskId));
+      await batch.commit();
+
+      if (logAction) {
+        logAction('Eliminado Expediente', `Título: ${taskToDelete?.title || taskId} - Cliente: ${taskToDelete?.client || 'N/A'}`);
+      }
+      setShowModal(false);
+      setEditingTask(null);
+      alert(lang === 'ca' ? "Expedient eliminat correctament." : "Expediente eliminado correctamente.");
+    } catch (err) {
+      alert((lang === 'ca' ? "Error en eliminar l'expedient: " : "Error al eliminar expediente: ") + err.message);
+    }
+  };
+
   const handleAddUpdate = async () => {
     if (!newUpdateText.trim() || !editingTask) return;
     const newUpdate = { text: newUpdateText, author: currentUser.email, date: new Date().toISOString() };
@@ -4875,6 +4914,8 @@ const ExpedienteManager = ({ currentUser }) => {
         saveGtdAssignee={saveGtdAssignee}
         billingSettings={billingSettings}
         logAction={logAction}
+        onDelete={handleDeleteSingleTask}
+        isAdmin={isAdmin}
         lang={lang}
       />
 
