@@ -778,10 +778,10 @@ const ClassificationManager = ({
                       <td className="p-3.5 text-center whitespace-nowrap">
                         {item.isCompleted ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <Check className="w-3 h-3" /> {t.classification.tableBody.hiddenOnFinish}
+                            <Check className="w-3 h-3" /> {t.classification?.tableBody?.hiddenOnFinish || (isCa ? 'Ocult en finalitzar' : 'Oculto al finalizar')}
                           </span>
                         ) : (
-                          <span className="text-slate-400 text-[10px]">{t.classification.tableBody.inProgress}</span>
+                          <span className="text-slate-400 text-[10px]">{t.classification?.tableBody?.inProgress || (isCa ? 'En progrés' : 'En progreso')}</span>
                         )}
                       </td>
                     )}
@@ -793,7 +793,7 @@ const ClassificationManager = ({
                           {item.descripcion || item.description}
                         </span>
                       ) : (
-                        <span className="text-slate-400 italic text-[11px]">{t.classification.tableBody.noDescription}</span>
+                        <span className="text-slate-400 italic text-[11px]">{t.classification?.tableBody?.noDescription || (isCa ? 'Sense descripció' : 'Sin descripción')}</span>
                       )}
                     </td>
 
@@ -802,8 +802,8 @@ const ClassificationManager = ({
                       {usage > 0 ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
                           {usage === 1 
-                            ? t.classification.tableBody.singleExp 
-                            : t.classification.tableBody.multiExp.replace('{count}', usage)}
+                            ? (t.classification?.tableBody?.singleExp || (isCa ? '1 expedient' : '1 expediente')) 
+                            : (t.classification?.tableBody?.multiExp ? t.classification.tableBody.multiExp.replace('{count}', usage) : `${usage} ${isCa ? 'expedients' : 'expedientes'}`)}
                         </span>
                       ) : (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] text-slate-400 bg-slate-100">
@@ -842,8 +842,8 @@ const ClassificationManager = ({
                       <Layers className="w-8 h-8 text-slate-300 stroke-1" />
                       <p className="text-sm font-medium text-slate-600">
                         {searchTerm 
-                          ? t.classification.tableBody.emptyFilter.replace('{term}', searchTerm)
-                          : t.classification.tableBody.emptyCollection.replace('{tab}', getTabLabel(activeTab).toLowerCase())}
+                          ? (t.classification?.tableBody?.emptyFilter ? t.classification.tableBody.emptyFilter.replace('{term}', searchTerm) : (isCa ? `Sense resultats per "${searchTerm}"` : `Sin resultados para "${searchTerm}"`))
+                          : (t.classification?.tableBody?.emptyCollection ? t.classification.tableBody.emptyCollection.replace('{tab}', getTabLabel(activeTab).toLowerCase()) : (isCa ? 'Sense elements' : 'Sin elementos'))}
                       </p>
                       {!searchTerm && (
                         <div className="mt-2 flex items-center gap-3">
@@ -851,13 +851,13 @@ const ClassificationManager = ({
                             onClick={handleOpenCreate}
                             className="text-xs bg-indigo-600 text-white font-bold px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer"
                           >
-                            {t.classification.tableBody.createFirst.replace('{singular}', activeTab === 'areas' ? (isCa ? 'Àrea' : 'Área') : activeTab === 'tramos' ? (isCa ? 'Tram' : 'Tramo') : (isCa ? 'Estat' : 'Estado'))}
+                            {(t.classification?.tableBody?.createFirst || '+ Crear el primer {singular}').replace('{singular}', activeTab === 'areas' ? (isCa ? 'Àrea' : 'Área') : activeTab === 'tramos' ? (isCa ? 'Tram' : 'Tramo') : (isCa ? 'Estat' : 'Estado'))}
                           </button>
                           <button
                             onClick={handleSeedDefaults}
                             className="text-xs bg-slate-100 text-slate-700 font-bold px-3 py-1.5 rounded-lg hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer"
                           >
-                            {t.classification.tableBody.loadStandardValues}
+                            {t.classification?.tableBody?.loadStandardValues || (isCa ? 'Carregar valors estàndard' : 'Cargar valores estándar')}
                           </button>
                         </div>
                       )}
@@ -873,7 +873,7 @@ const ClassificationManager = ({
       {/* PIE DE TABLA / RESUMEN */}
       <div className="flex flex-col sm:flex-row justify-between items-center text-xs text-slate-500 pt-2 border-t border-slate-100 gap-2">
         <span>
-          {t.classification.footer.showing
+          {(t.classification?.footer?.showing || 'Mostrant {filtered} de {total} {tab}')
             .replace('{filtered}', filteredItems.length)
             .replace('{total}', currentItems.length)
             .replace('{tab}', getTabLabel(activeTab).toLowerCase())}
@@ -884,7 +884,7 @@ const ClassificationManager = ({
           className="text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 hover:underline disabled:opacity-50 cursor-pointer"
         >
           <Sparkles className="w-3 h-3" />
-          <span>{t.classification.footer.restoreMissing}</span>
+          <span>{t.classification?.footer?.restoreMissing || (isCa ? 'Restaurar / Afegir valors estàndard absents' : 'Restaurar / Añadir valores estándar ausentes')}</span>
         </button>
       </div>
 
@@ -1073,7 +1073,7 @@ const ClassificationManager = ({
                   disabled={isSubmitting}
                   className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
                 >
-                  {t.common.cancel}
+                  {t.common?.cancel || (isCa ? 'Cancel·lar' : 'Cancelar')}
                 </button>
                 <button
                   type="submit"

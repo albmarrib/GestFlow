@@ -2,6 +2,16 @@
 
 export const translations = {
   ca: {
+    common: {
+      cancel: 'Cancel·lar',
+      save: 'Desar Canvis',
+      saving: 'Desant...',
+      create: 'Crear',
+      delete: 'Eliminar',
+      edit: 'Editar',
+      loading: 'Carregant...',
+      close: 'Tancar'
+    },
     // Marca y Cabecera
     appSubtitle: 'Despatx & Assessoria',
     views: {
@@ -403,15 +413,38 @@ export const translations = {
       loadDefaults: 'Carregar Predeterminats',
       newArea: 'Nova Àrea',
       newTramo: 'Nou Tram',
+      newState: 'Nou Estat',
       newEstado: 'Nou Estat',
+      editArea: 'Modificar Àrea',
+      editTramo: 'Modificar Tram',
+      editState: 'Modificar Estat',
       seedNotice: 'Restaurar / Afegir valors estàndard absents',
       tableHeaders: {
         name: 'Nom',
+        stateColor: 'Estat i Color Semàntic',
+        category: 'Categoria',
+        filterFinished: 'Filtre En Acabar',
         description: 'Descripció',
         colorSemantic: 'Color Semàntic & Vista Prèvia',
         statusPill: 'Píndola d\'Estat',
+        inUse: 'Expedients en ús',
         usage: 'Expedients en ús',
         actions: 'Accions'
+      },
+      tableBody: {
+        hiddenOnFinish: 'Ocult en finalitzar',
+        inProgress: 'En progrés',
+        noDescription: 'Sense descripció',
+        singleExp: '1 expedient',
+        multiExp: '{count} expedients',
+        emptyFilter: 'No s\'han trobat resultats per a "{term}".',
+        emptyCollection: 'No hi ha cap {tab} definit encara.',
+        createFirst: '+ Crear el primer {singular}',
+        loadStandardValues: 'Carregar valors estàndard'
+      },
+      footer: {
+        showing: 'Mostrant {filtered} de {total} {tab}',
+        restoreMissing: 'Restaurar / Afegir valors estàndard absents'
       },
       badges: {
         openBadge: 'Obert / En Plazo',
@@ -423,15 +456,21 @@ export const translations = {
       modal: {
         createTitle: 'Crear {tab}',
         editTitle: 'Editar {tab}',
-        nameLabel: 'Nom del {tab} *',
-        descLabel: 'Descripció / Finalitat',
-        colorLabel: 'Color Semàntic',
-        categoryLabel: 'Comportament de l\'Estat',
-        categoryActive: 'Actiu / En curs',
-        categoryRisk: 'En risc de venciment',
-        categoryUrgent: 'Urgent / Amb retard',
-        categoryCompleted: 'Completat / Tancat',
-        orderLabel: 'Ordre de visualització',
+        badgePreview: 'Vista prèvia de la píndola',
+        nameLabel: 'Nom de {entity} *',
+        namePlaceholderArea: 'Ex: Fiscal i Tributari, Laboral...',
+        namePlaceholderTramo: 'Ex: Model 303 Trimestral, Renda...',
+        namePlaceholderState: 'Ex: Pendent de Facturar, Revisat...',
+        colorLabel: 'Color Semàntic de l\'Estat',
+        categoryLabel: 'Categoria Operativa',
+        catActive: 'Actiu / En progrés',
+        catRisk: 'En Risc',
+        catUrgent: 'Urgent / Amb Retard',
+        catCompleted: 'Finalitzat / Tancat',
+        orderLabel: 'Ordre de Visualització (1-99)',
+        autoHide: 'Ocultar automàticament dels filtres pendents quan estigui en aquest estat',
+        descLabel: 'Descripció o Finalitat',
+        descPlaceholder: 'Descriu breument quan s\'utilitza aquest element...',
         cancel: 'Cancel·lar',
         save: 'Desar Canvis',
         saving: 'Desant...'
@@ -449,6 +488,16 @@ export const translations = {
   },
 
   es: {
+    common: {
+      cancel: 'Cancelar',
+      save: 'Guardar Cambios',
+      saving: 'Guardando...',
+      create: 'Crear',
+      delete: 'Eliminar',
+      edit: 'Editar',
+      loading: 'Cargando...',
+      close: 'Cerrar'
+    },
     // Marca y Cabecera
     appSubtitle: 'Despacho & Asesoría',
     views: {
@@ -850,15 +899,38 @@ export const translations = {
       loadDefaults: 'Cargar Predeterminados',
       newArea: 'Nueva Área',
       newTramo: 'Nuevo Tramo',
+      newState: 'Nuevo Estado',
       newEstado: 'Nuevo Estado',
+      editArea: 'Modificar Área',
+      editTramo: 'Modificar Tramo',
+      editState: 'Modificar Estado',
       seedNotice: 'Restaurar / Añadir valores estándar ausentes',
       tableHeaders: {
         name: 'Nombre',
+        stateColor: 'Estado y Color Semántico',
+        category: 'Categoría',
+        filterFinished: 'Filtro Al Terminar',
         description: 'Descripción',
         colorSemantic: 'Color Semántico & Vista Previa',
         statusPill: 'Píldora de Estado',
+        inUse: 'Expedientes en uso',
         usage: 'Expedientes en uso',
         actions: 'Acciones'
+      },
+      tableBody: {
+        hiddenOnFinish: 'Oculto al finalizar',
+        inProgress: 'En progreso',
+        noDescription: 'Sin descripción',
+        singleExp: '1 expediente',
+        multiExp: '{count} expedientes',
+        emptyFilter: 'No se encontraron resultados para "{term}".',
+        emptyCollection: 'No hay ningún {tab} definido todavía.',
+        createFirst: '+ Crear el primer {singular}',
+        loadStandardValues: 'Cargar valores estándar'
+      },
+      footer: {
+        showing: 'Mostrando {filtered} de {total} {tab}',
+        restoreMissing: 'Restaurar / Añadir valores estándar ausentes'
       },
       badges: {
         openBadge: 'Abierto / En Plazo',
@@ -870,15 +942,21 @@ export const translations = {
       modal: {
         createTitle: 'Crear {tab}',
         editTitle: 'Editar {tab}',
-        nameLabel: 'Nombre del {tab} *',
-        descLabel: 'Descripción / Finalidad',
-        colorLabel: 'Color Semántico',
-        categoryLabel: 'Comportamiento del Estado',
-        categoryActive: 'Activo / En curso',
-        categoryRisk: 'En riesgo de vencimiento',
-        categoryUrgent: 'Urgente / Con retraso',
-        categoryCompleted: 'Completado / Cerrado',
-        orderLabel: 'Orden de visualización',
+        badgePreview: 'Vista previa de la píldora',
+        nameLabel: 'Nombre de {entity} *',
+        namePlaceholderArea: 'Ej: Fiscal y Tributario, Laboral...',
+        namePlaceholderTramo: 'Ej: Modelo 303 Trimestral, Renta...',
+        namePlaceholderState: 'Ej: Pendiente de Facturar, Revisado...',
+        colorLabel: 'Color Semántico del Estado',
+        categoryLabel: 'Categoría Operativa',
+        catActive: 'Activo / En progreso',
+        catRisk: 'En Riesgo',
+        catUrgent: 'Urgente / Con Retraso',
+        catCompleted: 'Finalizado / Cerrado',
+        orderLabel: 'Orden de Visualización (1-99)',
+        autoHide: 'Ocultar automáticamente de los filtros pendientes cuando esté en este estado',
+        descLabel: 'Descripción o Finalidad',
+        descPlaceholder: 'Describe brevemente cuándo se utiliza este elemento...',
         cancel: 'Cancelar',
         save: 'Guardar Cambios',
         saving: 'Guardando...'
