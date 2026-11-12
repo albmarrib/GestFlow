@@ -4036,16 +4036,27 @@ const ExpedienteManager = ({ currentUser }) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       setUsersList(data);
 
-      if (isSuperAdmin || preAuth) {
+      if (isSuperAdmin) {
         setIsAuthorized(true);
+        setIsAdmin(true);
       } else {
         const found = data.find(u => (u.email || u.id || '').toLowerCase().trim() === userEmail);
-        setIsAuthorized(Boolean(found && found.status !== 'inactive'));
+        setIsAuthorized(Boolean((found && found.status !== 'inactive') || preAuth));
+        if (found) {
+          const roleIsAdmin = found.role === 'admin';
+          setIsAdmin(roleIsAdmin);
+          if (!roleIsAdmin) setFilterScope('mine');
+        } else if (preAuth) {
+          const preIsAdmin = preAuth.role === 'admin';
+          setIsAdmin(preIsAdmin);
+          if (!preIsAdmin) setFilterScope('mine');
+        }
       }
       setIsAuthChecking(false);
     }, (err) => {
       console.warn("Error cargando usuarios:", err);
       setIsAuthorized(isSuperAdmin || Boolean(preAuth));
+      setIsAdmin(isSuperAdmin || Boolean(preAuth && preAuth.role === 'admin'));
       setIsAuthChecking(false);
     });
 
@@ -4118,25 +4129,34 @@ const ExpedienteManager = ({ currentUser }) => {
 
     // Escuchar configuración de administradores: Nadie es admin por defecto excepto el Super Admin y pre-autorizados
     const unsubAdmin = onSnapshot(doc(db, 'settings', 'config'), (docSnap) => {
-      const preAuthIsAdmin = preAuth && preAuth.role === 'admin';
-      if (docSnap.exists()) {
-        const adminList = (docSnap.data().admins || []).map(e => (typeof e === 'string' ? e.toLowerCase().trim() : ''));
-        const userIsAdmin = isSuperAdmin || preAuthIsAdmin || adminList.includes(userEmail);
+      if (isSuperAdmin) {
+        setIsAdmin(true);
+        return;
+      }
+      const adminList = docSnap.exists() 
+        ? (docSnap.data().admins || []).map(e => (typeof e === 'string' ? e.toLowerCase().trim() : ''))
+        : [];
+      
+      const userDoc = usersList.find(u => (u.email || u.id || '').toLowerCase().trim() === userEmail);
+      if (userDoc) {
+        const userIsAdmin = userDoc.role === 'admin';
         setIsAdmin(userIsAdmin);
-        if (!userIsAdmin) {
-          setFilterScope('mine');
-        }
+        if (!userIsAdmin) setFilterScope('mine');
       } else {
-        setIsAdmin(isSuperAdmin || preAuthIsAdmin);
-        if (!isSuperAdmin && !preAuthIsAdmin) setFilterScope('mine');
-        if (isSuperAdmin) {
-          setDoc(doc(db, 'settings', 'config'), { admins: [userEmail] }, { merge: true }).catch(console.warn);
-        }
+        const preAuthIsAdmin = preAuth && preAuth.role === 'admin';
+        const userIsAdmin = preAuthIsAdmin || adminList.includes(userEmail);
+        setIsAdmin(userIsAdmin);
+        if (!userIsAdmin) setFilterScope('mine');
       }
     }, () => {
-      const preAuthIsAdmin = preAuth && preAuth.role === 'admin';
-      setIsAdmin(isSuperAdmin || preAuthIsAdmin);
-      if (!isSuperAdmin && !preAuthIsAdmin) setFilterScope('mine');
+      if (isSuperAdmin) {
+        setIsAdmin(true);
+      } else {
+        const userDoc = usersList.find(u => (u.email || u.id || '').toLowerCase().trim() === userEmail);
+        const userIsAdmin = userDoc ? userDoc.role === 'admin' : Boolean(preAuth && preAuth.role === 'admin');
+        setIsAdmin(userIsAdmin);
+        if (!userIsAdmin) setFilterScope('mine');
+      }
     });
 
     return () => { unsubUsers(); unsubExpedientes(); unsubAdmin(); unsubClientes(); unsubAreas(); unsubTramos(); unsubEstados(); unsubPlantillas(); unsubGtdAssignees(); unsubBilling(); };
