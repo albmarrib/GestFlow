@@ -1,9 +1,10 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Papa from 'papaparse';
 import { 
   Building2, Plus, Search, Filter, Download, Upload, Trash2, 
-  Pencil, AlertTriangle, CheckCircle2, XCircle, FileSpreadsheet, 
-  Mail, Phone, MapPin, Tag, Briefcase, RefreshCw, Layers, ExternalLink, ArrowLeft
+  Pencil, AlertTriangle, AlertCircle, CheckCircle2, XCircle, FileSpreadsheet, 
+  Mail, Phone, MapPin, Tag, Briefcase, RefreshCw, Layers, ExternalLink, ArrowLeft,
+  Clock, UserPlus, GitMerge
 } from 'lucide-react';
 import { 
   doc, 
@@ -15,6 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import ClienteModal, { CLIENT_TYPES_CA, CLIENT_TYPES_ES } from './ClienteModal';
+import MergeClientModal from './MergeClientModal';
 
 const EXACT_HEADERS = ['nif', 'razonSocial', 'nombreComercial', 'email', 'telefono', 'direccion', 'tipo'];
 

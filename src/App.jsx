@@ -39,7 +39,7 @@ import {
   Paperclip, FileText, Download, Loader2, XCircle, ExternalLink, Pencil, Save, Map, 
   Activity, PauseCircle, BookOpen, Link as LinkIcon, File, Menu, Copy, Target, Eye, EyeOff,
   Building2, Scale, UserCheck, CalendarCheck, RefreshCw, Crown, Shield, UserPlus,
-  Coins, Receipt, CreditCard, Sparkles, CheckSquare, Palette, UploadCloud
+  Coins, Receipt, CreditCard, Sparkles, CheckSquare, Palette, UploadCloud, GitMerge
 } from 'lucide-react';
 import ClientAutocomplete from './components/ClientAutocomplete';
 import MergeClientModal from './components/MergeClientModal';
@@ -1216,9 +1216,18 @@ const RoadmapView = ({ tasks, onEdit, lang = 'ca' }) => {
                 </div>
                 <h4 className="font-bold text-sm text-slate-800 leading-tight mb-1 group-hover:text-indigo-600 transition-colors line-clamp-2">{task.title}</h4>
                 {task.client && (
-                    <div className="inline-flex items-center gap-1 text-[11px] text-indigo-700 font-semibold px-2 py-0.5 rounded-md bg-indigo-50/70 border border-indigo-100/60 mb-2 max-w-full truncate">
-                        <Building2 className="w-3 h-3 text-indigo-500 shrink-0"/> 
+                    <div className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md border mb-2 max-w-full truncate ${
+                      task.isProvisionalClient
+                        ? 'bg-amber-50/90 text-amber-900 border-amber-200'
+                        : 'bg-indigo-50/70 text-indigo-700 border-indigo-100/60'
+                    }`}>
+                        <Building2 className={`w-3 h-3 shrink-0 ${task.isProvisionalClient ? 'text-amber-600' : 'text-indigo-500'}`}/> 
                         <span className="truncate">{task.client}</span>
+                        {task.isProvisionalClient && (
+                          <span className="text-[9px] font-bold bg-amber-200/80 text-amber-900 px-1 py-0.1 rounded shrink-0">
+                            {isCa ? 'Prov.' : 'Prov.'}
+                          </span>
+                        )}
                     </div>
                 )}
                 <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
@@ -4103,7 +4112,8 @@ const ExpedienteManager = ({ currentUser }) => {
     billingStatus: 'pending',
     invoiceNumber: '',
     downPayments: [],
-    externalExpenses: []
+    externalExpenses: [],
+    isProvisionalClient: false
   };
   const [formData, setFormData] = useState(initialFormState);
 
@@ -4438,7 +4448,8 @@ const ExpedienteManager = ({ currentUser }) => {
       billingStatus: task.billingStatus || 'pending',
       invoiceNumber: task.invoiceNumber || '',
       downPayments: Array.isArray(task.downPayments) ? task.downPayments : [],
-      externalExpenses: Array.isArray(task.externalExpenses) ? task.externalExpenses : []
+      externalExpenses: Array.isArray(task.externalExpenses) ? task.externalExpenses : [],
+      isProvisionalClient: Boolean(task.isProvisionalClient)
     });
     setNewUpdateText('');
     setShowModal(true);

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { GitMerge, Building2, UserPlus, X, AlertTriangle, Check, Search, ArrowRight, Loader2 } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, writeBatch, doc, serverTimestamp } from 'firebase/firestore';
+import { writeBatch, doc, serverTimestamp } from 'firebase/firestore';
 import { translations } from '../i18n/translations';
 
 /**

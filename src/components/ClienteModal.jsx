@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Building2, X, AlertTriangle, Save, User, Mail, Phone, MapPin, Tag } from 'lucide-react';
+import { Building2, X, AlertTriangle, AlertCircle, Save, User, Mail, Phone, MapPin, Tag } from 'lucide-react';
 import { translations } from '../i18n/translations';
 
 export const CLIENT_TYPES_CA = [
