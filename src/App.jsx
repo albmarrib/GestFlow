@@ -51,6 +51,7 @@ import BillingView from './components/BillingView';
 import ExpedienteChatTab from './components/ExpedienteChatTab';
 import BillingSettingsManager from './components/BillingSettingsManager';
 import { DEFAULT_BILLING_SETTINGS } from './utils/billingUtils';
+import { translations } from './i18n/translations';
 
 // Contexto global para que todos los Badges de estado consuman la paleta dinámica en tiempo real
 export const EstadosContext = React.createContext([]);
@@ -1319,7 +1320,8 @@ const AdminView = ({
   estados = [],
   currentUser,
   usersList = [],
-  billingSettings = {}
+  billingSettings = {},
+  lang = 'ca'
 }) => {
   const [selectedTasks, setSelectedTasks] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -2543,23 +2545,24 @@ const AnnualPlanView = ({ tasks, currentUser, onEdit }) => {
 };
 
 // --- VISTA LISTA: LISTADO DE EXPEDIENTES ---
-const ListView = ({ tasks, onEdit }) => {
+const ListView = ({ tasks, onEdit, lang = 'ca' }) => {
   const [showEmpty, setShowEmpty] = useState(false);
+  const dateLocale = lang === 'ca' ? 'ca-ES' : 'es-ES';
 
   useEffect(() => {
     const timer = setTimeout(() => setShowEmpty(true), 1200);
     return () => clearTimeout(timer);
   }, []);
 
-  const formatDateLocal = (isoString) => isoString ? new Date(isoString).toLocaleDateString('es-ES', { dateStyle: 'medium' }) : '-';
-  const formatCreationDate = (timestamp) => timestamp?.seconds ? new Date(timestamp.seconds * 1000).toLocaleDateString('es-ES') : '';
+  const formatDateLocal = (isoString) => isoString ? new Date(isoString).toLocaleDateString(dateLocale, { dateStyle: 'medium' }) : '-';
+  const formatCreationDate = (timestamp) => timestamp?.seconds ? new Date(timestamp.seconds * 1000).toLocaleDateString(dateLocale) : '';
   
   if (tasks.length === 0) {
     if (!showEmpty) {
       return (
         <div className="text-center py-20">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-50 text-indigo-600 text-xs font-semibold animate-pulse">
-            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Cargando expedientes del despacho...
+            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> {lang === 'ca' ? 'Carregant expedients del despatx...' : 'Cargando expedientes del despacho...'}
           </div>
         </div>
       );
@@ -2569,8 +2572,12 @@ const ListView = ({ tasks, onEdit }) => {
         <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
           <Briefcase className="w-6 h-6" />
         </div>
-        <h4 className="text-sm font-bold text-slate-700">Sin expedientes coincidentes</h4>
-        <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">No se han encontrado expedientes con los filtros aplicados en este momento.</p>
+        <h4 className="text-sm font-bold text-slate-700">{lang === 'ca' ? 'Sense expedients coincidents' : 'Sin expedientes coincidentes'}</h4>
+        <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+          {lang === 'ca' 
+            ? 'No s\'han trobat expedients amb els filtres aplicats en aquest moment.' 
+            : 'No se han encontrado expedientes con los filtros aplicados en este momento.'}
+        </p>
       </div>
     );
   }
@@ -2620,24 +2627,24 @@ const ListView = ({ tasks, onEdit }) => {
                   {task.assignees && task.assignees.length > 0 ? (
                     <span className="truncate max-w-[200px]">{task.assignees.join(', ')}</span>
                   ) : (
-                    <span>{task.assigneeEmail || 'Sin Asesor Asignado'}</span>
+                    <span>{task.assigneeEmail || (lang === 'ca' ? 'Sense Assessor Assignat' : 'Sin Asesor Asignado')}</span>
                   )}
                 </div>
 
                 {task.dueDate && (
                   <span className="flex items-center gap-1.5 font-medium text-slate-600">
-                    <Clock className="w-3.5 h-3.5 text-slate-400"/> Vencimiento: {formatDateLocal(task.dueDate)} 
-                    {delay > 0 && <span className="text-rose-600 font-bold ml-1 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100">(+{delay}d demora)</span>}
+                    <Clock className="w-3.5 h-3.5 text-slate-400"/> {lang === 'ca' ? 'Venciment:' : 'Vencimiento:'} {formatDateLocal(task.dueDate)} 
+                    {delay > 0 && <span className="text-rose-600 font-bold ml-1 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100">({lang === 'ca' ? `+${delay}d retard` : `+${delay}d demora`})</span>}
                   </span>
                 )}
                 {task.attachments?.length > 0 && (
                   <span className="flex items-center gap-1 text-slate-500 font-medium">
-                    <Paperclip className="w-3.5 h-3.5 text-slate-400"/> {task.attachments.length} archivos
+                    <Paperclip className="w-3.5 h-3.5 text-slate-400"/> {task.attachments.length} {lang === 'ca' ? 'fitxers' : 'archivos'}
                   </span>
                 )}
                 {task.actions?.length > 0 && (
                   <span className="flex items-center gap-1 text-emerald-600 font-semibold bg-emerald-50/50 px-2 py-0.5 rounded-full border border-emerald-100/60">
-                    <Target className="w-3.5 h-3.5"/> {task.actions.filter(a => a.isCompleted).length}/{task.actions.length} pasos
+                    <Target className="w-3.5 h-3.5"/> {task.actions.filter(a => a.isCompleted).length}/{task.actions.length} {lang === 'ca' ? 'passos' : 'pasos'}
                   </span>
                 )}
               </div>
@@ -2678,8 +2685,10 @@ const ExpedienteModal = ({
   gtdAssignees = [],
   saveGtdAssignee,
   billingSettings = {},
-  logAction
+  logAction,
+  lang = 'ca'
 }) => {
+  const t = translations[lang] || translations.ca;
   const effectiveFormStatus = useMemo(() => {
     return normalizeStatus(formData.status, formData.dueDate);
   }, [formData.status, formData.dueDate]);
@@ -3268,7 +3277,7 @@ const ExpedienteModal = ({
             <button 
               type="button"
               onClick={() => setRightTab('activity')}
-              title="Bitácora de seguimiento"
+              title={lang === 'ca' ? "Bitàcola de seguiment" : "Bitácora de seguimiento"}
               className={`h-full px-1 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border-b-2 whitespace-nowrap ${
                 rightTab === 'activity' 
                   ? 'text-slate-900 border-slate-900 bg-slate-50 font-bold' 
@@ -3276,7 +3285,7 @@ const ExpedienteModal = ({
               }`}
             >
               <Clock className="w-3.5 h-3.5 shrink-0"/>
-              <span className="truncate">Bitácora</span>
+              <span className="truncate">{t.expedienteTabs?.bitacora || 'Bitácora'}</span>
               {(task?.updates?.length || 0) > 0 && (
                 <span className="bg-slate-200/80 text-slate-700 px-1.5 py-0.2 rounded-full text-[10px] font-bold">
                   {task.updates.length}
@@ -3288,7 +3297,7 @@ const ExpedienteModal = ({
             <button 
               type="button"
               onClick={() => setRightTab('gtd')}
-              title="Plan de acción GTD"
+              title={lang === 'ca' ? "Pla d'acció GTD" : "Plan de acción GTD"}
               className={`h-full px-1 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border-b-2 whitespace-nowrap ${
                 rightTab === 'gtd' 
                   ? 'text-emerald-700 border-emerald-600 bg-emerald-50/50 font-bold' 
@@ -3296,7 +3305,7 @@ const ExpedienteModal = ({
               }`}
             >
               <Target className="w-3.5 h-3.5 shrink-0 text-emerald-600"/>
-              <span className="truncate">GTD</span>
+              <span className="truncate">{t.expedienteTabs?.gtd || 'GTD'}</span>
               {(formData.actions?.length || 0) > 0 && (
                 <span className="bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded-full text-[10px] font-bold">
                   {formData.actions.length}
@@ -3308,7 +3317,7 @@ const ExpedienteModal = ({
             <button 
               type="button"
               onClick={() => setRightTab('billing')}
-              title="Honorarios, suplidos y anticipos"
+              title={lang === 'ca' ? "Honoraris, suplerts i bestretes" : "Honorarios, suplidos y anticipos"}
               className={`h-full px-1 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border-b-2 whitespace-nowrap ${
                 rightTab === 'billing' 
                   ? 'text-amber-700 border-amber-600 bg-amber-50/50 font-bold' 
@@ -3316,14 +3325,14 @@ const ExpedienteModal = ({
               }`}
             >
               <Coins className="w-3.5 h-3.5 shrink-0 text-amber-600"/>
-              <span className="truncate">Facturación</span>
+              <span className="truncate">{t.expedienteTabs?.facturacion || 'Facturación'}</span>
             </button>
 
             {/* 4. ADJUNTOS */}
             <button 
               type="button"
               onClick={() => setRightTab('docs')}
-              title="Documentos y enlaces de interés"
+              title={lang === 'ca' ? "Documents i fitxers d'interès" : "Documentos y enlaces de interés"}
               className={`h-full px-1 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border-b-2 whitespace-nowrap ${
                 rightTab === 'docs' 
                   ? 'text-blue-700 border-blue-600 bg-blue-50/50 font-bold' 
@@ -3331,7 +3340,7 @@ const ExpedienteModal = ({
               }`}
             >
               <Paperclip className="w-3.5 h-3.5 shrink-0 text-blue-600"/>
-              <span className="truncate">Adjuntos</span>
+              <span className="truncate">{t.expedienteTabs?.adjuntos || 'Adjuntos'}</span>
               {((resourceLinks?.length || 0) + (fileAttachments?.length || 0)) > 0 && (
                 <span className="bg-blue-100 text-blue-800 px-1.5 py-0.2 rounded-full text-[10px] font-bold">
                   {(resourceLinks?.length || 0) + (fileAttachments?.length || 0)}
@@ -3343,7 +3352,7 @@ const ExpedienteModal = ({
             <button 
               type="button"
               onClick={() => setRightTab('chat')}
-              title="Chat interno del expediente"
+              title={lang === 'ca' ? "Xat intern de l'expedient" : "Chat interno del expediente"}
               className={`h-full px-1 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border-b-2 whitespace-nowrap ${
                 rightTab === 'chat' 
                   ? 'text-indigo-700 border-indigo-600 bg-indigo-50/50 font-bold' 
@@ -3351,7 +3360,7 @@ const ExpedienteModal = ({
               }`}
             >
               <MessageSquare className="w-3.5 h-3.5 shrink-0 text-indigo-600"/>
-              <span className="truncate">Chat</span>
+              <span className="truncate">{t.expedienteTabs?.chat || 'Chat'}</span>
             </button>
           </div>
 
@@ -3601,6 +3610,7 @@ const ExpedienteModal = ({
                 clientes={clientes}
                 billingSettings={billingSettings}
                 logAction={logAction}
+                lang={lang}
               />
             </div>
           )}
@@ -3928,6 +3938,19 @@ const ExpedienteManager = ({ currentUser }) => {
   const [isAdmin, setIsAdmin] = useState(isInitialAdmin);
   const [isAuthorized, setIsAuthorized] = useState(isInitiallyAuthorized);
   const [isAuthChecking, setIsAuthChecking] = useState(!isInitiallyAuthorized);
+
+  // Idioma de la aplicación: Català (per defecte) o Castellano
+  const [lang, setLangState] = useState(() => {
+    return localStorage.getItem('gestflow_lang') || 'ca';
+  });
+
+  const setLang = (newLang) => {
+    const valid = newLang === 'es' ? 'es' : 'ca';
+    setLangState(valid);
+    localStorage.setItem('gestflow_lang', valid);
+  };
+
+  const t = translations[lang] || translations.ca;
 
   // Derivación dinámica de opciones para filtros a partir de Firestore
   const dynamicDepartments = useMemo(() => {
@@ -4439,21 +4462,49 @@ const ExpedienteManager = ({ currentUser }) => {
                 <h1 className="font-bold text-base tracking-tight text-white flex items-center">
                   <span>GestFlow</span>
                 </h1>
-                <p className="text-[10px] text-slate-400 font-medium">Despacho & Asesoría</p>
+                <p className="text-[10px] text-slate-400 font-medium">{t.appSubtitle}</p>
               </div>
             </div>
 
             {/* Menú de Navegación de Vistas */}
             <div className="hidden lg:flex items-center gap-3">
                <div className="flex bg-slate-900/90 rounded-xl p-1 border border-slate-800/80 shadow-inner gap-0.5">
-                  <button onClick={() => setCurrentView('list')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'list' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><LayoutList className="w-3.5 h-3.5"/> Expedientes</button>
-                  <button onClick={() => setCurrentView('plan')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'plan' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><BarChart3 className="w-3.5 h-3.5"/> Plan Fiscal</button>
-                  <button onClick={() => setCurrentView('roadmap')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'roadmap' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><CalendarCheck className="w-3.5 h-3.5"/> Vencimientos</button>
-                  <button onClick={() => setCurrentView('gtd')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'gtd' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><Target className="w-3.5 h-3.5"/> Trámites GTD</button>
-                  <button onClick={() => setCurrentView('clientes')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'clientes' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><Building2 className="w-3.5 h-3.5"/> Clientes</button>
-                  <button onClick={() => setCurrentView('billing')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'billing' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><Coins className="w-3.5 h-3.5"/> Facturación</button>
-                  <button onClick={() => setCurrentView('analytics')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'analytics' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><PieChart className="w-3.5 h-3.5"/> Informes</button>
-                  {isAdmin && (<button onClick={() => setCurrentView('admin')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'admin' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><Database className="w-3.5 h-3.5"/> Admin</button>)}
+                  <button onClick={() => setCurrentView('list')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'list' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><LayoutList className="w-3.5 h-3.5"/> {t.views.expedientes}</button>
+                  <button onClick={() => setCurrentView('plan')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'plan' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><BarChart3 className="w-3.5 h-3.5"/> {t.views.plan}</button>
+                  <button onClick={() => setCurrentView('roadmap')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'roadmap' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><CalendarCheck className="w-3.5 h-3.5"/> {t.views.vencimientos}</button>
+                  <button onClick={() => setCurrentView('gtd')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'gtd' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><Target className="w-3.5 h-3.5"/> {t.views.gtd}</button>
+                  <button onClick={() => setCurrentView('clientes')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'clientes' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><Building2 className="w-3.5 h-3.5"/> {t.views.clientes}</button>
+                  <button onClick={() => setCurrentView('billing')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'billing' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><Coins className="w-3.5 h-3.5"/> {t.views.facturacion}</button>
+                  <button onClick={() => setCurrentView('analytics')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'analytics' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><PieChart className="w-3.5 h-3.5"/> {t.views.informes}</button>
+                  {isAdmin && (<button onClick={() => setCurrentView('admin')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${currentView === 'admin' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}><Database className="w-3.5 h-3.5"/> {t.views.admin}</button>)}
+               </div>
+
+               {/* Conmutador de Idioma Bilingüe [ CA | ES ] */}
+               <div className="flex items-center bg-slate-900/90 rounded-xl p-0.5 border border-slate-800 shadow-inner">
+                 <button
+                   type="button"
+                   onClick={() => setLang('ca')}
+                   className={`px-2 py-1 rounded-lg text-xs font-bold transition-all ${
+                     lang === 'ca'
+                       ? 'bg-indigo-600 text-white shadow-xs'
+                       : 'text-slate-400 hover:text-white'
+                   }`}
+                   title="Canviar idioma a Català"
+                 >
+                   CA
+                 </button>
+                 <button
+                   type="button"
+                   onClick={() => setLang('es')}
+                   className={`px-2 py-1 rounded-lg text-xs font-bold transition-all ${
+                     lang === 'es'
+                       ? 'bg-indigo-600 text-white shadow-xs'
+                       : 'text-slate-400 hover:text-white'
+                   }`}
+                   title="Cambiar idioma a Castellano"
+                 >
+                   ES
+                 </button>
                </div>
 
                <NotificationDropdown tasks={tasks} currentUser={currentUser} onOpenTask={handleOpenEdit} />
@@ -4465,10 +4516,10 @@ const ExpedienteManager = ({ currentUser }) => {
                      {currentUser?.email ? currentUser.email.charAt(0) : 'U'}
                    </div>
                    <span className="text-xs font-medium text-slate-300 max-w-[130px] truncate">{currentUser?.email}</span>
-                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" title="En línea"></span>
+                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" title={t.userMenu.online}></span>
                  </div>
                  
-                 <button onClick={() => signOut(auth)} className="bg-slate-900/80 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 p-2 rounded-xl border border-slate-800 hover:border-rose-500/30 transition-all" title="Cerrar Sesión">
+                 <button onClick={() => signOut(auth)} className="bg-slate-900/80 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 p-2 rounded-xl border border-slate-800 hover:border-rose-500/30 transition-all cursor-pointer" title={t.userMenu.logout}>
                    <LogOut className="w-4 h-4"/>
                  </button>
                </div>
@@ -4476,6 +4527,26 @@ const ExpedienteManager = ({ currentUser }) => {
 
             {/* Menú Móvil */}
             <div className="lg:hidden flex items-center gap-2">
+                {/* Conmutador de idioma en cabecera móvil */}
+                <div className="flex items-center bg-slate-900/90 rounded-lg p-0.5 border border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setLang('ca')}
+                    className={`px-2 py-0.5 rounded text-[11px] font-bold ${lang === 'ca' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}
+                    title="Català"
+                  >
+                    CA
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLang('es')}
+                    className={`px-2 py-0.5 rounded text-[11px] font-bold ${lang === 'es' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}
+                    title="Castellano"
+                  >
+                    ES
+                  </button>
+                </div>
+
                 <NotificationDropdown tasks={tasks} currentUser={currentUser} onOpenTask={handleOpenEdit} />
                 <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-xl border border-slate-800">{isMobileMenuOpen ? <X className="w-5 h-5"/> : <Menu className="w-5 h-5"/>}</button>
             </div>
@@ -4484,18 +4555,18 @@ const ExpedienteManager = ({ currentUser }) => {
           {isMobileMenuOpen && (
               <div className="lg:hidden absolute top-full left-0 w-full bg-slate-900/95 backdrop-blur-xl shadow-2xl border-b border-slate-800 z-50 animate-in slide-in-from-top-3 duration-200">
                   <div className="p-4 flex flex-col gap-1.5">
-                      <button onClick={() => navigateTo('list')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'list' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><LayoutList className="w-4 h-4"/> Expedientes</button>
-                      <button onClick={() => navigateTo('plan')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'plan' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><BarChart3 className="w-4 h-4"/> Plan Fiscal</button>
-                      <button onClick={() => navigateTo('roadmap')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'roadmap' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><CalendarCheck className="w-4 h-4"/> Vencimientos</button>
-                      <button onClick={() => navigateTo('gtd')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'gtd' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><Target className="w-4 h-4"/> Trámites GTD</button>
-                      <button onClick={() => navigateTo('clientes')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'clientes' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><Building2 className="w-4 h-4"/> Cartera de Clientes</button>
-                      <button onClick={() => navigateTo('billing')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'billing' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><Coins className="w-4 h-4"/> Facturación & Honorarios</button>
-                      <button onClick={() => navigateTo('analytics')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'analytics' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><PieChart className="w-4 h-4"/> Informes</button>
-                      {isAdmin && (<button onClick={() => navigateTo('admin')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'admin' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><Database className="w-4 h-4"/> Panel Admin</button>)}
+                      <button onClick={() => navigateTo('list')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'list' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><LayoutList className="w-4 h-4"/> {t.views.expedientes}</button>
+                      <button onClick={() => navigateTo('plan')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'plan' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><BarChart3 className="w-4 h-4"/> {t.views.plan}</button>
+                      <button onClick={() => navigateTo('roadmap')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'roadmap' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><CalendarCheck className="w-4 h-4"/> {t.views.vencimientos}</button>
+                      <button onClick={() => navigateTo('gtd')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'gtd' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><Target className="w-4 h-4"/> {t.views.gtd}</button>
+                      <button onClick={() => navigateTo('clientes')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'clientes' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><Building2 className="w-4 h-4"/> {t.views.clientes}</button>
+                      <button onClick={() => navigateTo('billing')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'billing' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><Coins className="w-4 h-4"/> {t.views.facturacion}</button>
+                      <button onClick={() => navigateTo('analytics')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'analytics' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><PieChart className="w-4 h-4"/> {t.views.informes}</button>
+                      {isAdmin && (<button onClick={() => navigateTo('admin')} className={`p-2.5 rounded-xl flex items-center gap-3 text-xs font-semibold ${currentView === 'admin' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}><Database className="w-4 h-4"/> {t.views.admin}</button>)}
                       <div className="h-px bg-slate-800 my-2"></div>
                       <div className="flex justify-between items-center p-2 text-xs text-slate-400">
                         <span className="truncate max-w-[200px]">{currentUser?.email}</span>
-                        <button onClick={() => signOut(auth)} className="text-rose-400 font-semibold flex items-center gap-1 hover:text-rose-300">Salir <LogOut className="w-3.5 h-3.5"/></button>
+                        <button onClick={() => signOut(auth)} className="text-rose-400 font-semibold flex items-center gap-1 hover:text-rose-300 cursor-pointer">{t.userMenu.logout} <LogOut className="w-3.5 h-3.5"/></button>
                       </div>
                   </div>
               </div>
@@ -4519,6 +4590,7 @@ const ExpedienteManager = ({ currentUser }) => {
                  currentUser={currentUser}
                  usersList={usersList}
                  billingSettings={billingSettings}
+                 lang={lang}
                />
              ) : (
                <ClientesView 
@@ -4555,6 +4627,7 @@ const ExpedienteManager = ({ currentUser }) => {
                 logAction={logAction}
                 clientes={clientes}
                 billingSettings={billingSettings}
+                lang={lang}
              />
         ) : (
           <>
@@ -4565,27 +4638,27 @@ const ExpedienteManager = ({ currentUser }) => {
                 {/* Ámbito: Solo los administradores pueden ver todos los expedientes */}
                 {isAdmin ? (
                   <div className="flex bg-slate-100/80 p-1 rounded-xl shrink-0 border border-slate-200/70">
-                    <button onClick={() => setFilterScope('mine')} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${filterScope === 'mine' ? 'bg-white text-indigo-700 shadow-2xs border border-slate-200/50' : 'text-slate-500 hover:text-slate-900'}`}>Mis Expedientes</button>
-                    <button onClick={() => setFilterScope('all')} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${filterScope === 'all' ? 'bg-white text-indigo-700 shadow-2xs border border-slate-200/50' : 'text-slate-500 hover:text-slate-900'}`}>Todos</button>
+                    <button onClick={() => setFilterScope('mine')} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${filterScope === 'mine' ? 'bg-white text-indigo-700 shadow-2xs border border-slate-200/50' : 'text-slate-500 hover:text-slate-900'}`}>{t.filters.myExpedientes}</button>
+                    <button onClick={() => setFilterScope('all')} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${filterScope === 'all' ? 'bg-white text-indigo-700 shadow-2xs border border-slate-200/50' : 'text-slate-500 hover:text-slate-900'}`}>{t.filters.allExpedientes}</button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-1.5 bg-indigo-50/90 text-indigo-700 px-3 py-1.5 rounded-xl border border-indigo-100 text-xs font-bold shrink-0">
                     <User className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Mis Expedientes</span>
+                    <span>{t.filters.myExpedientes}</span>
                   </div>
                 )}
 
                 {/* Filtros Dropdowns y Buscador Dinámicos */}
                 <div className="flex flex-wrap items-center gap-2 flex-1 w-full">
-                  <MultiSelectDropdown label="Áreas" icon={Briefcase} options={dynamicDepartments} selected={selectedDepts} onChange={setSelectedDepts} />
-                  <MultiSelectDropdown label="Trámites" icon={Tag} options={dynamicTypes} selected={selectedTypes} onChange={setSelectedTypes} />
-                  <MultiSelectDropdown label="Estados" icon={Filter} options={dynamicStatus} selected={selectedStatus} onChange={setSelectedStatus} />
+                  <MultiSelectDropdown label={t.filters.areas} icon={Briefcase} options={dynamicDepartments} selected={selectedDepts} onChange={setSelectedDepts} />
+                  <MultiSelectDropdown label={t.filters.tramites} icon={Tag} options={dynamicTypes} selected={selectedTypes} onChange={setSelectedTypes} />
+                  <MultiSelectDropdown label={t.filters.estados} icon={Filter} options={dynamicStatus} selected={selectedStatus} onChange={setSelectedStatus} />
                   
                   {currentView !== 'analytics' && (
                     <button
                       onClick={() => setHideCompleted(!hideCompleted)}
-                      className={`p-2 rounded-xl border flex items-center justify-center transition-all ${hideCompleted ? 'bg-indigo-50/80 border-indigo-200 text-indigo-600 shadow-2xs' : 'bg-white border-slate-200/80 text-slate-400 hover:text-slate-700 hover:bg-slate-50'}`}
-                      title={hideCompleted ? "Mostrar Presentados / Cerrados" : "Ocultar Presentados / Cerrados"}
+                      className={`p-2 rounded-xl border flex items-center justify-center transition-all cursor-pointer ${hideCompleted ? 'bg-indigo-50/80 border-indigo-200 text-indigo-600 shadow-2xs' : 'bg-white border-slate-200/80 text-slate-400 hover:text-slate-700 hover:bg-slate-50'}`}
+                      title={hideCompleted ? t.filters.showCompleted : t.filters.hideCompleted}
                     >
                       {hideCompleted ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -4593,31 +4666,31 @@ const ExpedienteManager = ({ currentUser }) => {
 
                   <div className="relative flex-1 min-w-[200px]">
                     <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400"/>
-                    <input type="text" placeholder="Buscar por expediente o cliente..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full pl-9 pr-3 py-2 bg-slate-50/80 border border-slate-200/80 rounded-xl text-xs outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-slate-800 placeholder-slate-400"/>
+                    <input type="text" placeholder={t.filters.searchPlaceholder} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full pl-9 pr-3 py-2 bg-slate-50/80 border border-slate-200/80 rounded-xl text-xs outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-slate-800 placeholder-slate-400"/>
                   </div>
                 </div>
 
                 {/* Botones de Acción */}
                 <div className="flex items-center gap-2 shrink-0">
-                  <button onClick={() => exportToExcel(filteredTasks)} className="bg-white hover:bg-emerald-50/60 text-emerald-700 border border-emerald-200/80 px-3.5 py-2 rounded-xl text-xs font-semibold shadow-2xs hover:shadow-xs flex items-center gap-1.5 transition-all">
-                    <FileSpreadsheet className="w-4 h-4 text-emerald-600" /> <span className="hidden sm:inline">Exportar Excel</span>
+                  <button onClick={() => exportToExcel(filteredTasks)} className="bg-white hover:bg-emerald-50/60 text-emerald-700 border border-emerald-200/80 px-3.5 py-2 rounded-xl text-xs font-semibold shadow-2xs hover:shadow-xs flex items-center gap-1.5 transition-all cursor-pointer">
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-600" /> <span className="hidden sm:inline">{t.filters.exportExcel}</span>
                   </button>
-                  <button onClick={handleOpenNew} className="bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs hover:shadow-premium-hover flex items-center gap-1.5 transition-all transform active:scale-95">
-                    <Plus className="w-4 h-4" /> <span>Nuevo Expediente</span>
+                  <button onClick={handleOpenNew} className="bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs hover:shadow-premium-hover flex items-center gap-1.5 transition-all transform active:scale-95 cursor-pointer">
+                    <Plus className="w-4 h-4" /> <span>{t.filters.newExpediente}</span>
                   </button>
                 </div>
               </div>
 
               {(selectedDepts.length > 0 || selectedTypes.length > 0 || selectedStatus.length > 0 || searchTerm) && (
                 <div className="mt-3 flex items-center gap-2 text-xs pt-2.5 border-t border-slate-100">
-                  <span className="text-slate-400 font-medium">Filtros activos:</span>
-                  <button onClick={clearAllFilters} className="text-rose-600 hover:text-rose-700 hover:underline font-bold transition-colors">Limpiar todos</button>
+                  <span className="text-slate-400 font-medium">{t.filters.activeFilters}</span>
+                  <button onClick={clearAllFilters} className="text-rose-600 hover:text-rose-700 hover:underline font-bold transition-colors cursor-pointer">{t.filters.clearAll}</button>
                 </div>
               )}
             </div>
 
             {/* VISTAS */}
-            {currentView === 'list' && <ListView tasks={filteredTasks} onEdit={handleOpenEdit} />}
+            {currentView === 'list' && <ListView tasks={filteredTasks} onEdit={handleOpenEdit} lang={lang} />}
             {currentView === 'plan' && <AnnualPlanView tasks={filteredTasks} currentUser={currentUser} onEdit={handleOpenEdit} />}
             {currentView === 'analytics' && <AnalyticsView tasks={filteredTasks} onEdit={handleOpenEdit} />}
             {currentView === 'roadmap' && <RoadmapView tasks={filteredTasks} onEdit={handleOpenEdit} />}
@@ -4658,6 +4731,7 @@ const ExpedienteManager = ({ currentUser }) => {
         saveGtdAssignee={saveGtdAssignee}
         billingSettings={billingSettings}
         logAction={logAction}
+        lang={lang}
       />
     </div>
     </EstadosContext.Provider>

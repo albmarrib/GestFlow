@@ -1,17 +1,47 @@
 // Utilidades y configuraciones para la emisión de Liquidaciones Económicas y Facturación
+// Soporte multilingüe bilingüe: Català (ca - por defecto) & Castellano (es)
 
 export const DEFAULT_BILLING_SETTINGS = {
-  despachoNombre: 'GESTORÍA ADMINISTRATIVA',
-  despachoSubtitulo: 'Servicios Profesionales de Asesoría, Gestión Fiscal y Laboral',
+  despachoNombre: 'GESTORIA ADMINISTRATIVA',
+  despachoSubtitulo: "Serveis Professionals d'Assessoria, Gestió Fiscal, Laboral i Mercantil",
   despachoNif: 'B-12345678',
-  despachoDireccion: 'Calle Mayor 12, Planta 1ª, Madrid',
-  despachoTelefono: '+34 91 123 45 67',
-  despachoEmail: 'administracion@gestoria.com',
+  despachoDireccion: 'Carrer Major 12, Planta 1a, Barcelona',
+  despachoTelefono: '+34 93 123 45 67',
+  despachoEmail: 'administracio@gestoria.cat',
   bancoNombre: 'CaixaBank',
   bancoIban: 'ES91 2100 0418 4502 0005 1332',
-  bancoTitular: 'Gestoría Administrativa S.L.',
-  emailSubject: 'Liquidación de Gastos y Honorarios - {expediente} ({ref})',
-  emailBody: `Estimado/a {cliente},
+  bancoTitular: 'Gestoria Administrativa S.L.',
+
+  // Plantilla en Català (Prioritària per defecte)
+  emailSubject_ca: 'Liquidació de Despeses i Honoraris - {expediente} ({ref})',
+  emailBody_ca: `Benvolgut/da {cliente},
+
+Us fem arribar el desglossament de la liquidació econòmica corresponent al tràmit "{expediente}".
+
+DETALL DE LA LIQUIDACIÓ:
+--------------------------------------------------
+• Honoraris professionals de gestió: {honorarios} €
+• Suplerts i despeses de tercers: {suplidos} €
+• Bestretes / Provisions de fons rebudes: -{anticipos} €
+--------------------------------------------------
+SALDO NET A ABONAR: {saldo} €
+--------------------------------------------------
+
+Per formalitzar el pagament, podeu realitzar una transferència bancària al següent compte:
+Banc: {banco}
+IBAN: {iban}
+Concepte bancari obligatori: {ref} - {cliente}
+
+Adjuntem a aquest correu el document detallat de liquidació econòmica en format PDF generat pel despatx per al vostre arxiu comptable.
+
+Restem a la vostra disposició per a qualsevol aclariment o consulta.
+
+Cordialment,
+L'equip de {gestoria}`,
+
+  // Plantilla en Castellano
+  emailSubject_es: 'Liquidación de Gastos y Honorarios - {expediente} ({ref})',
+  emailBody_es: `Estimado/a {cliente},
 
 Le remitimos el desglose de liquidación económica correspondiente al trámite "{expediente}".
 
@@ -34,7 +64,159 @@ Adjuntamos a este correo el documento detallado de liquidación económica en fo
 Quedamos a su entera disposición para cualquier aclaración o consulta.
 
 Atentamente,
-El equipo de {gestoria}`
+El equipo de {gestoria}`,
+
+  // Retrocompatibilidad
+  emailSubject: 'Liquidació de Despeses i Honoraris - {expediente} ({ref})',
+  emailBody: `Benvolgut/da {cliente},
+
+Us fem arribar el desglossament de la liquidació econòmica corresponent al tràmit "{expediente}".
+
+DETALL DE LA LIQUIDACIÓ:
+--------------------------------------------------
+• Honoraris professionals de gestió: {honorarios} €
+• Suplerts i despeses de tercers: {suplidos} €
+• Bestretes / Provisions de fons rebudes: -{anticipos} €
+--------------------------------------------------
+SALDO NET A ABONAR: {saldo} €
+--------------------------------------------------
+
+Per formalitzar el pagament, podeu realitzar una transferència bancària al següent compte:
+Banc: {banco}
+IBAN: {iban}
+Concepte bancari obligatori: {ref} - {cliente}
+
+Adjuntem a aquest correu el document detallat de liquidació econòmica en format PDF generat pel despatx per al vostre arxiu comptable.
+
+Restem a la vostra disposició per a qualsevol aclariment o consulta.
+
+Cordialment,
+L'equip de {gestoria}`
+};
+
+export const I18N_DOC = {
+  ca: {
+    printBtn: '🖨️ Imprimir / Desar com a PDF',
+    docBadge: 'LIQUIDACIÓ ECONÒMICA I ESTAT DE COMPTE',
+    ref: 'Ref:',
+    issueDate: "Data d'emissió:",
+    clientDataTitle: 'Dades del Client',
+    clientName: 'Raó Social / Nom:',
+    clientNif: 'NIF / CIF:',
+    clientEmail: 'Correu electrònic:',
+    clientPhone: 'Telèfon:',
+    clientAddress: 'Adreça:',
+    notSpecified: 'No especificat',
+    notIndicated: 'No indicat',
+    expRefTitle: "Expedient de Referència",
+    procedure: 'Tràmit:',
+    department: 'Àrea / Departament:',
+    operationType: "Tipus d'Operació:",
+    regime: 'Règim:',
+    directBilling: 'Facturació Directa',
+    includedQuota: 'Inclòs en Quota Mensual',
+    internalMgmt: 'Gestió Interna',
+    feesExpensesTitle: "Desglossament d'Honoraris Professionals i Suplerts Avançats",
+    conceptCol: 'Concepte',
+    detailCol: 'Detall / Factura Origen',
+    dateCol: 'Data',
+    amountCol: 'Import (€)',
+    managementFees: 'Honoraris de Gestió Professional',
+    invoiceNum: 'Factura Núm: ',
+    agreedFees: 'Honoraris pactats',
+    externalExpense: 'Despesa suplerta',
+    receiptProvided: 'Justificant aportat',
+    noFeesOrExpenses: 'Sense honoraris ni suplerts meritats.',
+    subtotalGross: 'SUBTOTAL BRUT (Honoraris + Suplerts de Tercers)',
+    downPaymentsTitle: 'Provisions de Fons i Lliuraments a Compte (Bestretes)',
+    downPaymentCol: 'Lliurament a Compte / Bestreta',
+    paymentMethodCol: 'Forma de Pagament',
+    receivedCol: 'Import Rebut (€)',
+    downPaymentReceived: 'Provisió rebuda',
+    totalDownPaymentsDeducted: 'TOTAL BESTRETES DEDUÏDES',
+    netToPay: 'Saldo Net a Ingressar pel Client',
+    settledExpediente: 'Expedient Totalment Liquidat',
+    toReturnToClient: 'Saldo a Favor del Client (Retorn)',
+    netAfterDownPayments: 'Import net final després de compensar bestretes',
+    noPendingBalance: 'No hi ha saldo pendent de cobrament',
+    returnSurplus: 'Import sobrant a retornar al client',
+    bankInstructionsTitle: 'Instruccions per a la Transferència Bancària:',
+    bankInstructionsNotice: "Preguem que realitzeu l'ingrés del saldo pendent al compte bancari del despatx:",
+    bankLabel: 'Banc:',
+    ibanLabel: 'IBAN:',
+    accountHolderLabel: 'Titular:',
+    mandatoryRefLabel: 'Concepte bancari obligatori:',
+    legalNotice: "* Nota de Règim Econòmic: Aquest document constitueix una nota informativa de rendició de comptes, liquidació de suplerts i estat de saldo. No substitueix la factura fiscal reglamentària d'honoraris.",
+    footerText: (despacho, today) => `Document emès per ${despacho} el ${today}. Per a qualsevol consulta contacteu amb el vostre gestor.`,
+    paymentMethods: {
+      transferencia: 'Transferència Bancària',
+      tarjeta: 'Targeta (TPV)',
+      efectivo: 'Efectiu / Metàl·lic',
+      bizum: 'Bizum',
+      domiciliacion: 'Domiciliació SEPA'
+    }
+  },
+  es: {
+    printBtn: '🖨️ Imprimir / Guardar como PDF',
+    docBadge: 'LIQUIDACIÓN ECONÓMICA Y ESTADO DE CUENTA',
+    ref: 'Ref:',
+    issueDate: 'Fecha emisión:',
+    clientDataTitle: 'Datos del Cliente',
+    clientName: 'Razón Social / Nombre:',
+    clientNif: 'NIF / CIF:',
+    clientEmail: 'Email:',
+    clientPhone: 'Teléfono:',
+    clientAddress: 'Dirección:',
+    notSpecified: 'No especificado',
+    notIndicated: 'No indicado',
+    expRefTitle: 'Expediente de Referencia',
+    procedure: 'Trámite:',
+    department: 'Área / Departamento:',
+    operationType: 'Tipo de Operación:',
+    regime: 'Régimen:',
+    directBilling: 'Facturación Directa',
+    includedQuota: 'Incluido en Cuota Mensual',
+    internalMgmt: 'Gestión Interna',
+    feesExpensesTitle: 'Desglose de Honorarios Profesionales y Suplidos Adelantados',
+    conceptCol: 'Concepto',
+    detailCol: 'Detalle / Factura Origen',
+    dateCol: 'Fecha',
+    amountCol: 'Importe (€)',
+    managementFees: 'Honorarios de Gestión Profesional',
+    invoiceNum: 'Factura Nº: ',
+    agreedFees: 'Honorarios pactados',
+    externalExpense: 'Gasto suplido',
+    receiptProvided: 'Justificante aportado',
+    noFeesOrExpenses: 'Sin honorarios ni suplidos devengados.',
+    subtotalGross: 'SUBTOTAL BRUTO (Honorarios + Suplidos de Terceros)',
+    downPaymentsTitle: 'Provisiones de Fondos y Entregas a Cuenta Recibidas',
+    downPaymentCol: 'Entrega a Cuenta / Anticipo',
+    paymentMethodCol: 'Forma de Pago',
+    receivedCol: 'Importe Recibido (€)',
+    downPaymentReceived: 'Provisión recibida',
+    totalDownPaymentsDeducted: 'TOTAL ANTICIPOS DEDUCIDOS',
+    netToPay: 'Saldo Neto a Ingresar por el Cliente',
+    settledExpediente: 'Expediente Totalmente Saldado',
+    toReturnToClient: 'Saldo a Favor del Cliente (Devolución)',
+    netAfterDownPayments: 'Importe neto final tras compensar anticipos',
+    noPendingBalance: 'No existe saldo pendiente de cobro',
+    returnSurplus: 'Importe sobrante a reintegrar al cliente',
+    bankInstructionsTitle: 'Instrucciones para el Abono / Transferencia Bancaria:',
+    bankInstructionsNotice: 'Rogamos realicen el ingreso del saldo pendiente en la cuenta bancaria del despacho:',
+    bankLabel: 'Banco:',
+    ibanLabel: 'IBAN:',
+    accountHolderLabel: 'Titular:',
+    mandatoryRefLabel: 'Concepto bancario obligatorio:',
+    legalNotice: '* Nota de Régimen Económico: Este documento constituye una nota informativa de rendición de cuentas, liquidación de suplidos y estado de saldo. No sustituye a la factura fiscal reglamentaria de honorarios.',
+    footerText: (despacho, today) => `Documento emitido por ${despacho} el ${today}. Para cualquier consulta contacte con su gestor.`,
+    paymentMethods: {
+      transferencia: 'Transferencia Bancaria',
+      tarjeta: 'Tarjeta (TPV)',
+      efectivo: 'Metálico / Efectivo',
+      bizum: 'Bizum',
+      domiciliacion: 'Domiciliación SEPA'
+    }
+  }
 };
 
 export function findClientForTask(task, clientes = []) {
@@ -78,28 +260,35 @@ export function calculateTaskBilling(task = {}) {
   };
 }
 
-export function generateLiquidationHtml(task, clientData, billingSettings = {}) {
+export function generateLiquidationHtml(task, clientData, billingSettings = {}, lang = 'ca') {
   const cfg = { ...DEFAULT_BILLING_SETTINGS, ...(billingSettings || {}) };
   const billing = calculateTaskBilling(task);
+  const docLang = lang === 'es' ? 'es' : 'ca';
+  const txt = I18N_DOC[docLang] || I18N_DOC.ca;
   
-  const clientName = clientData?.razonSocial || clientData?.nombreComercial || task?.client || 'Cliente';
-  const clientNif = clientData?.nif || task?.clientNif || 'No especificado';
-  const clientEmail = clientData?.email || task?.clientEmail || 'No indicado';
+  const clientName = clientData?.razonSocial || clientData?.nombreComercial || task?.client || (docLang === 'ca' ? 'Client' : 'Cliente');
+  const clientNif = clientData?.nif || task?.clientNif || txt.notSpecified;
+  const clientEmail = clientData?.email || task?.clientEmail || txt.notIndicated;
   const clientPhone = clientData?.telefono || '-';
   const clientAddress = clientData?.direccion || '-';
 
-  const expCode = task?.id ? `EXP-${String(task.id).slice(-6).toUpperCase()}` : 'EXP-NUEVO';
-  const today = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const expCode = task?.id ? `EXP-${String(task.id).slice(-6).toUpperCase()}` : 'EXP-NOU';
+  const dateLocale = docLang === 'ca' ? 'ca-ES' : 'es-ES';
+  const today = new Date().toLocaleDateString(dateLocale, { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  const regimeLabel = billing.billingType === 'billable' 
+    ? txt.directBilling 
+    : (billing.billingType === 'included' ? txt.includedQuota : txt.internalMgmt);
 
   return `<!DOCTYPE html>
-<html lang="es">
+<html lang="${docLang}">
 <head>
   <meta charset="UTF-8">
-  <title>Liquidacion_${expCode}_${clientName.replace(/[^a-zA-Z0-9]/g, '_')}</title>
+  <title>Liquidacio_${expCode}_${clientName.replace(/[^a-zA-Z0-9]/g, '_')}</title>
   <style>
     @page { 
       size: A4; 
-      margin: 15mm; 
+      margin: 14mm; 
     }
     * { 
       box-sizing: border-box; 
@@ -293,7 +482,7 @@ export function generateLiquidationHtml(task, clientData, billingSettings = {}) 
 </head>
 <body>
   <div class="no-print">
-    <button class="btn" onclick="window.print()">🖨️ Imprimir / Guardar como PDF</button>
+    <button class="btn" onclick="window.print()">${txt.printBtn}</button>
   </div>
 
   <div class="header">
@@ -308,89 +497,93 @@ export function generateLiquidationHtml(task, clientData, billingSettings = {}) 
       </div>
     </div>
     <div class="doc-badge">
-      <h2>LIQUIDACIÓN ECONÓMICA</h2>
-      <p><strong>Ref:</strong> ${expCode}</p>
-      <p><strong>Fecha emisión:</strong> ${today}</p>
+      <h2>${txt.docBadge}</h2>
+      <p><strong>${txt.ref}</strong> ${expCode}</p>
+      <p><strong>${txt.issueDate}</strong> ${today}</p>
     </div>
   </div>
 
   <div class="info-grid">
     <div class="info-box">
-      <div class="info-title">Datos del Cliente</div>
-      <p><strong>Razón Social / Nombre:</strong> ${clientName}</p>
-      <p><strong>NIF / CIF:</strong> ${clientNif}</p>
-      <p><strong>Email:</strong> ${clientEmail}</p>
-      <p><strong>Teléfono:</strong> ${clientPhone}</p>
-      ${clientAddress && clientAddress !== '-' ? `<p><strong>Dirección:</strong> ${clientAddress}</p>` : ''}
+      <div class="info-title">${txt.clientDataTitle}</div>
+      <p><strong>${txt.clientName}</strong> ${clientName}</p>
+      <p><strong>${txt.clientNif}</strong> ${clientNif}</p>
+      <p><strong>${txt.clientEmail}</strong> ${clientEmail}</p>
+      <p><strong>${txt.clientPhone}</strong> ${clientPhone}</p>
+      ${clientAddress && clientAddress !== '-' ? `<p><strong>${txt.clientAddress}</strong> ${clientAddress}</p>` : ''}
     </div>
     <div class="info-box">
-      <div class="info-title">Expediente de Referencia</div>
-      <p><strong>Trámite:</strong> ${task?.title || 'Expediente de Gestión'}</p>
-      <p><strong>Área / Departamento:</strong> ${task?.department || task?.area || 'General'}</p>
-      <p><strong>Tipo de Operación:</strong> ${task?.type || task?.tramo || '-'}</p>
-      <p><strong>Régimen:</strong> ${billing.billingType === 'billable' ? 'Facturación Directa' : (billing.billingType === 'included' ? 'Incluido en Cuota Mensual' : 'Gestión Interna')}</p>
+      <div class="info-title">${txt.expRefTitle}</div>
+      <p><strong>${txt.procedure}</strong> ${task?.title || (docLang === 'ca' ? 'Expedient de Gestió' : 'Expediente de Gestión')}</p>
+      <p><strong>${txt.department}</strong> ${task?.department || task?.area || 'General'}</p>
+      <p><strong>${txt.operationType}</strong> ${task?.type || task?.tramo || '-'}</p>
+      <p><strong>${txt.regime}</strong> ${regimeLabel}</p>
     </div>
   </div>
 
-  <div class="table-section-title">Desglose de Honorarios Profesionales y Suplidos Adelantados</div>
+  <div class="table-section-title">${txt.feesExpensesTitle}</div>
   <table>
     <thead>
       <tr>
-        <th>Concepto</th>
-        <th>Detalle / Factura Origen</th>
-        <th>Fecha</th>
-        <th class="text-right">Importe (€)</th>
+        <th>${txt.conceptCol}</th>
+        <th>${txt.detailCol}</th>
+        <th>${txt.dateCol}</th>
+        <th class="text-right">${txt.amountCol}</th>
       </tr>
     </thead>
     <tbody>
       ${billing.feeAmount > 0 ? `
         <tr>
-          <td><strong>Honorarios de Gestión Profesional</strong></td>
-          <td>${task?.invoiceNumber ? 'Factura Nº: ' + task.invoiceNumber : 'Honorarios pactados'}</td>
+          <td><strong>${txt.managementFees}</strong></td>
+          <td>${task?.invoiceNumber ? txt.invoiceNum + task.invoiceNumber : txt.agreedFees}</td>
           <td>${today}</td>
           <td class="text-right"><strong>${billing.feeAmount.toFixed(2)} €</strong></td>
         </tr>
       ` : ''}
       ${billing.externalExpenses.map(e => `
         <tr>
-          <td>${e.concept || 'Gasto suplido'} (${e.provider || 'Tercero'})</td>
-          <td>${e.invoiceNumber ? 'Factura/Tasa: ' + e.invoiceNumber : 'Justificante aportado'}</td>
+          <td>${e.concept || txt.externalExpense} (${e.provider || 'Tercer'})</td>
+          <td>${e.invoiceNumber ? txt.invoiceNum + e.invoiceNumber : txt.receiptProvided}</td>
           <td>${e.date || '-'}</td>
           <td class="text-right">+${Number(e.amount).toFixed(2)} €</td>
         </tr>
       `).join('')}
       ${billing.feeAmount === 0 && billing.externalExpenses.length === 0 ? `
-        <tr><td colspan="4" style="text-align:center; color:#94a3b8; padding:14px;">Sin honorarios ni suplidos devengados.</td></tr>
+        <tr><td colspan="4" style="text-align:center; color:#94a3b8; padding:14px;">${txt.noFeesOrExpenses}</td></tr>
       ` : ''}
       <tr style="background-color: #f1f5f9; font-weight: 700;">
-        <td colspan="3">SUBTOTAL BRUTO (Honorarios + Suplidos de Terceros)</td>
+        <td colspan="3">${txt.subtotalGross}</td>
         <td class="text-right">${billing.totalGross.toFixed(2)} €</td>
       </tr>
     </tbody>
   </table>
 
   ${billing.downPayments.length > 0 ? `
-    <div class="table-section-title">Provisiones de Fondos y Entregas a Cuenta Recibidas</div>
+    <div class="table-section-title">${txt.downPaymentsTitle}</div>
     <table>
       <thead>
         <tr>
-          <th>Entrega a Cuenta / Anticipo</th>
-          <th>Forma de Pago</th>
-          <th>Fecha</th>
-          <th class="text-right">Importe Recibido (€)</th>
+          <th>${txt.downPaymentCol}</th>
+          <th>${txt.paymentMethodCol}</th>
+          <th>${txt.dateCol}</th>
+          <th class="text-right">${txt.receivedCol}</th>
         </tr>
       </thead>
       <tbody>
-        ${billing.downPayments.map(p => `
-          <tr>
-            <td>${p.concept || 'Provisión recibida'}</td>
-            <td style="text-transform: capitalize;">${p.paymentMethod || 'Transferencia'}</td>
-            <td>${p.date || '-'}</td>
-            <td class="text-right" style="color: #15803d; font-weight: 600;">-${Number(p.amount).toFixed(2)} €</td>
-          </tr>
-        `).join('')}
+        ${billing.downPayments.map(p => {
+          const mKey = (p.paymentMethod || 'transferencia').toLowerCase();
+          const methodName = txt.paymentMethods[mKey] || p.paymentMethod || 'Transferència';
+          return `
+            <tr>
+              <td>${p.concept || txt.downPaymentReceived}</td>
+              <td style="text-transform: capitalize;">${methodName}</td>
+              <td>${p.date || '-'}</td>
+              <td class="text-right" style="color: #15803d; font-weight: 600;">-${Number(p.amount).toFixed(2)} €</td>
+            </tr>
+          `;
+        }).join('')}
         <tr style="background-color: #f0fdf4; font-weight: 700;">
-          <td colspan="3" style="color: #166534;">TOTAL ANTICIPOS DEDUCIDOS</td>
+          <td colspan="3" style="color: #166534;">${txt.totalDownPaymentsDeducted}</td>
           <td class="text-right" style="color: #166534;">-${billing.totalDownPayments.toFixed(2)} €</td>
         </tr>
       </tbody>
@@ -400,10 +593,10 @@ export function generateLiquidationHtml(task, clientData, billingSettings = {}) 
   <div class="summary-card">
     <div>
       <div class="summary-label">
-        ${billing.pendingBalance > 0 ? 'Saldo Neto a Ingresar por el Cliente' : billing.pendingBalance === 0 ? 'Expediente Totalmente Saldado' : 'Saldo a Favor del Cliente (Devolución)'}
+        ${billing.pendingBalance > 0 ? txt.netToPay : billing.pendingBalance === 0 ? txt.settledExpediente : txt.toReturnToClient}
       </div>
       <div style="font-size: 11px; color: #cbd5e1; margin-top: 2px;">
-        ${billing.pendingBalance > 0 ? 'Importe neto final tras compensar anticipos' : billing.pendingBalance === 0 ? 'No existe saldo pendiente de cobro' : 'Importe sobrante a reintegrar al cliente'}
+        ${billing.pendingBalance > 0 ? txt.netAfterDownPayments : billing.pendingBalance === 0 ? txt.noPendingBalance : txt.returnSurplus}
       </div>
     </div>
     <div class="summary-amount" style="color: ${billing.pendingBalance > 0 ? '#38bdf8' : (billing.pendingBalance === 0 ? '#4ade80' : '#fbbf24')};">
@@ -413,52 +606,58 @@ export function generateLiquidationHtml(task, clientData, billingSettings = {}) 
 
   ${billing.pendingBalance > 0 ? `
     <div class="bank-notice">
-      <p style="margin: 0 0 4px 0;"><strong>Instrucciones para el Abono / Transferencia Bancaria:</strong></p>
-      <p style="margin: 0 0 2px 0;">Rogamos realicen el ingreso del saldo pendiente en la cuenta bancaria del despacho:</p>
+      <p style="margin: 0 0 4px 0;"><strong>${txt.bankInstructionsTitle}</strong></p>
+      <p style="margin: 0 0 2px 0;">${txt.bankInstructionsNotice}</p>
       <p style="margin: 4px 0; font-family: monospace; font-size: 13px; font-weight: 700; color: #0f172a;">
-        Banco: ${cfg.bancoNombre} &bull; IBAN: ${cfg.bancoIban}
+        ${txt.bankLabel} ${cfg.bancoNombre} &bull; ${txt.ibanLabel} ${cfg.bancoIban}
       </p>
       <p style="margin: 0; font-size: 10px; color: #475569;">
-        Titular: <strong>${cfg.bancoTitular}</strong> &bull; Concepto bancario obligatorio: <strong>${expCode} - ${clientName}</strong>
+        ${txt.accountHolderLabel} <strong>${cfg.bancoTitular}</strong> &bull; ${txt.mandatoryRefLabel} <strong>${expCode} - ${clientName}</strong>
       </p>
     </div>
   ` : ''}
 
   <div class="legal-notice">
-    <strong>* Nota de Régimen Económico:</strong> Este documento constituye una nota informativa de rendición de cuentas, liquidación de suplidos y estado de saldo. No sustituye a la factura fiscal reglamentaria de honorarios.
+    ${txt.legalNotice}
   </div>
 
   <div class="footer">
-    Documento emitido por ${cfg.despachoNombre} el ${today}. Para cualquier consulta contacte con su gestor.
+    ${txt.footerText(cfg.despachoNombre, today)}
   </div>
 </body>
 </html>`;
 }
 
-export function openLiquidationPdf(task, clientData, billingSettings = {}) {
-  const htmlContent = generateLiquidationHtml(task, clientData, billingSettings);
+export function openLiquidationPdf(task, clientData, billingSettings = {}, lang = 'ca') {
+  const htmlContent = generateLiquidationHtml(task, clientData, billingSettings, lang);
   const printWin = window.open('', '_blank');
   if (printWin) {
     printWin.document.open();
     printWin.document.write(htmlContent);
     printWin.document.close();
   } else {
-    alert("Por favor habilita las ventanas emergentes en tu navegador para ver la liquidación.");
+    alert(lang === 'ca' 
+      ? "Si us plau, habiliteu les finestres emergents al navegador per veure la liquidació en PDF."
+      : "Por favor habilita las ventanas emergentes en tu navegador para ver la liquidación en PDF.");
   }
 }
 
-export function buildBillingEmail(task, clientData, billingSettings = {}, customRecipient = '') {
+export function buildBillingEmail(task, clientData, billingSettings = {}, customRecipient = '', lang = 'ca') {
   const cfg = { ...DEFAULT_BILLING_SETTINGS, ...(billingSettings || {}) };
   const billing = calculateTaskBilling(task);
+  const docLang = lang === 'es' ? 'es' : 'ca';
 
-  const clientName = clientData?.razonSocial || clientData?.nombreComercial || task?.client || 'Cliente';
+  const clientName = clientData?.razonSocial || clientData?.nombreComercial || task?.client || (docLang === 'ca' ? 'Client' : 'Cliente');
   const expCode = task?.id ? `EXP-${String(task.id).slice(-6).toUpperCase()}` : 'EXP';
   const recipient = (customRecipient || clientData?.email || task?.clientEmail || '').trim();
+
+  const dateLocale = docLang === 'ca' ? 'ca-ES' : 'es-ES';
+  const todayFormatted = new Date().toLocaleDateString(dateLocale);
 
   const replaceTags = (text) => {
     return (text || '')
       .replace(/{cliente}/g, clientName)
-      .replace(/{expediente}/g, task?.title || 'Expediente')
+      .replace(/{expediente}/g, task?.title || (docLang === 'ca' ? 'Expedient' : 'Expediente'))
       .replace(/{ref}/g, expCode)
       .replace(/{honorarios}/g, billing.feeAmount.toFixed(2))
       .replace(/{suplidos}/g, billing.totalExternalExpenses.toFixed(2))
@@ -467,34 +666,51 @@ export function buildBillingEmail(task, clientData, billingSettings = {}, custom
       .replace(/{iban}/g, cfg.bancoIban)
       .replace(/{banco}/g, cfg.bancoNombre)
       .replace(/{gestoria}/g, cfg.despachoNombre)
-      .replace(/{fecha}/g, new Date().toLocaleDateString('es-ES'));
+      .replace(/{fecha}/g, todayFormatted);
   };
 
-  const subject = replaceTags(cfg.emailSubject);
-  const body = replaceTags(cfg.emailBody);
+  let rawSubject = '';
+  let rawBody = '';
+
+  if (docLang === 'ca') {
+    rawSubject = cfg.emailSubject_ca || DEFAULT_BILLING_SETTINGS.emailSubject_ca || cfg.emailSubject;
+    rawBody = cfg.emailBody_ca || DEFAULT_BILLING_SETTINGS.emailBody_ca || cfg.emailBody;
+  } else {
+    rawSubject = cfg.emailSubject_es || cfg.emailSubject || DEFAULT_BILLING_SETTINGS.emailSubject_es;
+    rawBody = cfg.emailBody_es || cfg.emailBody || DEFAULT_BILLING_SETTINGS.emailBody_es;
+  }
+
+  const subject = replaceTags(rawSubject);
+  const body = replaceTags(rawBody);
 
   return {
     recipient,
     subject,
-    body
+    body,
+    lang: docLang
   };
 }
 
-export function openBillingEmail(task, clientData, billingSettings = {}, customRecipient = '', logAction = null) {
-  const { recipient, subject, body } = buildBillingEmail(task, clientData, billingSettings, customRecipient);
+export function openBillingEmail(task, clientData, billingSettings = {}, customRecipient = '', logAction = null, lang = 'ca') {
+  const { recipient, subject, body, lang: docLang } = buildBillingEmail(task, clientData, billingSettings, customRecipient, lang);
   
   if (!recipient) {
-    alert("Este cliente no tiene correo electrónico asignado. Por favor indícalo en su ficha o en el formulario.");
+    alert(docLang === 'ca'
+      ? "Aquest client no té adreça de correu electrònic assignada. Si us plau, indiqueu-la a la seva fitxa o al camp d'enviament."
+      : "Este cliente no tiene correo electrónico asignado. Por favor indícalo en su ficha o en el formulario.");
     return false;
   }
 
-  // Abrir cliente de correo predeterminado del sistema operativo (Outlook, Gmail, etc.)
+  // Abrir cliente de correo predeterminado del sistema operativo
   const mailtoUrl = `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   window.location.href = mailtoUrl;
 
   if (logAction) {
     const billing = calculateTaskBilling(task);
-    logAction('email_sent', `Liquidación enviada por email a ${recipient} (Saldo: ${billing.pendingBalance.toFixed(2)} €)`);
+    const msg = docLang === 'ca'
+      ? `Liquidació enviada per email a ${recipient} (Saldo: ${billing.pendingBalance.toFixed(2)} €) [Català]`
+      : `Liquidación enviada por email a ${recipient} (Saldo: ${billing.pendingBalance.toFixed(2)} €) [Castellano]`;
+    logAction('email_sent', msg);
   }
 
   return true;

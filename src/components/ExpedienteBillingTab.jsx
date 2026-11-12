@@ -24,7 +24,8 @@ import {
   Mail,
   Send,
   Download,
-  Share2
+  Share2,
+  Globe
 } from 'lucide-react';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebase';
@@ -36,8 +37,18 @@ export default function ExpedienteBillingTab({
   currentUser,
   clientes = [],
   billingSettings = {},
-  logAction
+  logAction,
+  lang = 'ca'
 }) {
+  const [docLang, setDocLang] = useState(() => {
+    return lang || localStorage.getItem('gestflow_lang') || 'ca';
+  });
+
+  useEffect(() => {
+    if (lang) {
+      setDocLang(lang);
+    }
+  }, [lang]);
   const [showAddPayment, setShowAddPayment] = useState(false);
   const [showAddExpense, setShowAddExpense] = useState(false);
 
@@ -270,12 +281,12 @@ export default function ExpedienteBillingTab({
 
   // Generar e Imprimir / Guardar en PDF la liquidación económica
   const handleGenerateLiquidationPdf = () => {
-    openLiquidationPdf(formData, selectedClient, billingSettings);
+    openLiquidationPdf(formData, selectedClient, billingSettings, docLang);
   };
 
   // Enviar liquidación por correo electrónico directamente al cliente
   const handleSendBillingEmail = () => {
-    openBillingEmail(formData, selectedClient, billingSettings, recipientEmail, logAction);
+    openBillingEmail(formData, selectedClient, billingSettings, recipientEmail, logAction, docLang);
   };
 
   return (
@@ -948,6 +959,38 @@ export default function ExpedienteBillingTab({
               <AlertCircle className="w-3 h-3 text-amber-500" /> El cliente no tiene email registrado en su ficha. Puedes introducirlo arriba para este envío.
             </p>
           )}
+        </div>
+
+        {/* Selector de Idioma del Documento (Català / Castellano) */}
+        <div className="flex items-center justify-between bg-slate-50 p-2 rounded-lg border border-slate-200 text-xs">
+          <span className="font-semibold text-slate-700 flex items-center gap-1.5 text-[11px]">
+            <Globe className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Idioma del Document (PDF & Email):</span>
+          </span>
+          <div className="flex items-center bg-white p-0.5 rounded-lg border border-slate-300">
+            <button
+              type="button"
+              onClick={() => setDocLang('ca')}
+              className={`px-2.5 py-0.5 rounded text-xs font-bold transition-all ${
+                docLang === 'ca'
+                  ? 'bg-indigo-600 text-white shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Català
+            </button>
+            <button
+              type="button"
+              onClick={() => setDocLang('es')}
+              className={`px-2.5 py-0.5 rounded text-xs font-bold transition-all ${
+                docLang === 'es'
+                  ? 'bg-indigo-600 text-white shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Castellano
+            </button>
+          </div>
         </div>
 
         {/* Botonera de acción */}

@@ -25,6 +25,7 @@ import {
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { findClientForTask, openLiquidationPdf, openBillingEmail } from '../utils/billingUtils';
+import { translations } from '../i18n/translations';
 
 export default function BillingView({ 
   tasks = [], 
@@ -32,8 +33,10 @@ export default function BillingView({
   onEditTask, 
   logAction,
   clientes = [],
-  billingSettings = {}
+  billingSettings = {},
+  lang = 'ca'
 }) {
+  const t = translations[lang] || translations.ca;
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'pending', 'invoiced', 'paid', 'unbilled_closed', 'with_expenses'
   const [clientFilter, setClientFilter] = useState('');
@@ -479,11 +482,11 @@ export default function BillingView({
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider text-[10px] font-bold border-b border-slate-200/80">
               <tr>
-                <th className="py-2 px-3">Expediente & Cliente</th>
-                <th className="py-2 px-2.5">Estado Trámite</th>
-                <th className="py-2 px-2.5 text-right">Honorarios</th>
-                <th className="py-2 px-2.5 text-right">Suplidos</th>
-                <th className="py-2 px-2.5 text-right">Anticipos</th>
+                <th className="py-2 px-3">{t.billing.tableHeaders.expedienteClient}</th>
+                <th className="py-2 px-2.5">{t.billing.tableHeaders.status}</th>
+                <th className="py-2 px-2.5 text-right">{t.billing.tableHeaders.fees}</th>
+                <th className="py-2 px-2.5 text-right">{t.billing.tableHeaders.expenses}</th>
+                <th className="py-2 px-2.5 text-right">{t.billing.tableHeaders.downPayments}</th>
                 <th 
                   className="py-2 px-2.5 text-right cursor-pointer hover:bg-slate-100 select-none"
                   onClick={() => {
@@ -492,19 +495,19 @@ export default function BillingView({
                   }}
                 >
                   <div className="flex items-center justify-end gap-1">
-                    <span>Saldo Pendiente</span>
+                    <span>{t.billing.tableHeaders.balance}</span>
                     <ArrowUpDown className="w-3 h-3 text-slate-400" />
                   </div>
                 </th>
-                <th className="py-2 px-2.5">Estado Facturación</th>
-                <th className="py-2 px-2.5 text-center">Acciones</th>
+                <th className="py-2 px-2.5">{t.billing.tableHeaders.billingStatus}</th>
+                <th className="py-2 px-2.5 text-center">{t.billing.tableHeaders.actions}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredTasks.length === 0 ? (
                 <tr>
                   <td colSpan="8" className="text-center py-8 text-slate-400">
-                    No hay expedientes que coincidan con los filtros seleccionados.
+                    {lang === 'ca' ? 'No hi ha expedients que coincideixin amb els filtres seleccionats.' : 'No hay expedientes que coincidan con los filtros seleccionados.'}
                   </td>
                 </tr>
               ) : (
@@ -639,10 +642,10 @@ export default function BillingView({
                             type="button"
                             onClick={() => {
                               const clientData = findClientForTask(t, clientes);
-                              openLiquidationPdf(t, clientData, billingSettings);
+                              openLiquidationPdf(t, clientData, billingSettings, lang);
                             }}
                             className="bg-slate-800 hover:bg-slate-900 text-white px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
-                            title="Generar e Imprimir / Guardar en PDF la liquidación"
+                            title={lang === 'ca' ? "Generar i Imprimir / Desar en PDF la liquidació" : "Generar e Imprimir / Guardar en PDF la liquidación"}
                           >
                             <Printer className="w-3 h-3 text-blue-400" />
                             <span>PDF</span>
@@ -652,10 +655,10 @@ export default function BillingView({
                             type="button"
                             onClick={() => {
                               const clientData = findClientForTask(t, clientes);
-                              openBillingEmail(t, clientData, billingSettings, '', logAction);
+                              openBillingEmail(t, clientData, billingSettings, '', logAction, lang);
                             }}
                             className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
-                            title="Enviar liquidación por email con el texto estándar"
+                            title={lang === 'ca' ? "Enviar liquidació per email amb text estàndard" : "Enviar liquidación por email con el texto estándar"}
                           >
                             <Mail className="w-3 h-3" />
                             <span>Email</span>
