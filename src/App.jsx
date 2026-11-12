@@ -1254,7 +1254,7 @@ const RoadmapView = ({ tasks, onEdit, lang = 'ca' }) => {
                         </h3>
                         <span className="bg-white/90 text-rose-700 text-xs font-bold px-2 py-0.5 rounded-full border border-rose-200 shadow-2xs">{buckets.overdue.length}</span>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-3 space-y-2.5">{buckets.overdue.map(t => <RoadmapCard key={t.id} task={t}/>)}</div>
+                    <div className="flex-1 overflow-y-auto p-3 space-y-2.5">{buckets.overdue.map(taskItem => <RoadmapCard key={taskItem.id} task={taskItem}/>)}</div>
                 </div>
 
                 {/* Mes Actual */}
@@ -1265,7 +1265,7 @@ const RoadmapView = ({ tasks, onEdit, lang = 'ca' }) => {
                         </h3>
                         <span className="bg-white text-slate-700 text-xs font-bold px-2 py-0.5 rounded-full border border-slate-200 shadow-2xs">{buckets.current.length}</span>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-3 space-y-2.5">{buckets.current.map(t => <RoadmapCard key={t.id} task={t}/>)}</div>
+                    <div className="flex-1 overflow-y-auto p-3 space-y-2.5">{buckets.current.map(taskItem => <RoadmapCard key={taskItem.id} task={taskItem}/>)}</div>
                 </div>
 
                 {/* Próximo Mes */}
@@ -1274,7 +1274,7 @@ const RoadmapView = ({ tasks, onEdit, lang = 'ca' }) => {
                         <h3 className="font-bold text-slate-700 text-xs uppercase tracking-wide">{nextMonthName} ({t.roadmap.nextMonth})</h3>
                         <span className="bg-white text-slate-600 text-xs font-bold px-2 py-0.5 rounded-full border border-slate-200 shadow-2xs">{buckets.next.length}</span>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-3 space-y-2.5">{buckets.next.map(t => <RoadmapCard key={t.id} task={t}/>)}</div>
+                    <div className="flex-1 overflow-y-auto p-3 space-y-2.5">{buckets.next.map(taskItem => <RoadmapCard key={taskItem.id} task={taskItem}/>)}</div>
                 </div>
 
                 {/* Horizonte Posterior */}
@@ -1283,7 +1283,7 @@ const RoadmapView = ({ tasks, onEdit, lang = 'ca' }) => {
                         <h3 className="font-bold text-slate-500 text-xs uppercase tracking-wide">{t.roadmap.future}</h3>
                         <span className="bg-slate-100 text-slate-500 text-xs font-bold px-2 py-0.5 rounded-full">{buckets.future.length}</span>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-3 space-y-2.5">{buckets.future.map(t => <RoadmapCard key={t.id} task={t}/>)}</div>
+                    <div className="flex-1 overflow-y-auto p-3 space-y-2.5">{buckets.future.map(taskItem => <RoadmapCard key={taskItem.id} task={taskItem}/>)}</div>
                 </div>
             </div>
         </div>
@@ -1337,7 +1337,7 @@ const AccessDeniedView = ({ currentUser, onSignOut }) => {
 
 // --- VISTA ADMIN: GESTIÓN Y AUDITORÍA DEL DESPACHO ---
 const AdminView = ({ 
-  tasks, 
+  tasks = [], 
   currentAdmin, 
   logAction, 
   onNavigateToClientes, 
@@ -1606,9 +1606,9 @@ const AdminView = ({
       } catch (e) { alert("Error al exportar auditoría: " + e.message); }
   };
 
-  const filteredAdminTasks = tasks.filter(t => 
-    (t.title || '').toLowerCase().includes(adminSearchTerm.toLowerCase()) || 
-    (t.client || '').toLowerCase().includes(adminSearchTerm.toLowerCase())
+  const filteredAdminTasks = (tasks || []).filter(taskItem => 
+    (taskItem.title || '').toLowerCase().includes(adminSearchTerm.toLowerCase()) || 
+    (taskItem.client || '').toLowerCase().includes(adminSearchTerm.toLowerCase())
   );
 
   return (
@@ -2204,7 +2204,7 @@ const AdminView = ({
                       <input 
                         type="checkbox" 
                         onChange={(e) => { 
-                          if (e.target.checked) setSelectedTasks(filteredAdminTasks.map(t => t.id)); 
+                          if (e.target.checked) setSelectedTasks(filteredAdminTasks.map(item => item.id)); 
                           else setSelectedTasks([]); 
                         }} 
                         checked={filteredAdminTasks.length > 0 && selectedTasks.length === filteredAdminTasks.length} 
@@ -2252,22 +2252,23 @@ const AdminView = ({
 };
 
 // --- VISTA ANALYTICS: CUADRO DE MANDO DEL DESPACHO ---
-const AnalyticsView = ({ tasks, onEdit, lang = 'ca' }) => {
+const AnalyticsView = ({ tasks = [], onEdit, lang = 'ca' }) => {
   const t = translations[lang] || translations.ca;
   const isCa = lang === 'ca';
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   
-  const annualTasks = useMemo(() => tasks.filter(t => {
-    return !t.dueDate || t.dueDate.startsWith(selectedYear.toString());
-  }), [tasks, selectedYear]);
+  const safeTasks = tasks || [];
+  const annualTasks = useMemo(() => safeTasks.filter(task => {
+    return !task.dueDate || task.dueDate.startsWith(selectedYear.toString());
+  }), [safeTasks, selectedYear]);
 
   const stats = useMemo(() => {
     const totalCount = annualTasks.length;
     
-    const abiertoCount = annualTasks.filter(t => getEffectiveStatus(t) === 'Abierto').length;
-    const enRiesgoCount = annualTasks.filter(t => getEffectiveStatus(t) === 'En Riesgo').length;
-    const conRetrasoCount = annualTasks.filter(t => getEffectiveStatus(t) === 'Con Retraso').length;
-    const cerradoCount = annualTasks.filter(t => getEffectiveStatus(t) === 'Cerrado').length;
+    const abiertoCount = annualTasks.filter(task => getEffectiveStatus(task) === 'Abierto').length;
+    const enRiesgoCount = annualTasks.filter(task => getEffectiveStatus(task) === 'En Riesgo').length;
+    const conRetrasoCount = annualTasks.filter(task => getEffectiveStatus(task) === 'Con Retraso').length;
+    const cerradoCount = annualTasks.filter(task => getEffectiveStatus(task) === 'Cerrado').length;
 
     const byDept = MASTERS.departments.map(dept => ({
       name: dept, 
@@ -2275,31 +2276,31 @@ const AnalyticsView = ({ tasks, onEdit, lang = 'ca' }) => {
     })).sort((a, b) => b.value - a.value);
 
     const byStatus = [
-        { name: 'Abierto (En Plazo)', value: abiertoCount, color: 'bg-emerald-500', hexColor: '#10b981' },
-        { name: 'En Riesgo', value: enRiesgoCount, color: 'bg-amber-500', hexColor: '#f59e0b' },
-        { name: 'Con Retraso', value: conRetrasoCount, color: 'bg-rose-500', hexColor: '#f43f5e' },
-        { name: 'Cerrado', value: cerradoCount, color: 'bg-blue-500', hexColor: '#3b82f6' }
+        { name: isCa ? 'Obert (En Termini)' : 'Abierto (En Plazo)', value: abiertoCount, color: 'bg-emerald-500', hexColor: '#10b981' },
+        { name: isCa ? 'En Risc' : 'En Riesgo', value: enRiesgoCount, color: 'bg-amber-500', hexColor: '#f59e0b' },
+        { name: isCa ? 'Amb Retard' : 'Con Retraso', value: conRetrasoCount, color: 'bg-rose-500', hexColor: '#f43f5e' },
+        { name: isCa ? 'Tancat' : 'Cerrado', value: cerradoCount, color: 'bg-blue-500', hexColor: '#3b82f6' }
     ].filter(i => i.value > 0);
 
-    const uniqueUsers = [...new Set(annualTasks.flatMap(t => t.assignees || (t.assigneeEmail ? [t.assigneeEmail] : [])))];
+    const uniqueUsers = [...new Set(annualTasks.flatMap(task => task.assignees || (task.assigneeEmail ? [task.assigneeEmail] : [])))];
     const byUser = uniqueUsers.map(email => {
-      const userTasks = annualTasks.filter(t => (t.assignees && t.assignees.includes(email)) || t.assigneeEmail === email);
+      const userTasks = annualTasks.filter(task => (task.assignees && task.assignees.includes(email)) || task.assigneeEmail === email);
       const statusCounts = { 
-          Abierto: userTasks.filter(t => getEffectiveStatus(t) === 'Abierto').length,
-          EnRiesgo: userTasks.filter(t => getEffectiveStatus(t) === 'En Riesgo').length,
-          ConRetraso: userTasks.filter(t => getEffectiveStatus(t) === 'Con Retraso').length,
-          Cerrado: userTasks.filter(t => getEffectiveStatus(t) === 'Cerrado').length
+          Abierto: userTasks.filter(task => getEffectiveStatus(task) === 'Abierto').length,
+          EnRiesgo: userTasks.filter(task => getEffectiveStatus(task) === 'En Riesgo').length,
+          ConRetraso: userTasks.filter(task => getEffectiveStatus(task) === 'Con Retraso').length,
+          Cerrado: userTasks.filter(task => getEffectiveStatus(task) === 'Cerrado').length
       };
       return { email, total: userTasks.length, statusCounts };
     }).sort((a, b) => b.total - a.total);
 
     const delayByType = DELAY_METRICS_TYPES.map(type => {
-        const typeTasks = annualTasks.filter(t => {
-            const s = getEffectiveStatus(t);
-            return normalizeType(t.type) === type && s !== 'Cerrado';
+        const typeTasks = annualTasks.filter(task => {
+            const s = getEffectiveStatus(task);
+            return normalizeType(task.type) === type && s !== 'Cerrado';
         });
-        const typeDelayed = typeTasks.filter(t => getDelayDays(t) > 0 || getEffectiveStatus(t) === 'Con Retraso');
-        const typeTotalDelay = typeDelayed.reduce((acc, t) => acc + getDelayDays(t), 0);
+        const typeDelayed = typeTasks.filter(task => getDelayDays(task) > 0 || getEffectiveStatus(task) === 'Con Retraso');
+        const typeTotalDelay = typeDelayed.reduce((acc, task) => acc + getDelayDays(task), 0);
         return {
             type,
             reliability: typeTasks.length ? Math.round(((typeTasks.length - typeDelayed.length) / typeTasks.length) * 100) : 100,
@@ -2310,7 +2311,7 @@ const AnalyticsView = ({ tasks, onEdit, lang = 'ca' }) => {
     });
 
     return { totalCount, abiertoCount, enRiesgoCount, conRetrasoCount, cerradoCount, byDept, byStatus, byUser, delayByType };
-  }, [annualTasks]);
+  }, [annualTasks, isCa]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -2320,9 +2321,9 @@ const AnalyticsView = ({ tasks, onEdit, lang = 'ca' }) => {
             <p className="text-xs text-slate-500">{t.analytics.subtitle}</p>
           </div>
           <div className="flex items-center gap-4 bg-slate-50 p-1 rounded-lg border border-slate-200">
-              <button onClick={() => setSelectedYear(y => y - 1)} className="p-1 hover:bg-white hover:shadow-sm rounded"><ChevronLeft className="w-5 h-5 text-slate-600"/></button>
+              <button onClick={() => setSelectedYear(y => y - 1)} className="p-1 hover:bg-white hover:shadow-sm rounded cursor-pointer"><ChevronLeft className="w-5 h-5 text-slate-600"/></button>
               <span className="text-lg font-bold text-slate-800 min-w-[60px] text-center">{selectedYear}</span>
-              <button onClick={() => setSelectedYear(y => y + 1)} className="p-1 hover:bg-white hover:shadow-sm rounded"><ChevronRight className="w-5 h-5 text-slate-600"/></button>
+              <button onClick={() => setSelectedYear(y => y + 1)} className="p-1 hover:bg-white hover:shadow-sm rounded cursor-pointer"><ChevronRight className="w-5 h-5 text-slate-600"/></button>
           </div>
       </div>
 
@@ -2357,14 +2358,31 @@ const AnalyticsView = ({ tasks, onEdit, lang = 'ca' }) => {
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex items-center gap-2 mb-4 border-b border-slate-100 pb-2"><Clock className="w-5 h-5 text-indigo-600"/><h3 className="font-bold text-slate-700">{t.analytics.punctualityTitle}</h3></div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {stats.delayByType.map(t => (
-                  <div key={t.type} className="bg-slate-50 rounded-xl p-4 border border-slate-100 flex flex-col justify-between">
-                      <div className="flex justify-between items-start mb-2"><div className="font-bold text-slate-700 text-sm">{t.type}</div><span className="text-[10px] bg-white border border-slate-200 px-2 py-0.5 rounded-full text-slate-500">{t.count} {t.analytics.expedientes}</span></div>
-                      <div className="flex justify-between items-end">
-                          <div><div className="text-[10px] uppercase text-slate-400 font-bold">{t.analytics.reliability}</div><div className={`text-2xl font-bold ${t.reliability >= 80 ? 'text-emerald-600' : t.reliability >= 50 ? 'text-amber-600' : 'text-rose-600'}`}>{t.reliability}%</div></div>
-                          <div className="text-right"><div className="text-[10px] uppercase text-slate-400 font-bold">{t.analytics.avgDelay}</div><div className="text-2xl font-bold text-slate-700">{t.avgDelay > 0 ? `${t.avgDelay}d` : '-'}</div></div>
+              {stats.delayByType.map(metric => (
+                  <div key={metric.type} className="bg-slate-50 rounded-xl p-4 border border-slate-100 flex flex-col justify-between">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="font-bold text-slate-700 text-sm">{metric.type}</div>
+                        <span className="text-[10px] bg-white border border-slate-200 px-2 py-0.5 rounded-full text-slate-500">
+                          {metric.count} {t.analytics.expedientes}
+                        </span>
                       </div>
-                      <div className="mt-2 w-full bg-slate-200 h-1.5 rounded-full overflow-hidden"><div className={`h-full ${t.reliability >= 80 ? 'bg-emerald-500' : t.reliability >= 50 ? 'bg-amber-500' : 'bg-rose-500'}`} style={{width: `${t.reliability}%`}}></div></div>
+                      <div className="flex justify-between items-end">
+                          <div>
+                            <div className="text-[10px] uppercase text-slate-400 font-bold">{t.analytics.reliability}</div>
+                            <div className={`text-2xl font-bold ${metric.reliability >= 80 ? 'text-emerald-600' : metric.reliability >= 50 ? 'text-amber-600' : 'text-rose-600'}`}>
+                              {metric.reliability}%
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-[10px] uppercase text-slate-400 font-bold">{t.analytics.avgDelay}</div>
+                            <div className="text-2xl font-bold text-slate-700">
+                              {metric.avgDelay > 0 ? `${metric.avgDelay}d` : '-'}
+                            </div>
+                          </div>
+                      </div>
+                      <div className="mt-2 w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                        <div className={`h-full ${metric.reliability >= 80 ? 'bg-emerald-500' : metric.reliability >= 50 ? 'bg-amber-500' : 'bg-rose-500'}`} style={{width: `${metric.reliability}%`}}></div>
+                      </div>
                   </div>
               ))}
           </div>
@@ -2382,10 +2400,10 @@ const AnalyticsView = ({ tasks, onEdit, lang = 'ca' }) => {
                   <div key={u.email} className="flex items-center gap-3 text-sm">
                       <div className="w-28 sm:w-48 font-medium text-slate-600 truncate text-right text-xs" title={u.email}>{u.email.split('@')[0]}</div>
                       <div className="flex-1 h-4 bg-slate-100 rounded-full overflow-hidden flex">
-                          <div className="bg-emerald-500 h-full transition-all" title="Abierto" style={{width: `${(u.statusCounts.Abierto/u.total)*100}%`}}></div>
-                          <div className="bg-amber-400 h-full transition-all" title="En Riesgo" style={{width: `${(u.statusCounts.EnRiesgo/u.total)*100}%`}}></div>
-                          <div className="bg-rose-500 h-full transition-all" title="Con Retraso" style={{width: `${(u.statusCounts.ConRetraso/u.total)*100}%`}}></div>
-                          <div className="bg-blue-500 h-full transition-all" title="Cerrado" style={{width: `${(u.statusCounts.Cerrado/u.total)*100}%`}}></div>
+                          <div className="bg-emerald-500 h-full transition-all" title={isCa ? "Obert" : "Abierto"} style={{width: `${(u.statusCounts.Abierto/u.total)*100}%`}}></div>
+                          <div className="bg-amber-400 h-full transition-all" title={isCa ? "En Risc" : "En Riesgo"} style={{width: `${(u.statusCounts.EnRiesgo/u.total)*100}%`}}></div>
+                          <div className="bg-rose-500 h-full transition-all" title={isCa ? "Amb Retard" : "Con Retraso"} style={{width: `${(u.statusCounts.ConRetraso/u.total)*100}%`}}></div>
+                          <div className="bg-blue-500 h-full transition-all" title={isCa ? "Tancat" : "Cerrado"} style={{width: `${(u.statusCounts.Cerrado/u.total)*100}%`}}></div>
                       </div>
                       <div className="w-8 font-bold text-slate-700 text-xs text-center">{u.total}</div>
                   </div>
@@ -4625,7 +4643,7 @@ const ExpedienteManager = ({ currentUser }) => {
              isAdmin ? (
                <AdminView 
                  tasks={tasks} 
-                 currentAdmin={currentUser.email} 
+                 currentAdmin={currentUser?.email || ''} 
                  logAction={logAction} 
                  onNavigateToClientes={() => setCurrentView('clientes')} 
                  clientesCount={clientes.length} 
