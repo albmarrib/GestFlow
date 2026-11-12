@@ -40,6 +40,7 @@ export default function ExpedienteBillingTab({
   logAction,
   lang = 'ca'
 }) {
+  const isCa = lang === 'ca';
   const [docLang, setDocLang] = useState(() => {
     return lang || localStorage.getItem('gestflow_lang') || 'ca';
   });
@@ -297,7 +298,7 @@ export default function ExpedienteBillingTab({
         <div className="flex justify-between items-center pb-1.5 border-b border-slate-100">
           <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
             <Coins className="w-3.5 h-3.5 text-indigo-600" />
-            Condición de Facturación & Honorarios
+            {isCa ? "Condició de Facturació & Honoraris" : "Condición de Facturación & Honorarios"}
           </span>
           <span className="text-[11px] font-semibold text-slate-500">
             {billingType === 'billable' ? `${feeAmount.toFixed(2)} € Honorarios` : (billingType === 'included' ? 'En Cuota Mensual' : 'Sin Cargo')}
@@ -315,7 +316,7 @@ export default function ExpedienteBillingTab({
                 : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 font-medium'
             }`}
           >
-            <span className="truncate">A Cobrar / Facturable</span>
+            <span className="truncate">{isCa ? "A Cobrar / Facturable" : "A Cobrar / Facturable"}</span>
             <Coins className={`w-3.5 h-3.5 shrink-0 ${billingType === 'billable' ? 'text-emerald-600' : 'text-slate-400'}`} />
           </button>
 
@@ -328,7 +329,7 @@ export default function ExpedienteBillingTab({
                 : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 font-medium'
             }`}
           >
-            <span className="truncate">Incluido en Cuota</span>
+            <span className="truncate">{isCa ? "Inclòs en Quota" : "Incluido en Cuota"}</span>
             <Building className={`w-3.5 h-3.5 shrink-0 ${billingType === 'included' ? 'text-blue-600' : 'text-slate-400'}`} />
           </button>
 
@@ -341,7 +342,7 @@ export default function ExpedienteBillingTab({
                 : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 font-medium'
             }`}
           >
-            <span className="truncate">No Facturable</span>
+            <span className="truncate">{isCa ? "No Facturable" : "No Facturable"}</span>
             <FileText className={`w-3.5 h-3.5 shrink-0 ${billingType === 'non_billable' ? 'text-slate-600' : 'text-slate-400'}`} />
           </button>
         </div>
@@ -350,7 +351,7 @@ export default function ExpedienteBillingTab({
         {billingType === 'billable' && (
           <div className="pt-1.5 grid grid-cols-1 sm:grid-cols-3 gap-2 border-t border-slate-100">
             <div>
-              <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Importe Honorarios (€)</label>
+              <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">{isCa ? "Import Honoraris (€)" : "Importe Honorarios (€)"}</label>
               <div className="relative">
                 <input
                   type="number"
@@ -366,20 +367,20 @@ export default function ExpedienteBillingTab({
             </div>
 
             <div>
-              <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Estado de Facturación</label>
+              <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">{isCa ? "Estat de Facturació" : "Estado de Facturación"}</label>
               <select
                 value={formData.billingStatus || 'pending'}
                 onChange={(e) => setFormData({ ...formData, billingStatus: e.target.value })}
                 className="w-full py-1.5 px-2 border border-slate-300 rounded-lg text-xs font-semibold bg-white text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500"
               >
-                <option value="pending">⏳ Pendiente de Facturar</option>
-                <option value="invoiced">📑 Facturado</option>
-                <option value="paid">✅ Cobrado y Liquidado</option>
+                <option value="pending">{isCa ? "⏳ Pendent de Facturar" : "⏳ Pendiente de Facturar"}</option>
+                <option value="invoiced">{isCa ? "📑 Facturat" : "📑 Facturado"}</option>
+                <option value="paid">{isCa ? "✅ Cobrat i Liquidat" : "✅ Cobrado y Liquidado"}</option>
               </select>
             </div>
 
             <div>
-              <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Nº Factura Despacho</label>
+              <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">{isCa ? "Núm. Factura Despatx" : "Nº Factura Despacho"}</label>
               <input
                 type="text"
                 value={formData.invoiceNumber || ''}
@@ -398,9 +399,9 @@ export default function ExpedienteBillingTab({
           <div>
             <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
               <Receipt className="w-3.5 h-3.5 text-amber-500" />
-              Suplidos y Cargos Externos (Terceros)
+              {isCa ? "Suplerts i Càrrecs Externs (Tercers)" : "Suplidos y Cargos Externos (Terceros)"}
             </span>
-            <p className="text-[10px] text-slate-400">Notarías, Registros Mercantiles, Tasas DGT, Colegios Oficiales</p>
+            <p className="text-[10px] text-slate-400">{isCa ? "Notaries, Registres Mercantils, Taxes DGT, Col·legis Oficials" : "Notarías, Registros Mercantiles, Tasas DGT, Colegios Oficiales"}</p>
           </div>
           <button
             type="button"
@@ -408,7 +409,7 @@ export default function ExpedienteBillingTab({
             className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all"
           >
             <Plus className="w-3 h-3 text-amber-600" />
-            <span>{showAddExpense ? 'Cerrar' : '+ Añadir Suplido'}</span>
+            <span>{showAddExpense ? (isCa ? 'Tancar' : 'Cerrar') : (isCa ? '+ Afegir Suplert' : '+ Añadir Suplido')}</span>
           </button>
         </div>
 
@@ -652,7 +653,7 @@ export default function ExpedienteBillingTab({
             className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80 px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all"
           >
             <Plus className="w-3 h-3 text-emerald-600" />
-            <span>{showAddPayment ? 'Cerrar' : '+ Añadir Anticipo'}</span>
+            <span>{showAddPayment ? (isCa ? 'Tancar' : 'Cerrar') : (isCa ? '+ Afegir Bestreta' : '+ Añadir Anticipo')}</span>
           </button>
         </div>
 

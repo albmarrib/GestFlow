@@ -37,6 +37,7 @@ export default function BillingView({
   lang = 'ca'
 }) {
   const t = translations[lang] || translations.ca;
+  const isCa = lang === 'ca';
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'pending', 'invoiced', 'paid', 'unbilled_closed', 'with_expenses'
   const [clientFilter, setClientFilter] = useState('');
@@ -277,10 +278,10 @@ export default function BillingView({
             </div>
             <div>
               <h3 className="text-xs font-bold text-amber-900">
-                ¡Atención! Hay {kpis.unbilledClosedCount} {kpis.unbilledClosedCount === 1 ? 'expediente tramitado' : 'expedientes tramitados/cerrados'} pendientes de facturar
+                {isCa ? `¡Atenció! Hi ha ${kpis.unbilledClosedCount} ${kpis.unbilledClosedCount === 1 ? 'expedient tramitat' : 'expedients tramitats/tancats'} pendents de facturar` : `¡Atención! Hay ${kpis.unbilledClosedCount} ${kpis.unbilledClosedCount === 1 ? 'expediente tramitado' : 'expedientes tramitados/cerrados'} pendientes de facturar`}
               </h3>
               <p className="text-[11px] text-amber-800/80">
-                Trámites completados por los asesores con honorarios que aún no se han facturado al cliente.
+                {isCa ? "Tràmits completats pels assessors amb honoraris que encara no s'han facturat al client." : "Trámites completados por los asesores con honorarios que aún no se han facturado al cliente."}
               </p>
             </div>
           </div>
@@ -288,7 +289,7 @@ export default function BillingView({
             onClick={() => setStatusFilter('unbilled_closed')}
             className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1 rounded-lg text-xs font-bold shadow-xs transition-all shrink-0"
           >
-            Ver Expedientes sin Facturar
+            {isCa ? "Veure Expedients sense Facturar" : "Ver Expedientes sin Facturar"}
           </button>
         </div>
       )}
@@ -300,7 +301,7 @@ export default function BillingView({
           <div className="flex justify-between items-start">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
-                Honorarios Pendientes
+                {isCa ? "Honoraris Pendents" : "Honorarios Pendientes"}
               </span>
               <h3 className="text-xl font-bold text-slate-900 mt-0.5">
                 {kpis.totalPendingFees.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
@@ -311,7 +312,7 @@ export default function BillingView({
             </div>
           </div>
           <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
-            <Clock className="w-2.5 h-2.5 text-indigo-500" /> Trabajos en curso o listos para emitir
+            <Clock className="w-2.5 h-2.5 text-indigo-500" /> {isCa ? "Treballs en curs o a punt per emetre" : "Trabajos en curso o listos para emitir"}
           </p>
         </div>
 
@@ -319,7 +320,7 @@ export default function BillingView({
           <div className="flex justify-between items-start">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
-                Suplidos Adelantados
+                {isCa ? "Suplerts Avançats" : "Suplidos Adelantados"}
               </span>
               <h3 className="text-xl font-bold text-amber-600 mt-0.5">
                 {kpis.totalExpensesAdelantados.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
@@ -330,7 +331,7 @@ export default function BillingView({
             </div>
           </div>
           <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
-            <Building2 className="w-2.5 h-2.5 text-amber-500" /> Tasas, notarías y registros pagados
+            <Building2 className="w-2.5 h-2.5 text-amber-500" /> {isCa ? "Taxes, notaries i registres pagats" : "Tasas, notarías y registros pagados"}
           </p>
         </div>
 
@@ -338,7 +339,7 @@ export default function BillingView({
           <div className="flex justify-between items-start">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
-                Anticipos / Provisiones
+                {isCa ? "Bestretes / Provisions" : "Anticipos / Provisiones"}
               </span>
               <h3 className="text-xl font-bold text-emerald-600 mt-0.5">
                 {kpis.totalAnticipos.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
@@ -349,7 +350,7 @@ export default function BillingView({
             </div>
           </div>
           <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
-            <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500" /> Fondos ya cobrados a cuenta
+            <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500" /> {isCa ? "Fons ja cobrats a compte" : "Fondos ya cobrados a cuenta"}
           </p>
         </div>
 
@@ -357,7 +358,7 @@ export default function BillingView({
           <div className="flex justify-between items-start">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                Saldo Neto a Cobrar
+                {isCa ? "Saldo Net a Cobrar" : "Saldo Neto a Cobrar"}
               </span>
               <h3 className="text-xl font-bold text-white mt-0.5">
                 {kpis.totalPendingBalance.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
@@ -368,7 +369,7 @@ export default function BillingView({
             </div>
           </div>
           <p className="text-[10px] text-slate-300 mt-1">
-            Honorarios + Suplidos - Provisiones
+            {isCa ? "Honoraris + Suplerts - Provisions" : "Honorarios + Suplidos - Provisiones"}
           </p>
         </div>
 
@@ -385,7 +386,7 @@ export default function BillingView({
               statusFilter === 'all' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            Todos ({enrichedTasks.length})
+            {isCa ? 'Tots' : 'Todos'} ({enrichedTasks.length})
           </button>
           <button
             onClick={() => setStatusFilter('pending')}
@@ -393,7 +394,7 @@ export default function BillingView({
               statusFilter === 'pending' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            ⏳ Pendientes
+            {isCa ? '⏳ Pendents' : '⏳ Pendientes'}
           </button>
           <button
             onClick={() => setStatusFilter('unbilled_closed')}
@@ -401,7 +402,7 @@ export default function BillingView({
               statusFilter === 'unbilled_closed' ? 'bg-amber-600 text-white shadow-2xs' : 'text-amber-800 bg-amber-50 hover:bg-amber-100'
             }`}
           >
-            ⚠️ Tramitados sin Facturar
+            {isCa ? '⚠️ Tramitats sense Facturar' : '⚠️ Tramitados sin Facturar'}
           </button>
           <button
             onClick={() => setStatusFilter('with_expenses')}
@@ -409,7 +410,7 @@ export default function BillingView({
               statusFilter === 'with_expenses' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            🧾 Con Suplidos
+            {isCa ? '🧾 Amb Suplerts' : '🧾 Con Suplidos'}
           </button>
           <button
             onClick={() => setStatusFilter('invoiced')}
@@ -417,7 +418,7 @@ export default function BillingView({
               statusFilter === 'invoiced' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            📑 Facturados
+            {isCa ? '📑 Facturats' : '📑 Facturados'}
           </button>
           <button
             onClick={() => setStatusFilter('paid')}
@@ -425,7 +426,7 @@ export default function BillingView({
               statusFilter === 'paid' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            ✅ Cobrados
+            {isCa ? '✅ Cobrats' : '✅ Cobrados'}
           </button>
         </div>
 
@@ -436,7 +437,7 @@ export default function BillingView({
             <Search className="absolute left-2.5 top-2 w-3 h-3 text-slate-400" />
             <input
               type="text"
-              placeholder="Buscar..."
+              placeholder={isCa ? "Cercar..." : "Buscar..."}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-7 pr-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:bg-white focus:ring-1 focus:ring-indigo-500 text-slate-800"
@@ -448,7 +449,7 @@ export default function BillingView({
             onChange={(e) => setClientFilter(e.target.value)}
             className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-none max-w-[150px]"
           >
-            <option value="">Clientes (todos)</option>
+            <option value="">{isCa ? "Clients (tots)" : "Clientes (todos)"}</option>
             {clientsList.map(c => (
               <option key={c} value={c}>{c}</option>
             ))}
@@ -558,7 +559,7 @@ export default function BillingView({
                         </span>
                         {isClosedUnbilled && (
                           <span className="block text-[9px] text-amber-700 font-bold mt-0.5">
-                            ⚠️ Trámite cerrado
+                            {isCa ? "⚠️ Tràmit tancat" : "⚠️ Trámite cerrado"}
                           </span>
                         )}
                       </td>
@@ -624,9 +625,9 @@ export default function BillingView({
                               : 'bg-amber-50 text-amber-800 border-amber-200'
                           }`}
                         >
-                          <option value="pending">⏳ Pendiente</option>
-                          <option value="invoiced">📑 Facturado</option>
-                          <option value="paid">✅ Cobrado</option>
+                          <option value="pending">{isCa ? "⏳ Pendent" : "⏳ Pendiente"}</option>
+                          <option value="invoiced">{isCa ? "📑 Facturat" : "📑 Facturado"}</option>
+                          <option value="paid">{isCa ? "✅ Cobrat" : "✅ Cobrado"}</option>
                         </select>
                         {t.invoiceNumber && (
                           <span className="block text-[9px] text-slate-400 mt-0.5">
@@ -670,7 +671,7 @@ export default function BillingView({
                             className="bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 px-2 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer"
                             title="Abrir expediente completo"
                           >
-                            Ficha
+                            {isCa ? "Fitxa" : "Ficha"}
                           </button>
                         </div>
                       </td>

@@ -126,33 +126,45 @@ export const normalizeStatus = (status, dueDate) => {
   }
 
   switch (s) {
-    // 🟢 Verde: Abierto (en marcha y dentro de plazo)
+    // 🟢 Verde: Abierto / Obert (en marcha y dentro de plazo)
+    case 'Obert':
     case 'Abierto':
     case 'En Plazo':
+    case 'En Termini':
     case 'On Track':
+    case 'Tràmit Periòdic':
     case 'Trámite Periódico':
     case 'Ongoing Task':
       return 'Abierto';
 
-    // 🟡 Amarillo: En Riesgo (previsión de incidencias o demora)
+    // 🟡 Amarillo: En Riesgo / En Risc (previsión de incidencias o demora)
+    case 'En Risc':
     case 'En Riesgo':
+    case 'Pendent Documentació':
     case 'Pendiente Documentación':
     case 'Behind':
+    case 'En Revisió':
     case 'En Revisión':
+    case 'En Pausa / Suspes':
     case 'En Pausa / Suspendido':
     case 'On Hold':
       return 'En Riesgo';
 
-    // 🔴 Rojo: Con Retraso (plazo superado)
+    // 🔴 Rojo: Con Retraso / Amb Retard (plazo superado)
+    case 'Amb Retard':
     case 'Con Retraso':
+    case 'Fora de Termini':
     case 'Fuera de Plazo':
+    case 'Urgent / Proper a Vèncer':
     case 'Urgente / Próximo a Vencer':
     case 'No Meet Goal':
       return 'Con Retraso';
 
-    // 🔵 Azul: Cerrado (tramitado y archivado)
+    // 🔵 Azul: Cerrado / Tancat (tramitado y archivado)
+    case 'Tancat':
     case 'Cerrado':
     case 'Closed':
+    case 'Presentat / Tramitat':
     case 'Presentado / Tramitado':
     case 'Completed':
       return 'Cerrado';
@@ -252,10 +264,18 @@ const Badge = ({ text, task, size = 'xs' }) => {
     }
   }
 
+  const curLang = (typeof window !== 'undefined' ? localStorage.getItem('gestflow_lang') : null) || 'ca';
+  const displayLabel = curLang === 'ca' ? (
+    norm === 'Abierto' ? 'Obert' :
+    norm === 'En Riesgo' ? 'En Risc' :
+    norm === 'Con Retraso' ? 'Amb Retard' :
+    norm === 'Cerrado' ? 'Tancat' : norm
+  ) : norm;
+
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-${size} font-bold border ${colorConfig.colorClass} whitespace-nowrap shadow-2xs tracking-tight`}>
       <span className={`w-1.5 h-1.5 rounded-full ${colorConfig.dotColor} shrink-0`}></span>
-      <span>{norm}</span>
+      <span>{displayLabel}</span>
     </span>
   );
 };
@@ -498,8 +518,11 @@ const GTDView = ({
   currentUser, 
   onEditParent,
   isAdmin = false,
-  usersList = []
+  usersList = [],
+  lang = 'ca'
 }) => {
+  const t = translations[lang] || translations.ca;
+  const isCa = lang === 'ca';
   const [activeTab, setActiveTab] = useState('all'); // 'all', 'mine', 'waiting'
   const [sortBy, setSortBy] = useState('urgency'); // 'urgency', 'expediente', 'assignee'
   const [adminScope, setAdminScope] = useState('personal'); // 'personal', 'all_office'
@@ -513,7 +536,7 @@ const GTDView = ({
     if (!dueDateStr) {
       return {
         dueDate: '',
-        label: 'Sin fecha',
+        label: isCa ? 'Sense data' : 'Sin fecha',
         color: 'slate',
         badgeClass: 'bg-slate-100 text-slate-500 border-slate-200',
         daysDiff: 9999,
@@ -533,7 +556,7 @@ const GTDView = ({
     if (daysDiff < 0) {
       return {
         dueDate: dueDateStr,
-        label: `Vencido (${Math.abs(daysDiff)}d)`,
+        label: isCa ? `Vençut (${Math.abs(daysDiff)}d)` : `Vencido (${Math.abs(daysDiff)}d)`,
         shortLabel: `${daysDiff}d`,
         color: 'rose',
         badgeClass: 'bg-rose-50 text-rose-700 border-rose-200 font-bold',
@@ -545,7 +568,7 @@ const GTDView = ({
     } else if (daysDiff === 0) {
       return {
         dueDate: dueDateStr,
-        label: '¡Vence Hoy!',
+        label: isCa ? '¡Venç Avui!' : '¡Vence Hoy!',
         shortLabel: 'Hoy',
         color: 'amber',
         badgeClass: 'bg-amber-100 text-amber-800 border-amber-300 font-extrabold',
@@ -557,7 +580,7 @@ const GTDView = ({
     } else if (daysDiff <= 3) {
       return {
         dueDate: dueDateStr,
-        label: `Vence en ${daysDiff}d`,
+        label: isCa ? `Venç en ${daysDiff}d` : `Vence en ${daysDiff}d`,
         shortLabel: `${daysDiff}d`,
         color: 'amber',
         badgeClass: 'bg-amber-50 text-amber-700 border-amber-200 font-semibold',
@@ -759,14 +782,14 @@ const GTDView = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-slate-800">Trámites GTD</h2>
+                <h2 className="text-sm font-bold text-slate-800">{t.gtd.title}</h2>
                 {isAdmin && (
                   <span className="text-[10px] bg-slate-100 text-slate-600 font-semibold px-1.5 py-0.2 rounded border border-slate-200">
-                    Modo Admin
+                    {t.gtd.adminMode}
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-slate-400">Acciones inmediatas y seguimiento de delegaciones</p>
+              <p className="text-[11px] text-slate-400">{t.gtd.subtitle}</p>
             </div>
           </div>
 
@@ -781,7 +804,7 @@ const GTDView = ({
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              Ambas Listas
+              {t.gtd.bothLists}
             </button>
             <button
               type="button"
@@ -792,7 +815,7 @@ const GTDView = ({
                   : 'text-slate-500 hover:text-emerald-700'
               }`}
             >
-              <span>Mi To-Do</span>
+              <span>{t.gtd.myToDo}</span>
               <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeTab === 'mine' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
                 {myActions.length}
               </span>
@@ -806,7 +829,7 @@ const GTDView = ({
                   : 'text-slate-500 hover:text-amber-700'
               }`}
             >
-              <span>En Espera</span>
+              <span>{t.gtd.waiting}</span>
               <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeTab === 'waiting' ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-600'}`}>
                 {waitingActions.length}
               </span>
@@ -819,7 +842,7 @@ const GTDView = ({
           
           {/* Filtros rápidos de Urgencia */}
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mr-1">Plazos:</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mr-1">{t.gtd.terms}</span>
             <button
               type="button"
               onClick={() => setUrgencyFilter('all')}
@@ -829,7 +852,7 @@ const GTDView = ({
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium'
               }`}
             >
-              Todos
+              {t.gtd.all}
             </button>
             <button
               type="button"
@@ -843,7 +866,7 @@ const GTDView = ({
               }`}
             >
               <AlertTriangle className="w-3 h-3" />
-              <span>Vencidos ({countOverdue})</span>
+              <span>{t.gtd.overdue} ({countOverdue})</span>
             </button>
             <button
               type="button"
@@ -857,7 +880,7 @@ const GTDView = ({
               }`}
             >
               <Clock className="w-3 h-3" />
-              <span>Hoy / Próximos ({countToday})</span>
+              <span>{t.gtd.today} ({countToday})</span>
             </button>
           </div>
 
@@ -875,7 +898,7 @@ const GTDView = ({
                   }`}
                   title="Ver solo mis trámites y lo que he delegado en mis expedientes"
                 >
-                  Mi Espacio
+                  {t.gtd.mySpace}
                 </button>
                 <button
                   type="button"
@@ -885,7 +908,7 @@ const GTDView = ({
                   }`}
                   title="Ver todos los trámites del despacho"
                 >
-                  Todo el Despacho
+                  {t.gtd.allOffice}
                 </button>
               </div>
             )}
@@ -897,7 +920,7 @@ const GTDView = ({
                 onChange={(e) => setSelectedAssigneeFilter(e.target.value)}
                 className="py-1 px-2 text-xs border border-slate-200 rounded-lg bg-white text-slate-700 font-medium outline-none focus:ring-1 focus:ring-indigo-500 max-w-[150px]"
               >
-                <option value="">Todos los gestores</option>
+                <option value="">{t.gtd.allManagers}</option>
                 {allKnownAssignees.map(a => (
                   <option key={a} value={a}>{a}</option>
                 ))}
@@ -911,9 +934,9 @@ const GTDView = ({
               className="py-1 px-2 text-xs border border-slate-200 rounded-lg bg-white text-slate-700 font-medium outline-none focus:ring-1 focus:ring-indigo-500"
               title="Criterio de ordenación"
             >
-              <option value="urgency">⚡ Ordenar: Fecha / Urgencia</option>
-              <option value="expediente">📁 Ordenar: Expediente</option>
-              <option value="assignee">👤 Ordenar: Responsable</option>
+              <option value="urgency">{t.gtd.sortUrgency}</option>
+              <option value="expediente">{t.gtd.sortExpediente}</option>
+              <option value="assignee">{t.gtd.sortAssignee}</option>
             </select>
 
             {/* Búsqueda rápida */}
@@ -923,7 +946,7 @@ const GTDView = ({
                 type="text"
                 value={localSearch}
                 onChange={(e) => setLocalSearch(e.target.value)}
-                placeholder="Buscar trámite..."
+                placeholder={t.gtd.searchPlaceholder}
                 className="w-full pl-7 pr-2.5 py-1 text-xs border border-slate-200 rounded-lg bg-slate-50 focus:bg-white outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800"
               />
             </div>
@@ -944,12 +967,12 @@ const GTDView = ({
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                 <h3 className="text-xs font-bold text-emerald-950 uppercase tracking-wide">
                   {isAdmin && adminScope === 'all_office' && selectedAssigneeFilter 
-                    ? `Trámites de: ${selectedAssigneeFilter}`
-                    : 'Mi To-Do (Mis Trámites a Realizar)'}
+                    ? t.gtd.todoHeaderUser.replace('{user}', selectedAssigneeFilter)
+                    : t.gtd.todoHeader}
                 </h3>
               </div>
               <span className="text-[11px] font-bold bg-white text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200 shadow-2xs">
-                {myActions.length} pendientes
+                {myActions.length} {t.gtd.pending}
               </span>
             </div>
 
@@ -958,8 +981,8 @@ const GTDView = ({
               {myActions.length === 0 ? (
                 <div className="py-12 text-center text-slate-400">
                   <CheckSquare className="w-8 h-8 text-emerald-400/40 mx-auto mb-1.5" />
-                  <p className="text-xs font-semibold text-slate-600">¡Todo al día en tu To-Do!</p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">No tienes trámites propios pendientes en este momento.</p>
+                  <p className="text-xs font-semibold text-slate-600">{t.gtd.todoEmptyTitle}</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">{t.gtd.todoEmptyDesc}</p>
                 </div>
               ) : (
                 myActions.map((action) => (
@@ -1034,11 +1057,11 @@ const GTDView = ({
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-amber-600" />
                 <h3 className="text-xs font-bold text-amber-950 uppercase tracking-wide">
-                  En Espera (Delegado a Terceros / Externos)
+                  {t.gtd.waitingHeader}
                 </h3>
               </div>
               <span className="text-[11px] font-bold bg-white text-amber-800 px-2 py-0.5 rounded-full border border-amber-200 shadow-2xs">
-                {waitingActions.length} en espera
+                {waitingActions.length} {t.gtd.waitingCount}
               </span>
             </div>
 
@@ -1047,11 +1070,11 @@ const GTDView = ({
               {waitingActions.length === 0 ? (
                 <div className="py-12 text-center text-slate-400">
                   <Users className="w-8 h-8 text-amber-400/40 mx-auto mb-1.5" />
-                  <p className="text-xs font-semibold text-slate-600">No estás esperando trámites de nadie</p>
+                  <p className="text-xs font-semibold text-slate-600">{t.gtd.waitingEmptyTitle}</p>
                   <p className="text-[11px] text-slate-400 mt-0.5">
                     {isAdmin && adminScope === 'all_office' 
-                      ? 'No hay trámites delegados en el despacho.' 
-                      : 'En tus expedientes no hay pasos pendientes asignados a otros compañeros o externos.'}
+                      ? t.gtd.waitingEmptyOfficeDesc 
+                      : t.gtd.waitingEmptyDesc}
                   </p>
                 </div>
               ) : (
@@ -1153,12 +1176,16 @@ const GTDView = ({
 };
 
 // --- VISTA ROADMAP: CRONOGRAMA DE VENCIMIENTOS ---
-const RoadmapView = ({ tasks, onEdit }) => {
+const RoadmapView = ({ tasks, onEdit, lang = 'ca' }) => {
+    const t = translations[lang] || translations.ca;
+    const isCa = lang === 'ca';
     const today = new Date();
     const startOfCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const startOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
     const startOfFuture = new Date(today.getFullYear(), today.getMonth() + 2, 1);
-    const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+    const monthNames = isCa 
+      ? ["Gener", "Febrer", "Març", "Abril", "Maig", "Juny", "Juliol", "Agost", "Setembre", "Octubre", "Novembre", "Desembre"]
+      : ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
     const currentMonthName = monthNames[today.getMonth()];
     const nextMonthName = monthNames[(today.getMonth() + 1) % 12];
     
@@ -1197,7 +1224,7 @@ const RoadmapView = ({ tasks, onEdit }) => {
                     <Clock className="w-3.5 h-3.5 text-slate-400"/> 
                     <span className={delay > 0 ? "text-rose-600 font-bold bg-rose-50 px-1 rounded border border-rose-100 text-[11px]" : "font-medium"}>
                         {new Date(task.dueDate).toLocaleDateString('es-ES', {month: 'short', day: 'numeric'})}
-                        {delay > 0 && ` (+${delay}d demora)`}
+                        {delay > 0 && (isCa ? ` (+${delay}d retard)` : ` (+${delay}d demora)`)}
                     </span>
                 </div>
             </div>
@@ -1212,8 +1239,8 @@ const RoadmapView = ({ tasks, onEdit }) => {
                         <CalendarCheck className="w-5 h-5"/>
                     </div>
                     <div>
-                      <h2 className="text-xl font-bold text-slate-900 tracking-tight">Cronograma de Vencimientos</h2>
-                      <p className="text-xs text-slate-500">Visualización temporal de plazos fiscales y expedientes por fase</p>
+                      <h2 className="text-xl font-bold text-slate-900 tracking-tight">{t.roadmap.title}</h2>
+                      <p className="text-xs text-slate-500">{t.roadmap.subtitle}</p>
                     </div>
                 </div>
             </div>
@@ -1223,7 +1250,7 @@ const RoadmapView = ({ tasks, onEdit }) => {
                 <div className="flex flex-col bg-rose-50/40 backdrop-blur-xs rounded-2xl border border-rose-200/70 shadow-xs overflow-hidden">
                     <div className="p-3.5 border-b border-rose-200/60 bg-rose-100/40 flex justify-between items-center">
                         <h3 className="font-bold text-rose-900 text-xs uppercase tracking-wide flex items-center gap-1.5">
-                            <AlertTriangle className="w-4 h-4 text-rose-600"/> Fuera de Plazo
+                            <AlertTriangle className="w-4 h-4 text-rose-600"/> {t.roadmap.overdue}
                         </h3>
                         <span className="bg-white/90 text-rose-700 text-xs font-bold px-2 py-0.5 rounded-full border border-rose-200 shadow-2xs">{buckets.overdue.length}</span>
                     </div>
@@ -1234,7 +1261,7 @@ const RoadmapView = ({ tasks, onEdit }) => {
                 <div className="flex flex-col bg-slate-100/70 backdrop-blur-xs rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
                     <div className="p-3.5 border-b border-slate-200/80 bg-slate-200/50 flex justify-between items-center">
                         <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wide flex items-center gap-1.5">
-                            <CalendarDays className="w-4 h-4 text-indigo-600"/> {currentMonthName} (Mes Actual)
+                            <CalendarDays className="w-4 h-4 text-indigo-600"/> {currentMonthName} ({t.roadmap.currentMonth})
                         </h3>
                         <span className="bg-white text-slate-700 text-xs font-bold px-2 py-0.5 rounded-full border border-slate-200 shadow-2xs">{buckets.current.length}</span>
                     </div>
@@ -1244,7 +1271,7 @@ const RoadmapView = ({ tasks, onEdit }) => {
                 {/* Próximo Mes */}
                 <div className="flex flex-col bg-slate-50/70 backdrop-blur-xs rounded-2xl border border-slate-200/70 shadow-xs overflow-hidden">
                     <div className="p-3.5 border-b border-slate-200/70 bg-slate-100/50 flex justify-between items-center">
-                        <h3 className="font-bold text-slate-700 text-xs uppercase tracking-wide">{nextMonthName} (Próximo)</h3>
+                        <h3 className="font-bold text-slate-700 text-xs uppercase tracking-wide">{nextMonthName} ({t.roadmap.nextMonth})</h3>
                         <span className="bg-white text-slate-600 text-xs font-bold px-2 py-0.5 rounded-full border border-slate-200 shadow-2xs">{buckets.next.length}</span>
                     </div>
                     <div className="flex-1 overflow-y-auto p-3 space-y-2.5">{buckets.next.map(t => <RoadmapCard key={t.id} task={t}/>)}</div>
@@ -1253,7 +1280,7 @@ const RoadmapView = ({ tasks, onEdit }) => {
                 {/* Horizonte Posterior */}
                 <div className="flex flex-col bg-slate-50/40 backdrop-blur-xs rounded-2xl border border-slate-200/50 shadow-xs overflow-hidden">
                     <div className="p-3.5 border-b border-slate-200/50 bg-slate-100/30 flex justify-between items-center">
-                        <h3 className="font-bold text-slate-500 text-xs uppercase tracking-wide">Horizonte Posterior</h3>
+                        <h3 className="font-bold text-slate-500 text-xs uppercase tracking-wide">{t.roadmap.future}</h3>
                         <span className="bg-slate-100 text-slate-500 text-xs font-bold px-2 py-0.5 rounded-full">{buckets.future.length}</span>
                     </div>
                     <div className="flex-1 overflow-y-auto p-3 space-y-2.5">{buckets.future.map(t => <RoadmapCard key={t.id} task={t}/>)}</div>
@@ -2225,7 +2252,9 @@ const AdminView = ({
 };
 
 // --- VISTA ANALYTICS: CUADRO DE MANDO DEL DESPACHO ---
-const AnalyticsView = ({ tasks }) => {
+const AnalyticsView = ({ tasks, onEdit, lang = 'ca' }) => {
+  const t = translations[lang] || translations.ca;
+  const isCa = lang === 'ca';
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   
   const annualTasks = useMemo(() => tasks.filter(t => {
@@ -2287,8 +2316,8 @@ const AnalyticsView = ({ tasks }) => {
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="flex flex-col md:flex-row justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><PieChart className="text-indigo-600"/> Cuadro de Mando del Despacho</h2>
-            <p className="text-xs text-slate-500">Métricas globales de tramitación, puntualidad fiscal y rendimiento</p>
+            <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><PieChart className="text-indigo-600"/> {t.analytics.title}</h2>
+            <p className="text-xs text-slate-500">{t.analytics.subtitle}</p>
           </div>
           <div className="flex items-center gap-4 bg-slate-50 p-1 rounded-lg border border-slate-200">
               <button onClick={() => setSelectedYear(y => y - 1)} className="p-1 hover:bg-white hover:shadow-sm rounded"><ChevronLeft className="w-5 h-5 text-slate-600"/></button>
@@ -2299,41 +2328,41 @@ const AnalyticsView = ({ tasks }) => {
 
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <div className="bg-slate-800 text-white p-4 rounded-xl shadow-sm flex flex-col justify-between min-h-[100px]">
-              <div className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Carga Total</div>
+              <div className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">{t.analytics.totalLoad}</div>
               <div className="text-3xl font-bold">{stats.totalCount}</div>
-              <div className="text-[10px] text-slate-300 flex items-center gap-1 mt-1"><Activity className="w-3 h-3"/> Expedientes del Año</div>
+              <div className="text-[10px] text-slate-300 flex items-center gap-1 mt-1"><Activity className="w-3 h-3"/> {t.analytics.yearlyExpedientes}</div>
           </div>
           <div className="bg-white p-4 rounded-xl border-l-4 border-l-emerald-500 border border-slate-200 shadow-sm min-h-[100px]">
-              <div className="text-slate-500 text-[10px] uppercase font-bold">Abiertos (En Plazo)</div>
+              <div className="text-slate-500 text-[10px] uppercase font-bold">{t.analytics.openInTerm}</div>
               <div className="text-3xl font-bold text-emerald-600">{stats.abiertoCount}</div>
-              <div className="text-[10px] text-slate-400 mt-1">Previstos en fecha</div>
+              <div className="text-[10px] text-slate-400 mt-1">{t.analytics.expectedOnDate}</div>
           </div>
           <div className="bg-white p-4 rounded-xl border-l-4 border-l-amber-500 border border-slate-200 shadow-sm min-h-[100px]">
-              <div className="text-slate-500 text-[10px] uppercase font-bold">En Riesgo</div>
+              <div className="text-slate-500 text-[10px] uppercase font-bold">{t.analytics.inRisk}</div>
               <div className="text-3xl font-bold text-amber-600">{stats.enRiesgoCount}</div>
-              <div className="text-[10px] text-slate-400 mt-1">Posible demora</div>
+              <div className="text-[10px] text-slate-400 mt-1">{t.analytics.possibleDelay}</div>
           </div>
           <div className="bg-white p-4 rounded-xl border-l-4 border-l-rose-500 border border-slate-200 shadow-sm min-h-[100px]">
-              <div className="text-slate-500 text-[10px] uppercase font-bold">Con Retraso</div>
+              <div className="text-slate-500 text-[10px] uppercase font-bold">{t.analytics.overdue}</div>
               <div className="text-3xl font-bold text-rose-600">{stats.conRetrasoCount}</div>
-              <div className="text-[10px] text-slate-400 mt-1">Plazo superado</div>
+              <div className="text-[10px] text-slate-400 mt-1">{t.analytics.termExceeded}</div>
           </div>
           <div className="bg-white p-4 rounded-xl border-l-4 border-l-blue-500 border border-slate-200 shadow-sm min-h-[100px]">
-              <div className="text-slate-500 text-[10px] uppercase font-bold">Cerrados</div>
+              <div className="text-slate-500 text-[10px] uppercase font-bold">{t.analytics.closed}</div>
               <div className="text-3xl font-bold text-blue-600">{stats.cerradoCount}</div>
-              <div className="text-[10px] text-slate-400 mt-1">{Math.round((stats.cerradoCount/(stats.totalCount || 1))*100)}% Completados</div>
+              <div className="text-[10px] text-slate-400 mt-1">{Math.round((stats.cerradoCount/(stats.totalCount || 1))*100)}% {t.analytics.completed}</div>
           </div>
       </div>
 
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center gap-2 mb-4 border-b border-slate-100 pb-2"><Clock className="w-5 h-5 text-indigo-600"/><h3 className="font-bold text-slate-700">Puntualidad y Cumplimiento por Tipo de Trámite</h3></div>
+          <div className="flex items-center gap-2 mb-4 border-b border-slate-100 pb-2"><Clock className="w-5 h-5 text-indigo-600"/><h3 className="font-bold text-slate-700">{t.analytics.punctualityTitle}</h3></div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {stats.delayByType.map(t => (
                   <div key={t.type} className="bg-slate-50 rounded-xl p-4 border border-slate-100 flex flex-col justify-between">
-                      <div className="flex justify-between items-start mb-2"><div className="font-bold text-slate-700 text-sm">{t.type}</div><span className="text-[10px] bg-white border border-slate-200 px-2 py-0.5 rounded-full text-slate-500">{t.count} Expedientes</span></div>
+                      <div className="flex justify-between items-start mb-2"><div className="font-bold text-slate-700 text-sm">{t.type}</div><span className="text-[10px] bg-white border border-slate-200 px-2 py-0.5 rounded-full text-slate-500">{t.count} {t.analytics.expedientes}</span></div>
                       <div className="flex justify-between items-end">
-                          <div><div className="text-[10px] uppercase text-slate-400 font-bold">Fiabilidad en Plazo</div><div className={`text-2xl font-bold ${t.reliability >= 80 ? 'text-emerald-600' : t.reliability >= 50 ? 'text-amber-600' : 'text-rose-600'}`}>{t.reliability}%</div></div>
-                          <div className="text-right"><div className="text-[10px] uppercase text-slate-400 font-bold">Demora Media</div><div className="text-2xl font-bold text-slate-700">{t.avgDelay > 0 ? `${t.avgDelay}d` : '-'}</div></div>
+                          <div><div className="text-[10px] uppercase text-slate-400 font-bold">{t.analytics.reliability}</div><div className={`text-2xl font-bold ${t.reliability >= 80 ? 'text-emerald-600' : t.reliability >= 50 ? 'text-amber-600' : 'text-rose-600'}`}>{t.reliability}%</div></div>
+                          <div className="text-right"><div className="text-[10px] uppercase text-slate-400 font-bold">{t.analytics.avgDelay}</div><div className="text-2xl font-bold text-slate-700">{t.avgDelay > 0 ? `${t.avgDelay}d` : '-'}</div></div>
                       </div>
                       <div className="mt-2 w-full bg-slate-200 h-1.5 rounded-full overflow-hidden"><div className={`h-full ${t.reliability >= 80 ? 'bg-emerald-500' : t.reliability >= 50 ? 'bg-amber-500' : 'bg-rose-500'}`} style={{width: `${t.reliability}%`}}></div></div>
                   </div>
@@ -2342,12 +2371,12 @@ const AnalyticsView = ({ tasks }) => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm"><h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><Briefcase className="w-4 h-4 text-indigo-600"/> Volumen de Expedientes por Área</h3><SimpleBarChart data={stats.byDept} /></div>
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm"><h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600"/> Distribución por Estado de Gestión</h3><SvgDonutChart data={stats.byStatus} /></div>
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm"><h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><Briefcase className="w-4 h-4 text-indigo-600"/> {t.analytics.volumeByArea}</h3><SimpleBarChart data={stats.byDept} /></div>
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm"><h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600"/> {t.analytics.statusDistribution}</h3><SvgDonutChart data={stats.byStatus} /></div>
       </div>
 
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><Users className="w-4 h-4 text-indigo-600"/> Carga de Trabajo por Asesor / Gestor</h3>
+          <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><Users className="w-4 h-4 text-indigo-600"/> {t.analytics.workloadByAdvisor}</h3>
           <div className="space-y-4">
               {stats.byUser.map(u => (
                   <div key={u.email} className="flex items-center gap-3 text-sm">
@@ -2368,7 +2397,9 @@ const AnalyticsView = ({ tasks }) => {
 };
 
 // --- VISTA PLAN: MATRIZ TRIMESTRAL DE VENCIMIENTOS FISCALES (1T, 2T, 3T, 4T) ---
-const AnnualPlanView = ({ tasks, currentUser, onEdit }) => {
+const AnnualPlanView = ({ tasks, currentUser, onEdit, lang = 'ca' }) => {
+  const t = translations[lang] || translations.ca;
+  const isCa = lang === 'ca';
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedQuarter, setSelectedQuarter] = useState('Todos'); 
   const quarters = selectedQuarter === 'Todos' ? ['1T', '2T', '3T', '4T'] : [selectedQuarter];
@@ -2464,13 +2495,13 @@ const AnnualPlanView = ({ tasks, currentUser, onEdit }) => {
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="flex flex-col md:flex-row justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm gap-4">
           <div>
-            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2"><BarChart3 className="text-indigo-600"/> Matriz Trimestral de Vencimientos</h2>
-            <p className="text-xs text-slate-500">Planificación por trimestres (1T, 2T, 3T, 4T) de obligaciones tributarias y contables</p>
+            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2"><BarChart3 className="text-indigo-600"/> {t.planFiscal.title}</h2>
+            <p className="text-xs text-slate-500">{t.planFiscal.subtitle}</p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-3">
-              <button onClick={exportFiscalMatrix} className="bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-700 flex items-center gap-2 shadow-sm transition-colors"><FileSpreadsheet className="w-3.5 h-3.5"/> Exportar Calendario Fiscal</button>
+              <button onClick={exportFiscalMatrix} className="bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-700 flex items-center gap-2 shadow-sm transition-colors"><FileSpreadsheet className="w-3.5 h-3.5"/> {t.planFiscal.exportFiscal}</button>
               <div className="flex items-center bg-slate-50 p-1 rounded-lg border border-slate-200">
-                {['Todos', '1T', '2T', '3T', '4T'].map(q => (
+                {[isCa ? 'Tots' : 'Todos', '1T', '2T', '3T', '4T'].map(q => (
                   <button key={q} onClick={() => setSelectedQuarter(q)} className={`px-3 py-1 text-xs font-bold transition-all rounded-md ${selectedQuarter === q ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>{q}</button>
                 ))}
               </div>
@@ -2493,7 +2524,7 @@ const AnnualPlanView = ({ tasks, currentUser, onEdit }) => {
                         <table className="w-full text-sm text-left border-collapse">
                             <thead>
                                 <tr>
-                                    <th className="p-3 w-44 font-bold text-slate-500 bg-slate-50/50 border-r border-b border-slate-100 text-xs">Área</th>
+                                    <th className="p-3 w-44 font-bold text-slate-500 bg-slate-50/50 border-r border-b border-slate-100 text-xs">{t.planFiscal.areaCol}</th>
                                     {quarters.map(q => <th key={q} className="p-3 text-center w-64 border-l border-b border-slate-100 text-xs font-bold text-slate-500 bg-slate-50/50">{q}</th>)}
                                 </tr>
                             </thead>
@@ -2519,7 +2550,7 @@ const AnnualPlanView = ({ tasks, currentUser, onEdit }) => {
                                                                             <Badge text={task.status} size="[10px]" />
                                                                         </div>
                                                                         {task.client && <div className="text-[11px] text-indigo-600 font-medium truncate mb-1">{task.client}</div>}
-                                                                        <div onClick={() => { setEditingReview({ taskId: task.id, quarter: q, taskTitle: task.title }); setReviewText(review?.text || ''); }} className={`mt-1 text-[10px] p-1.5 rounded cursor-pointer transition-colors flex items-start gap-1 ${review ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'text-slate-400 hover:text-indigo-600'}`}><Edit3 className="w-3 h-3 shrink-0 mt-0.5" /><span className="line-clamp-2">{review ? review.text : "Añadir nota trimestral..."}</span></div>
+                                                                        <div onClick={() => { setEditingReview({ taskId: task.id, quarter: q, taskTitle: task.title }); setReviewText(review?.text || ''); }} className={`mt-1 text-[10px] p-1.5 rounded cursor-pointer transition-colors flex items-start gap-1 ${review ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'text-slate-400 hover:text-indigo-600'}`}><Edit3 className="w-3 h-3 shrink-0 mt-0.5" /><span className="line-clamp-2">{review ? review.text : t.planFiscal.addNotePlaceholder}</span></div>
                                                                     </div>
                                                                 );
                                                             })}
@@ -2541,9 +2572,9 @@ const AnnualPlanView = ({ tasks, currentUser, onEdit }) => {
       {editingReview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 animate-in zoom-in-95">
-                <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-lg text-slate-800">Nota Trimestral ({editingReview.quarter})</h3><button onClick={() => setEditingReview(null)} className="text-slate-400 hover:text-slate-600">✕</button></div>
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 mb-4"><div className="text-xs text-slate-500 font-bold uppercase mb-1">Expediente</div><div className="font-medium text-slate-800 text-sm">{editingReview.taskTitle}</div></div>
-                <textarea value={reviewText} onChange={(e) => setReviewText(e.target.value)} className="w-full border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" rows="4" placeholder="Escribe observaciones del trimestre..."></textarea>
+                <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-lg text-slate-800">{t.planFiscal.quarterlyNote} ({editingReview.quarter})</h3><button onClick={() => setEditingReview(null)} className="text-slate-400 hover:text-slate-600">✕</button></div>
+                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 mb-4"><div className="text-xs text-slate-500 font-bold uppercase mb-1">{t.planFiscal.expediente}</div><div className="font-medium text-slate-800 text-sm">{editingReview.taskTitle}</div></div>
+                <textarea value={reviewText} onChange={(e) => setReviewText(e.target.value)} className="w-full border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" rows="4" placeholder={t.planFiscal.noteObservationsPlaceholder}></textarea>
                 <div className="flex justify-end gap-3 mt-4"><button onClick={() => setEditingReview(null)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancelar</button><button onClick={saveTaskReview} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium text-sm shadow-sm">Guardar Nota</button></div>
             </div>
         </div>
@@ -3054,12 +3085,12 @@ const ExpedienteModal = ({
                 <div className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-2xs">
                   {task ? <Scale className="w-3.5 h-3.5"/> : <Plus className="w-3.5 h-3.5"/>} 
                 </div>
-                <span>{task ? 'Ficha de Expediente' : 'Nuevo Expediente / Trámite'}</span>
+                <span>{task ? t.expedienteModal.titleEdit : t.expedienteModal.titleNew}</span>
               </h3>
               <div className="flex items-center gap-2">
                   {task && (
                     <button type="button" onClick={handleDuplicate} className="text-[11px] bg-slate-50 hover:bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-full font-semibold border border-slate-200 hover:border-indigo-200 flex items-center gap-1 transition-all" title="Duplicar Expediente">
-                      <Copy className="w-3 h-3"/> Duplicar
+                      <Copy className="w-3 h-3"/> {t.expedienteModal.duplicate}
                     </button>
                   )}
                   <button type="button" onClick={onClose} className="w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-colors text-xs font-bold">✕</button>
@@ -3074,8 +3105,8 @@ const ExpedienteModal = ({
                     <Sparkles className="w-3.5 h-3.5" />
                   </div>
                   <div className="truncate">
-                    <span className="text-xs font-bold text-slate-800 block leading-tight truncate">Cargar Plantilla Predefinida</span>
-                    <span className="text-[10px] text-slate-500 hidden sm:block truncate">Pasos GTD, tramo y honorarios automáticos</span>
+                    <span className="text-xs font-bold text-slate-800 block leading-tight truncate">{t.expedienteModal.templateSelectorTitle}</span>
+                    <span className="text-[10px] text-slate-500 hidden sm:block truncate">{t.expedienteModal.templateSelectorSub}</span>
                   </div>
                 </div>
 
@@ -3089,7 +3120,7 @@ const ExpedienteModal = ({
                   defaultValue=""
                   className="text-xs font-bold px-2.5 py-1 bg-white border border-slate-300 rounded-lg shadow-2xs text-slate-700 outline-none hover:border-indigo-400 cursor-pointer shrink-0 max-w-[200px]"
                 >
-                  <option value="" disabled>⚡ Aplicar plantilla...</option>
+                  <option value="" disabled>{t.expedienteModal.templatePlaceholder}</option>
                   {(plantillas || []).map(p => (
                     <option key={p.id} value={p.id}>
                       {p.titulo} ({p.pasos?.length || 0} pasos)
@@ -3101,13 +3132,13 @@ const ExpedienteModal = ({
 
             <form onSubmit={handleSubmitForm} className="space-y-2">
               <div>
-                <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-0.5">Título del Expediente / Trámite</label>
-                <input required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="Ej: Presentación Modelo 303 1T - IVA" className="w-full border border-slate-300 py-1.5 px-3 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-xs text-slate-800" />
+                <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-0.5">{t.expedienteModal.titleLabel}</label>
+                <input required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder={t.expedienteModal.titlePlaceholder} className="w-full border border-slate-300 py-1.5 px-3 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-xs text-slate-800" />
               </div>
 
               <div>
                 <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide flex items-center justify-between mb-0.5">
-                  <span>Cliente / Empresa <span className="text-rose-500">*</span></span>
+                  <span>{t.expedienteModal.clientLabel} <span className="text-rose-500">*</span></span>
                 </label>
                 <ClientAutocomplete
                   clientes={clientes}
@@ -3137,25 +3168,25 @@ const ExpedienteModal = ({
               <div className="grid grid-cols-2 gap-2">
                  <div>
                     <DynamicClassificationSelect 
-                      label="Tramo"
+                      label={t.expedienteModal.tramoLabel}
                       icon={Tag}
                       value={formData.type || formData.tramo}
                       onChange={(val) => setFormData({ ...formData, type: val, tramo: val })}
                       items={tramos}
                       fallbackOptions={MASTERS.types}
-                      placeholder="Selecciona tramo..."
+                      placeholder={t.expedienteModal.tramoPlaceholder}
                       name="tramo"
                     />
                  </div>
                  <div>
                     <DynamicClassificationSelect 
-                      label="Área"
+                      label={t.expedienteModal.areaLabel}
                       icon={Briefcase}
                       value={formData.department || formData.area}
                       onChange={(val) => setFormData({ ...formData, department: val, area: val })}
                       items={areas}
                       fallbackOptions={MASTERS.departments}
-                      placeholder="Selecciona área..."
+                      placeholder={t.expedienteModal.areaPlaceholder}
                       name="area"
                     />
                  </div>
@@ -3163,7 +3194,7 @@ const ExpedienteModal = ({
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-0.5">Estado del Expediente</label>
+                  <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-0.5">{t.expedienteModal.statusLabel}</label>
                   <select 
                     value={effectiveFormStatus} 
                     onChange={e => {
@@ -3172,34 +3203,34 @@ const ExpedienteModal = ({
                     }} 
                     className="w-full border border-slate-300 py-1.5 px-2 rounded-lg bg-white font-bold text-xs text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                   >
-                    <option value="Abierto">🟢 Abierto (En Plazo)</option>
-                    <option value="En Riesgo">🟡 En Riesgo (Previsión de retraso)</option>
-                    <option value="Con Retraso">🔴 Con Retraso (Plazo vencido)</option>
-                    <option value="Cerrado">🔵 Cerrado (Finalizado)</option>
+                    <option value="Abierto">{t.expedienteModal.statusOptions.abierto}</option>
+                    <option value="En Riesgo">{t.expedienteModal.statusOptions.enRiesgo}</option>
+                    <option value="Con Retraso">{t.expedienteModal.statusOptions.conRetraso}</option>
+                    <option value="Cerrado">{t.expedienteModal.statusOptions.cerrado}</option>
                   </select>
                   {effectiveFormStatus === 'Abierto' && (
                     <span className="text-[10px] text-emerald-600 font-medium flex items-center gap-1 mt-0.5">
-                      <CheckCircle2 className="w-2.5 h-2.5 shrink-0" /> En marcha y previsto en fecha
+                      <CheckCircle2 className="w-2.5 h-2.5 shrink-0" /> {t.expedienteModal.statusDescriptions.abierto}
                     </span>
                   )}
                   {effectiveFormStatus === 'En Riesgo' && (
                     <span className="text-[10px] text-amber-600 font-medium flex items-center gap-1 mt-0.5">
-                      <Clock className="w-2.5 h-2.5 shrink-0" /> Riesgo de no terminar a tiempo
+                      <Clock className="w-2.5 h-2.5 shrink-0" /> {t.expedienteModal.statusDescriptions.enRiesgo}
                     </span>
                   )}
                   {effectiveFormStatus === 'Con Retraso' && (
                     <span className="text-[10px] text-rose-600 font-bold flex items-center gap-1 mt-0.5">
-                      <AlertTriangle className="w-2.5 h-2.5 shrink-0" /> Plazo superado automáticamente
+                      <AlertTriangle className="w-2.5 h-2.5 shrink-0" /> {t.expedienteModal.statusDescriptions.conRetraso}
                     </span>
                   )}
                   {effectiveFormStatus === 'Cerrado' && (
                     <span className="text-[10px] text-blue-600 font-medium flex items-center gap-1 mt-0.5">
-                      <Check className="w-2.5 h-2.5 shrink-0" /> Expediente archivado y cerrado
+                      <Check className="w-2.5 h-2.5 shrink-0" /> {t.expedienteModal.statusDescriptions.cerrado}
                     </span>
                   )}
                 </div>
                 <div>
-                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-0.5">Vencimiento Plazo</label>
+                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-0.5">{t.expedienteModal.dueDateLabel}</label>
                     <input 
                       type="date" 
                       value={formData.dueDate || ''} 
@@ -3218,13 +3249,13 @@ const ExpedienteModal = ({
                       }} 
                       className="w-full border border-slate-300 py-1.5 px-2.5 rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-500 font-medium" 
                     />
-                    {currentDelay > 0 && (<div className="mt-0.5 text-[9px] text-rose-600 bg-rose-50 border border-rose-100 px-1 py-0.5 rounded font-bold flex items-center gap-1"><AlertTriangle className="w-2.5 h-2.5"/> Demora de {currentDelay}d</div>)}
+                    {currentDelay > 0 && (<div className="mt-0.5 text-[9px] text-rose-600 bg-rose-50 border border-rose-100 px-1 py-0.5 rounded font-bold flex items-center gap-1"><AlertTriangle className="w-2.5 h-2.5"/> {t.expedienteModal.delayBadge.replace('{days}', currentDelay)}</div>)}
                 </div>
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide mb-0.5 block">Gestores Asignados</label>
-                <MultiSelectDropdown label="Seleccionar gestores..." icon={UserCheck} options={usersList.map(u => u.email)} selected={formData.assignees} onChange={(newAssignees) => setFormData({...formData, assignees: newAssignees})} fullWidth={true} />
+                <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide mb-0.5 block">{t.expedienteModal.assigneesLabel}</label>
+                <MultiSelectDropdown label={t.expedienteModal.assigneesPlaceholder} icon={UserCheck} options={usersList.map(u => u.email)} selected={formData.assignees} onChange={(newAssignees) => setFormData({...formData, assignees: newAssignees})} fullWidth={true} />
                 {formData.assignees?.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-1">
                     {formData.assignees.map(email => (
@@ -3238,22 +3269,22 @@ const ExpedienteModal = ({
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-0.5">Observaciones</label>
-                <textarea placeholder="Detalles del cliente, requerimientos o notas para la gestión..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full border border-slate-300 p-2 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-xs text-slate-800 resize-none" rows="2"></textarea>
+                <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-0.5">{t.expedienteModal.observationsLabel}</label>
+                <textarea placeholder={t.expedienteModal.observationsPlaceholder} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full border border-slate-300 p-2 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-xs text-slate-800 resize-none" rows="2"></textarea>
               </div>
 
               {task && (
                 <div className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs">
                   <span className="text-slate-500 text-[11px] font-medium flex items-center gap-1.5">
                     <Paperclip className="w-3.5 h-3.5 text-slate-400" />
-                    {(resourceLinks.length + fileAttachments.length)} archivos y enlaces
+                    {t.expedienteModal.attachmentsCount.replace('{count}', resourceLinks.length + fileAttachments.length)}
                   </span>
                   <button 
                     type="button" 
                     onClick={() => setRightTab('docs')}
                     className="text-xs text-indigo-600 hover:text-indigo-700 font-bold hover:underline"
                   >
-                    Ver en panel lateral →
+                    {t.expedienteModal.viewInSidePanel}
                   </button>
                 </div>
               )}
@@ -3268,10 +3299,10 @@ const ExpedienteModal = ({
                       ? 'bg-indigo-600 text-white hover:bg-indigo-700 cursor-pointer shadow-indigo-100' 
                       : 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
                   }`}
-                  title={!isValidClientSelected ? "Selecciona un cliente válido registrado en la base de datos para habilitar el guardado" : ""}
+                  title={!isValidClientSelected ? t.expedienteModal.noClientWarning : ""}
                 >
                   {!isValidClientSelected && <Lock className="w-3 h-3 text-slate-400" />}
-                  {task ? 'Guardar Cambios' : 'Crear Expediente'}
+                  {task ? t.expedienteModal.saveChanges : t.expedienteModal.createExpediente}
                 </button>
               </div>
             </form>
@@ -3377,7 +3408,7 @@ const ExpedienteModal = ({
             task ? (
               <div className="flex-1 flex flex-col h-full overflow-hidden">
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                  {(!task.updates || task.updates.length === 0) && <div className="text-center text-slate-400 py-10 text-xs">Sin notas de seguimiento registradas.</div>}
+                  {(!task.updates || task.updates.length === 0) && <div className="text-center text-slate-400 py-10 text-xs">{t.expedienteModal.bitacoraEmpty}</div>}
                   {task.updates?.map((update, idx) => (
                     <div key={idx} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
                       <div className="flex justify-between items-start mb-1">
@@ -3394,9 +3425,9 @@ const ExpedienteModal = ({
                   ))}
                 </div>
                 <div className="p-3 bg-white border-t border-slate-200 shrink-0">
-                  <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-1">Añadir Nota de Seguimiento</label>
+                  <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-1">{t.expedienteModal.bitacoraAddTitle}</label>
                   <div className="flex gap-2 relative">
-                    <textarea value={newUpdateText} onChange={(e) => setNewUpdateText(e.target.value)} placeholder="Escribe un avance o notas..." className="flex-1 border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-indigo-500 outline-none resize-none pr-8" rows="2"></textarea>
+                    <textarea value={newUpdateText} onChange={(e) => setNewUpdateText(e.target.value)} placeholder={t.expedienteModal.bitacoraPlaceholder} className="flex-1 border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-indigo-500 outline-none resize-none pr-8" rows="2"></textarea>
                     <button type="button" onClick={handlePasteLinkInChat} className="absolute right-14 top-2 text-slate-400 hover:text-indigo-600 p-1 rounded transition-colors" title="Pegar enlace web"><LinkIcon className="w-4 h-4"/></button>
                     <button type="button" onClick={onAddUpdate} disabled={!newUpdateText.trim()} className="bg-indigo-600 disabled:bg-slate-300 text-white px-3.5 rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center"><Send className="w-3.5 h-3.5" /></button>
                   </div>
@@ -3406,9 +3437,7 @@ const ExpedienteModal = ({
               <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400">
                 <Clock className="w-10 h-10 text-slate-300 mx-auto mb-2" />
                 <h4 className="text-xs font-bold text-slate-700">Bitácora de Seguimiento</h4>
-                <p className="text-[11px] text-slate-400 mt-1 max-w-xs">
-                  Las notas de seguimiento se podrán añadir una vez guardado el nuevo expediente.
-                </p>
+                <p className="text-[11px] text-slate-400 mt-1 max-w-xs">{t.expedienteModal.bitacoraNotice}</p>
               </div>
             )
           )}
@@ -3417,7 +3446,7 @@ const ExpedienteModal = ({
           {rightTab === 'gtd' && (
             <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-50">
               <div className="p-2.5 bg-emerald-50/50 border-b border-emerald-100 shrink-0">
-                <p className="text-[11px] text-emerald-800 text-center font-medium">Divide este expediente en pasos secuenciales. Pulsa el lápiz para editar o reasignar cualquier paso.</p>
+                <p className="text-[11px] text-emerald-800 text-center font-medium">{t.expedienteModal.gtdBanner}</p>
               </div>
               
               <div className="flex-1 overflow-y-auto p-3 space-y-2">
@@ -3516,18 +3545,18 @@ const ExpedienteModal = ({
                 {(!formData.actions || formData.actions.length === 0) && (
                   <div className="flex flex-col items-center justify-center h-40 text-slate-400">
                     <Target className="w-8 h-8 mb-2 opacity-20"/>
-                    <span className="text-xs italic">Sin pasos definidos para este expediente.</span>
+                    <span className="text-xs italic">{t.expedienteModal.gtdEmpty}</span>
                   </div>
                 )}
               </div>
 
               {/* Formulario inferior para añadir nuevo paso */}
               <div className="p-3 bg-white border-t border-slate-200 shrink-0">
-                <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-1">Añadir Nuevo Paso GTD</label>
+                <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-1">{t.expedienteModal.gtdAddTitle}</label>
                 <div className="flex gap-2 items-center">
                   <input 
                     type="text" 
-                    placeholder="¿Cuál es el siguiente paso?" 
+                    placeholder={t.expedienteModal.gtdAddPlaceholder} 
                     value={newActionText}
                     onChange={e => setNewActionText(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddAction())}
@@ -3537,7 +3566,7 @@ const ExpedienteModal = ({
                   <div className="relative w-[140px] shrink-0">
                     <input 
                       type="text" 
-                      placeholder="Asignar a..."
+                      placeholder={t.expedienteModal.gtdAssignPlaceholder}
                       autoComplete="off"
                       value={newActionAssignee}
                       onChange={(e) => {
@@ -3601,7 +3630,7 @@ const ExpedienteModal = ({
                     disabled={!newActionText.trim()}
                     className="bg-emerald-600 disabled:bg-slate-300 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-emerald-700 transition-colors shrink-0 cursor-pointer shadow-xs"
                   >
-                    Añadir
+                    {t.expedienteModal.gtdAddBtn}
                   </button>
                 </div>
               </div>
@@ -3650,7 +3679,7 @@ const ExpedienteModal = ({
               {isDraggingFile && (
                 <div className="absolute inset-0 bg-indigo-600/90 backdrop-blur-xs z-30 flex flex-col items-center justify-center text-white border-2 border-dashed border-white m-2 rounded-2xl animate-in fade-in duration-150">
                   <UploadCloud className="w-12 h-12 text-white animate-bounce mb-2" />
-                  <p className="font-bold text-sm">Suelta tus archivos aquí para adjuntarlos</p>
+                  <p className="font-bold text-sm">{t.attachments.dropZoneOverlay}</p>
                   <p className="text-xs text-indigo-200 mt-1">Se guardarán automáticamente en este expediente</p>
                 </div>
               )}
@@ -3684,15 +3713,15 @@ const ExpedienteModal = ({
               >
                 <div className="flex items-center justify-center gap-2 text-xs text-slate-600 group-hover:text-indigo-600 font-medium">
                   <UploadCloud className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
-                  <span>Arrastra archivos aquí o <span className="underline font-bold text-indigo-600">examinar desde el equipo</span></span>
+                  <span>{t.attachments.dropZone}</span>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-0.5">Admite PDF, imágenes, justificantes bancarios y documentos</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">{t.attachments.dropZoneHelp}</p>
               </div>
               <div className="flex-1 overflow-y-auto space-y-2">
                 {(resourceLinks.length === 0 && fileAttachments.length === 0) ? (
                   <div className="py-12 text-center text-slate-400">
                     <Paperclip className="w-8 h-8 text-slate-300 mx-auto mb-1.5" />
-                    <p className="text-xs font-semibold text-slate-600">Sin archivos ni enlaces adjuntos aún</p>
+                    <p className="text-xs font-semibold text-slate-600">{t.attachments.empty}</p>
                     <p className="text-[11px] text-slate-400 mt-0.5">Usa los botones superiores para adjuntar documentos PDF o enlaces oficiales.</p>
                   </div>
                 ) : (
@@ -3773,7 +3802,7 @@ const ExpedienteModal = ({
                   <MessageSquare className="w-10 h-10 text-slate-300 mx-auto mb-2" />
                   <h4 className="text-xs font-bold text-slate-700">Canal de Chat Interno</h4>
                   <p className="text-[11px] text-slate-400 mt-1 max-w-xs">
-                    El chat interno con globos se activará una vez guardado el nuevo expediente.
+                    {t.expedienteModal.chatNotice}
                   </p>
                 </div>
               )}
@@ -3791,7 +3820,7 @@ const ExpedienteModal = ({
                 <div className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center font-bold">
                   <Pencil className="w-3.5 h-3.5" />
                 </div>
-                <span>Editar Paso GTD</span>
+                <span>{t.expedienteModal.editStepModal.title}</span>
               </h4>
               <button
                 type="button"
@@ -3805,13 +3834,13 @@ const ExpedienteModal = ({
             <div className="space-y-3">
               <div>
                 <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-1">
-                  Descripción de la Tarea / Trámite *
+                  {t.expedienteModal.editStepModal.descLabel}
                 </label>
                 <textarea
                   value={modalActionText}
                   onChange={(e) => setModalActionText(e.target.value)}
                   rows={3}
-                  placeholder="Escribe la acción concreta a realizar..."
+                  placeholder={t.expedienteModal.editStepModal.descPlaceholder}
                   className="w-full text-xs font-medium border border-slate-300 rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none text-slate-800"
                   autoFocus
                 />
@@ -3819,7 +3848,7 @@ const ExpedienteModal = ({
 
               <div>
                 <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block mb-1">
-                  Responsable Asignado (Equipo o Contacto Externo)
+                  {t.expedienteModal.editStepModal.assigneeLabel}
                 </label>
                 <div className="relative">
                   <div className="flex items-center border border-slate-300 rounded-xl bg-white px-2.5 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500">
@@ -3841,7 +3870,7 @@ const ExpedienteModal = ({
                         setTimeout(() => setModalShowSuggestions(false), 200);
                         if (!modalActionAssignee.trim()) setModalActionAssignee('Yo');
                       }}
-                      placeholder="Escribe 'Yo', asesor o contacto externo (ej: Paco Notaría)..."
+                      placeholder={t.expedienteModal.editStepModal.assigneePlaceholder}
                       className="w-full text-xs font-semibold outline-none bg-transparent text-slate-800"
                     />
                   </div>
@@ -3885,9 +3914,7 @@ const ExpedienteModal = ({
                     })()
                   )}
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Admite texto libre. Si escribes un nombre nuevo (ej. <em>Paco Notaría</em>), quedará grabado para que todo el equipo lo use igual en futuros expedientes.
-                </p>
+                <p className="text-[10px] text-slate-400 mt-1">{t.expedienteModal.editStepModal.helpText}</p>
               </div>
             </div>
 
@@ -3972,8 +3999,8 @@ const ExpedienteManager = ({ currentUser }) => {
   }, [tramos]);
 
   const dynamicStatus = useMemo(() => {
-    return ['Abierto', 'En Riesgo', 'Con Retraso', 'Cerrado'];
-  }, []);
+    return lang === 'ca' ? ['Obert', 'En Risc', 'Amb Retard', 'Tancat'] : ['Abierto', 'En Riesgo', 'Con Retraso', 'Cerrado'];
+  }, [lang]);
 
   const completedStatusNames = useMemo(() => {
     return ['cerrado', 'closed', 'presentado / tramitado', 'completed'];
@@ -4269,7 +4296,17 @@ const ExpedienteManager = ({ currentUser }) => {
     if (hideCompleted && currentView !== 'analytics' && effectiveStatus === 'Cerrado') return false;
     if (selectedDepts.length > 0 && !selectedDepts.includes(normDept)) return false;
     if (selectedTypes.length > 0 && !selectedTypes.includes(normType)) return false;
-    if (selectedStatus.length > 0 && !selectedStatus.includes(effectiveStatus)) return false; 
+    if (selectedStatus.length > 0) {
+      const mapNorm = (st) => {
+        if (['Obert', 'Abierto', 'En Plazo', 'En Termini'].includes(st)) return 'Abierto';
+        if (['En Risc', 'En Riesgo'].includes(st)) return 'En Riesgo';
+        if (['Amb Retard', 'Con Retraso', 'Fuera de Plazo'].includes(st)) return 'Con Retraso';
+        if (['Tancat', 'Cerrado', 'Completed'].includes(st)) return 'Cerrado';
+        return st;
+      };
+      const normSelected = selectedStatus.map(mapNorm);
+      if (!normSelected.includes(mapNorm(effectiveStatus))) return false;
+    } 
     
     if (searchTerm) {
         const term = searchTerm.toLowerCase();
@@ -4612,6 +4649,7 @@ const ExpedienteManager = ({ currentUser }) => {
                     setCurrentView('list');
                   }}
                   isAdmin={false}
+                  lang={lang}
                />
              )
         ) : currentView === 'clientes' ? (
@@ -4626,6 +4664,7 @@ const ExpedienteManager = ({ currentUser }) => {
                   setCurrentView('list');
                 }}
                 isAdmin={isAdmin}
+                lang={lang}
              />
         ) : currentView === 'billing' ? (
              <BillingView 
@@ -4699,9 +4738,9 @@ const ExpedienteManager = ({ currentUser }) => {
 
             {/* VISTAS */}
             {currentView === 'list' && <ListView tasks={filteredTasks} onEdit={handleOpenEdit} lang={lang} />}
-            {currentView === 'plan' && <AnnualPlanView tasks={filteredTasks} currentUser={currentUser} onEdit={handleOpenEdit} />}
-            {currentView === 'analytics' && <AnalyticsView tasks={filteredTasks} onEdit={handleOpenEdit} />}
-            {currentView === 'roadmap' && <RoadmapView tasks={filteredTasks} onEdit={handleOpenEdit} />}
+            {currentView === 'plan' && <AnnualPlanView tasks={filteredTasks} currentUser={currentUser} onEdit={handleOpenEdit} lang={lang} />}
+            {currentView === 'analytics' && <AnalyticsView tasks={filteredTasks} onEdit={handleOpenEdit} lang={lang} />}
+            {currentView === 'roadmap' && <RoadmapView tasks={filteredTasks} onEdit={handleOpenEdit} lang={lang} />}
             {currentView === 'gtd' && (
               <GTDView 
                 tasks={filteredTasks} 
@@ -4709,6 +4748,7 @@ const ExpedienteManager = ({ currentUser }) => {
                 onEditParent={handleOpenEdit} 
                 isAdmin={isAdmin}
                 usersList={usersList}
+                lang={lang}
               />
             )}
           </>

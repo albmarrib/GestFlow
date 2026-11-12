@@ -14,7 +14,7 @@ import {
   serverTimestamp 
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import ClienteModal, { CLIENT_TYPES } from './ClienteModal';
+import ClienteModal, { CLIENT_TYPES_CA, CLIENT_TYPES_ES } from './ClienteModal';
 
 const EXACT_HEADERS = ['nif', 'razonSocial', 'nombreComercial', 'email', 'telefono', 'direccion', 'tipo'];
 
@@ -25,8 +25,11 @@ const ClientesView = ({
   logAction,
   onBackToAdmin,
   onNavigateToClientExpedientes,
-  isAdmin = true
+  isAdmin = true,
+  lang = 'ca'
 }) => {
+  const isCa = lang === 'ca';
+  const clientTypesList = isCa ? CLIENT_TYPES_CA : CLIENT_TYPES_ES;
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTypeFilter, setSelectedTypeFilter] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -301,9 +304,9 @@ const ClientesView = ({
   // Eliminar cliente con confirmación y chequeo de expedientes
   const handleDeleteCliente = async (cliente) => {
     const taskCount = clientTaskCounts[cliente.id || cliente.nif] || 0;
-    let message = `¿Eliminar permanentemente al cliente "${cliente.razonSocial}" (${cliente.nif})?`;
+    let message = isCa ? `Eliminar permanentment el client "${cliente.razonSocial}" (${cliente.nif})?` : `¿Eliminar permanentemente al cliente "${cliente.razonSocial}" (${cliente.nif})?`;
     if (taskCount > 0) {
-      message = `⚠️ ATENCIÓN: Este cliente tiene ${taskCount} expediente(s) asociado(s).\n\n¿Estás seguro de que deseas eliminar a "${cliente.razonSocial}" (${cliente.nif}) de la base de datos?`;
+      message = isCa ? `⚠️ ATENCIÓ: Aquest client té ${taskCount} expedient(s) associat(s).\n\nSegur que voleu eliminar "${cliente.razonSocial}" (${cliente.nif}) de la base de dades?` : `⚠️ ATENCIÓN: Este cliente tiene ${taskCount} expediente(s) asociado(s).\n\n¿Estás seguro de que deseas eliminar a "${cliente.razonSocial}" (${cliente.nif}) de la base de datos?`;
     }
 
     if (!window.confirm(message)) return;
@@ -333,10 +336,10 @@ const ClientesView = ({
               </div>
               <div>
                 <h2 className="text-xl font-bold text-slate-900 tracking-tight">
-                  Módulo de Clientes y Empresas
+                  {isCa ? 'Mòdul de Clients i Empreses' : 'Módulo de Clientes y Empresas'}
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Base de datos oficial de clientes de GestFlow con vinculación relacional a expedientes.
+                  {isCa ? 'Base de dades oficial de clients de GestFlow amb vinculació relacional a expedients.' : 'Base de datos oficial de clientes de GestFlow con vinculación relacional a expedientes.'}
                 </p>
               </div>
             </div>
@@ -351,7 +354,7 @@ const ClientesView = ({
                 title={isAdmin ? "Volver a la vista de Administración" : "Volver a Expedientes"}
               >
                 <ArrowLeft className="w-4 h-4 text-slate-500" />
-                <span>{isAdmin ? "Volver a Admin" : "Volver a Expedientes"}</span>
+                <span>{isAdmin ? (isCa ? "Tornar a Admin" : "Volver a Admin") : (isCa ? "Tornar a Expedients" : "Volver a Expedientes")}</span>
               </button>
             )}
 
@@ -371,7 +374,7 @@ const ClientesView = ({
               title="Descargar archivo CSV vacío con las 7 cabeceras oficiales"
             >
               <Download className="w-4 h-4 text-indigo-600" />
-              <span>Plantilla CSV</span>
+              <span>{isCa ? "Plantilla CSV" : "Plantilla CSV"}</span>
             </button>
 
             {/* Botón 2: Subir CSV Completo */}
@@ -386,7 +389,7 @@ const ClientesView = ({
               ) : (
                 <Upload className="w-4 h-4 text-emerald-400" />
               )}
-              <span>{isProcessingCsv ? 'Importando...' : 'Importar CSV'}</span>
+              <span>{isProcessingCsv ? (isCa ? 'Important...' : 'Importando...') : (isCa ? 'Importar CSV' : 'Importar CSV')}</span>
             </button>
 
             {/* Botón 3: Nuevo Cliente Manual */}
@@ -398,7 +401,7 @@ const ClientesView = ({
               className="bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs hover:shadow-premium-hover flex items-center gap-1.5 transition-all transform active:scale-95"
             >
               <Plus className="w-4 h-4" />
-              <span>Nuevo Cliente</span>
+              <span>{isCa ? "Nou Client" : "Nuevo Cliente"}</span>
             </button>
           </div>
         </div>
@@ -406,23 +409,23 @@ const ClientesView = ({
         {/* CONTADORES RESUMEN */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-slate-100">
           <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/60 shadow-2xs">
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Clientes</div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{isCa ? 'Total Clients' : 'Total Clientes'}</div>
             <div className="text-2xl font-extrabold text-slate-900 mt-0.5">{clientes.length}</div>
           </div>
           <div className="bg-indigo-50/50 p-3.5 rounded-xl border border-indigo-100/70 shadow-2xs">
-            <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Sociedades (S.L./S.A.)</div>
+            <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">{isCa ? 'Societats (S.L./S.A.)' : 'Sociedades (S.L./S.A.)'}</div>
             <div className="text-2xl font-extrabold text-indigo-900 mt-0.5">
               {clientes.filter(c => (c.tipo || '').includes('Sociedad')).length}
             </div>
           </div>
           <div className="bg-emerald-50/50 p-3.5 rounded-xl border border-emerald-100/70 shadow-2xs">
-            <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Autónomos / Profesionales</div>
+            <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">{isCa ? 'Autònoms / Professionals' : 'Autónomos / Profesionales'}</div>
             <div className="text-2xl font-extrabold text-emerald-900 mt-0.5">
               {clientes.filter(c => (c.tipo || '').includes('Autónomo') || (c.tipo || '').includes('Particular')).length}
             </div>
           </div>
           <div className="bg-amber-50/50 p-3.5 rounded-xl border border-amber-100/70 shadow-2xs">
-            <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Con Expedientes Activos</div>
+            <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">{isCa ? 'Amb Expedients Actius' : 'Con Expedientes Activos'}</div>
             <div className="text-2xl font-extrabold text-amber-900 mt-0.5">
               {Object.keys(clientTaskCounts).length}
             </div>
@@ -438,7 +441,7 @@ const ClientesView = ({
             type="text"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            placeholder="Buscar por NIF, Razón Social, Marca comercial, Email, Teléfono o Dirección..."
+            placeholder={isCa ? "Cercar per NIF, Raó Social, Marca comercial, Email, Telèfon o Adreça..." : "Buscar por NIF, Razón Social, Marca comercial, Email, Teléfono o Dirección..."}
             className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 bg-slate-50 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
           />
           {searchTerm && (
@@ -459,8 +462,8 @@ const ClientesView = ({
               onChange={e => setSelectedTypeFilter(e.target.value)}
               className="bg-transparent text-xs font-medium text-slate-700 outline-none cursor-pointer"
             >
-              <option value="">Todos los tipos</option>
-              {CLIENT_TYPES.map(t => (
+              <option value="">{isCa ? 'Tots els tipus' : 'Todos los tipos'}</option>
+              {clientTypesList.map(t => (
                 <option key={t} value={t}>{t}</option>
               ))}
             </select>
@@ -470,7 +473,7 @@ const ClientesView = ({
               onClick={() => setSelectedTypeFilter('')}
               className="text-xs text-rose-600 font-bold hover:underline"
             >
-              Limpiar
+              {isCa ? 'Netejar' : 'Limpiar'}
             </button>
           )}
         </div>
@@ -483,12 +486,12 @@ const ClientesView = ({
             <thead>
               <tr className="bg-slate-50/90 border-b border-slate-200/80 text-slate-500 font-bold uppercase text-[11px] tracking-wider">
                 <th className="p-4">NIF / CIF</th>
-                <th className="p-4">Razón Social y Comercial</th>
-                <th className="p-4">Tipo</th>
-                <th className="p-4">Contacto</th>
-                <th className="p-4">Dirección</th>
-                <th className="p-4 text-center">Expedientes Activos</th>
-                <th className="p-4 text-right">Acciones</th>
+                <th className="p-4">{isCa ? 'Raó Social i Comercial' : 'Razón Social y Comercial'}</th>
+                <th className="p-4">{isCa ? 'Tipus' : 'Tipo'}</th>
+                <th className="p-4">{isCa ? 'Contacte' : 'Contacto'}</th>
+                <th className="p-4">{isCa ? 'Adreça' : 'Dirección'}</th>
+                <th className="p-4 text-center">{isCa ? 'Expedients Actius' : 'Expedientes Activos'}</th>
+                <th className="p-4 text-right">{isCa ? 'Accions' : 'Acciones'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm">
@@ -569,9 +572,9 @@ const ClientesView = ({
                           type="button"
                           onClick={() => onNavigateToClientExpedientes(c.nif || c.razonSocial)}
                           className="inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
-                          title="Ver expedientes de este cliente"
+                          title={isCa ? "Veure expedients d'aquest client" : "Ver expedientes de este cliente"}
                         >
-                          {taskCount} {taskCount === 1 ? 'activo' : 'activos'}
+                          {taskCount} {taskCount === 1 ? (isCa ? 'actiu' : 'activo') : (isCa ? 'actius' : 'activos')}
                           <ExternalLink className="w-3 h-3 text-emerald-600" />
                         </button>
                       ) : (
@@ -580,7 +583,7 @@ const ClientesView = ({
                             ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
                             : 'bg-slate-100 text-slate-400'
                         }`}>
-                          {taskCount} {taskCount === 1 ? 'activo' : 'activos'}
+                          {taskCount} {taskCount === 1 ? (isCa ? 'actiu' : 'activo') : (isCa ? 'actius' : 'activos')}
                         </span>
                       )}
                     </td>
@@ -594,14 +597,14 @@ const ClientesView = ({
                             setIsModalOpen(true);
                           }}
                           className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                          title="Editar cliente"
+                          title={isCa ? "Editar client" : "Editar cliente"}
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDeleteCliente(c)}
                           className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                          title="Eliminar cliente"
+                          title={isCa ? "Eliminar client" : "Eliminar cliente"}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -619,9 +622,9 @@ const ClientesView = ({
                       <Building2 className="w-6 h-6" />
                     </div>
                     <div className="text-slate-700 font-bold text-sm">
-                      {searchTerm || selectedTypeFilter 
-                        ? 'No se encontraron clientes con los filtros aplicados' 
-                        : 'Aún no hay clientes registrados'}
+                      {isCa 
+                        ? (searchTerm || selectedTypeFilter ? "No s'han trobat clients amb els filtres aplicats" : "Encara no hi ha clients registrats") 
+                        : (searchTerm || selectedTypeFilter ? "No se encontraron clientes con los filtros aplicados" : "Aún no hay clientes registrados")}
                     </div>
                     <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
                       {searchTerm || selectedTypeFilter 
@@ -637,7 +640,7 @@ const ClientesView = ({
                           }}
                           className="bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors"
                         >
-                          + Alta de Cliente
+                          {isCa ? '+ Alta de Client' : '+ Alta de Cliente'}
                         </button>
                       </div>
                     )}
@@ -650,8 +653,8 @@ const ClientesView = ({
 
         {/* Pie de tabla con resumen */}
         <div className="p-4 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex justify-between items-center flex-wrap gap-2">
-          <span>Mostrando {filteredClientes.length} de {clientes.length} clientes registrados</span>
-          <span className="text-[11px] text-slate-400">NIFs únicos indexados como clave primaria en Firestore</span>
+          <span>{isCa ? `Mostrant ${filteredClientes.length} de ${clientes.length} clients registrats` : `Mostrando ${filteredClientes.length} de ${clientes.length} clientes registrados`}</span>
+          <span className="text-[11px] text-slate-400">{isCa ? 'NIFs únics indexats com a clau primària a Firestore' : 'NIFs únicos indexados como clave primaria en Firestore'}</span>
         </div>
       </div>
 
@@ -665,6 +668,7 @@ const ClientesView = ({
         cliente={editingCliente}
         existingNifs={existingNifs}
         onSave={handleSaveCliente}
+        lang={lang}
       />
 
       {/* MODAL DE RESUMEN TRAS IMPORTACIÓN CSV */}
@@ -677,8 +681,8 @@ const ClientesView = ({
                   <CheckCircle2 className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-800">Resultado de Importación CSV</h3>
-                  <p className="text-xs text-slate-500">Escritura por lotes (Batch Write) finalizada</p>
+                  <h3 className="text-base font-bold text-slate-800">{isCa ? "Resultat d'Importació CSV" : "Resultado de Importación CSV"}</h3>
+                  <p className="text-xs text-slate-500">{isCa ? "Escriptura per lots (Batch Write) finalitzada" : "Escritura por lotes (Batch Write) finalizada"}</p>
                 </div>
               </div>
               <button 
@@ -693,15 +697,15 @@ const ClientesView = ({
               <div className="grid grid-cols-3 gap-3 text-center">
                 <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-100">
                   <div className="text-xl font-bold text-emerald-700">{csvResultModal.importedCount}</div>
-                  <div className="text-[10px] font-bold text-emerald-800 uppercase mt-0.5">Importados</div>
+                  <div className="text-[10px] font-bold text-emerald-800 uppercase mt-0.5">{isCa ? 'Importats' : 'Importados'}</div>
                 </div>
                 <div className="bg-amber-50 p-3 rounded-xl border border-amber-100">
                   <div className="text-xl font-bold text-amber-700">{csvResultModal.skippedExistingCount}</div>
-                  <div className="text-[10px] font-bold text-amber-800 uppercase mt-0.5">NIFs Omitidos</div>
+                  <div className="text-[10px] font-bold text-amber-800 uppercase mt-0.5">{isCa ? 'NIFs Omesos' : 'NIFs Omitidos'}</div>
                 </div>
                 <div className="bg-rose-50 p-3 rounded-xl border border-rose-100">
                   <div className="text-xl font-bold text-rose-700">{csvResultModal.skippedInvalidCount}</div>
-                  <div className="text-[10px] font-bold text-rose-800 uppercase mt-0.5">Datos Incompletos</div>
+                  <div className="text-[10px] font-bold text-rose-800 uppercase mt-0.5">{isCa ? 'Dades Incompletes' : 'Datos Incompletos'}</div>
                 </div>
               </div>
 
@@ -732,7 +736,7 @@ const ClientesView = ({
                 onClick={() => setCsvResultModal(null)}
                 className="bg-indigo-600 text-white font-bold text-xs px-4 py-2 rounded-xl hover:bg-indigo-700 transition-colors shadow-sm"
               >
-                Entendido
+                {isCa ? 'Entès' : 'Entendido'}
               </button>
             </div>
           </div>
