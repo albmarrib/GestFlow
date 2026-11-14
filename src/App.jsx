@@ -41,8 +41,9 @@ import {
   Activity, PauseCircle, BookOpen, Link as LinkIcon, File, Menu, Copy, Target, Eye, EyeOff,
   Building2, Scale, UserCheck, CalendarCheck, RefreshCw, Crown, Shield, UserPlus,
   Coins, Receipt, CreditCard, Sparkles, CheckSquare, Palette, UploadCloud, GitMerge,
-  Maximize2, Minimize2, Zap
+  Maximize2, Minimize2, Zap, Smartphone
 } from 'lucide-react';
+import MobileAppView from './components/MobileAppView';
 import ClientAutocomplete from './components/ClientAutocomplete';
 import MergeClientModal from './components/MergeClientModal';
 import ClientesView from './components/ClientesView';
@@ -4139,6 +4140,28 @@ const ExpedienteManager = ({ currentUser }) => {
   const [isAdmin, setIsAdmin] = useState(isInitialAdmin);
   const [isAuthorized, setIsAuthorized] = useState(isInitiallyAuthorized);
   const [isAuthChecking, setIsAuthChecking] = useState(!isInitiallyAuthorized);
+  const [viewModeOverride, setViewModeOverride] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('mode') === 'mobile' || window.location.hash === '#mobile') return 'mobile';
+      if (params.get('mode') === 'desktop') return 'desktop';
+    } catch {
+      // ignore URL parsing error
+    }
+    return 'auto';
+  });
+  const [isMobileViewport, setIsMobileViewport] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false
+  );
+
+  useEffect(() => {
+    const handleResize = () => setIsMobileViewport(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const shouldRenderMobile =
+    viewModeOverride === 'mobile' || (viewModeOverride === 'auto' && isMobileViewport);
 
   // Idioma de la aplicación: Català (per defecte) o Castellano
   const [lang, setLangState] = useState(() => {
@@ -4856,6 +4879,50 @@ const ExpedienteManager = ({ currentUser }) => {
     );
   }
 
+  if (shouldRenderMobile) {
+    return (
+      <EstadosContext.Provider value={estados}>
+        <MobileAppView
+          tasks={tasks}
+          clientes={clientes}
+          areas={areas}
+          tramos={tramos}
+          usersList={usersList}
+          reminders={reminders}
+          currentUser={currentUser}
+          isAdmin={isAdmin}
+          lang={lang}
+          setLang={setLang}
+          logAction={logAction}
+          onOpenNewVariable={handleOpenNewVariable}
+          onSwitchToDesktop={isMobileViewport ? undefined : () => setViewModeOverride('desktop')}
+        />
+        <VariableModal
+          show={showVariableModal}
+          onClose={() => {
+            setShowVariableModal(false);
+            setEditingVariable(null);
+          }}
+          task={editingVariable}
+          tasks={tasks}
+          clientes={clientes}
+          areas={areas}
+          tramos={tramos}
+          usersList={usersList}
+          currentUser={currentUser}
+          variablesCatalog={variablesCatalog}
+          onSaveVariable={handleSaveVariable}
+          onDelete={handleDeleteSingleTask}
+          onDeleteCatalogItem={handleDeleteVariableCatalogItem}
+          fallbackDepartments={MASTERS.departments}
+          fallbackTypes={MASTERS.types}
+          isAdmin={isAdmin}
+          lang={lang}
+        />
+      </EstadosContext.Provider>
+    );
+  }
+
   return (
     <EstadosContext.Provider value={estados}>
       <div className="min-h-screen font-sans text-slate-900 pb-24 antialiased selection:bg-indigo-500 selection:text-white">
@@ -4923,8 +4990,17 @@ const ExpedienteManager = ({ currentUser }) => {
 
                <NotificationDropdown tasks={tasks} currentUser={currentUser} onOpenTask={handleOpenEdit} />
                
-               {/* User Avatar Pill & Logout */}
+               {/* User Avatar Pill, Mobile Switch & Logout */}
                <div className="flex items-center gap-1.5 pl-1.5 border-l border-white/15 shrink-0">
+                 <button
+                   type="button"
+                   onClick={() => setViewModeOverride('mobile')}
+                   className="bg-[#0f1b1d]/90 hover:bg-indigo-600/30 text-slate-300 hover:text-indigo-200 p-1.5 rounded-xl border border-white/10 transition-all cursor-pointer shrink-0"
+                   title={lang === 'ca' ? 'Versió Mòbil' : 'Versión Móvil'}
+                 >
+                   <Smartphone className="w-3.5 h-3.5" />
+                 </button>
+
                  <div className="flex items-center gap-1.5 bg-[#0f1b1d]/90 px-2 py-1 rounded-full border border-white/10 shadow-inner">
                    <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-indigo-500 to-indigo-700 flex items-center justify-center text-[10px] font-bold text-white uppercase ring-1 ring-white/20 shrink-0">
                      {currentUser?.email ? currentUser.email.charAt(0) : 'U'}
