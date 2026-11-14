@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { getLocalizedItemLabel, getLocalizedItemDesc, translateClassificationName } from '../utils/classificationI18n';
 
 /**
  * Componente dinámico de selección para Áreas y Tramos
@@ -14,43 +15,69 @@ const DynamicClassificationSelect = ({
   placeholder = 'Selecciona una opción...',
   required = false,
   error = false,
-  name
+  name,
+  lang = 'ca',
+  category = 'areas'
 }) => {
   // Construir opciones normalizadas a partir de los documentos de Firestore
-  const options = useMemo(() => {
+  const { options, resolvedValue } = useMemo(() => {
     let opts = [];
     if (items && items.length > 0) {
       opts = items
-        .map(item => ({
-          id: item.id,
-          value: item.nombre || item.name || '',
-          label: item.nombre || item.name || '',
-          description: item.descripcion || item.description || ''
-        }))
+        .map(item => {
+          const rawVal = item.nombre || item.name || '';
+          return {
+            id: item.id,
+            value: rawVal,
+            label: getLocalizedItemLabel(item, lang, category) || rawVal,
+            description: getLocalizedItemDesc(item, lang, category),
+            canonicalCa: (translateClassificationName(rawVal, category, items, 'ca') || rawVal).toLowerCase().trim(),
+            altEs: (item.nombre_es || translateClassificationName(rawVal, category, items, 'es') || '').toLowerCase().trim()
+          };
+        })
         .filter(opt => opt.value.trim() !== '');
     } else if (fallbackOptions && fallbackOptions.length > 0) {
       opts = fallbackOptions.map(opt => ({
         id: opt,
         value: opt,
-        label: opt,
-        description: ''
+        label: translateClassificationName(opt, category, [], lang) || opt,
+        description: '',
+        canonicalCa: (translateClassificationName(opt, category, [], 'ca') || opt).toLowerCase().trim(),
+        altEs: (translateClassificationName(opt, category, [], 'es') || opt).toLowerCase().trim()
       }));
     }
 
-    // Si el valor actual no está en la lista (p. ej. datos históricos), lo añadimos para no perderlo
-    if (value && !opts.some(o => o.value.toLowerCase() === value.toLowerCase())) {
-      opts.unshift({
-        id: `legacy-${value}`,
-        value: value,
-        label: value,
-        description: 'Opción histórica'
-      });
+    let matchedOpt = null;
+    if (value) {
+      const valLower = value.toLowerCase().trim();
+      const valCanonical = (translateClassificationName(value, category, items, 'ca') || value).toLowerCase().trim();
+      matchedOpt = opts.find(
+        o =>
+          o.value.toLowerCase().trim() === valLower ||
+          o.label.toLowerCase().trim() === valLower ||
+          o.canonicalCa === valCanonical ||
+          (o.altEs && o.altEs === valLower)
+      );
+
+      // Si el valor actual no está en la lista (p. ej. datos históricos), lo añadimos para no perderlo
+      if (!matchedOpt) {
+        matchedOpt = {
+          id: `legacy-${value}`,
+          value: value,
+          label: translateClassificationName(value, category, items, lang) || value,
+          description: lang === 'ca' ? 'Opció històrica' : 'Opción histórica'
+        };
+        opts.unshift(matchedOpt);
+      }
     }
 
-    return opts;
-  }, [items, fallbackOptions, value]);
+    return {
+      options: opts,
+      resolvedValue: matchedOpt ? matchedOpt.value : (value || '')
+    };
+  }, [items, fallbackOptions, value, lang, category]);
 
-  const selectedItem = options.find(o => o.value === value);
+  const selectedItem = options.find(o => o.value === resolvedValue);
   const isFromFirestore = items && items.length > 0;
 
   return (
@@ -72,7 +99,7 @@ const DynamicClassificationSelect = ({
       <div className="relative">
         <select
           name={name}
-          value={value || ''}
+          value={resolvedValue}
           onChange={(e) => onChange(e.target.value)}
           className={`w-full border py-1.5 px-2.5 rounded-lg bg-white text-xs font-medium text-slate-700 outline-none transition-all cursor-pointer ${
             error
@@ -80,7 +107,7 @@ const DynamicClassificationSelect = ({
               : 'border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100'
           }`}
         >
-          {!value && <option value="">{placeholder}</option>}
+          {!resolvedValue && <option value="">{placeholder}</option>}
           {options.map((opt) => (
             <option key={opt.id || opt.value} value={opt.value}>
               {opt.label} {opt.description ? `— (${opt.description})` : ''}

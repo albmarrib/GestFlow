@@ -65,7 +65,7 @@ export default function BillingSettingsManager({
       await setDoc(doc(db, 'settings', 'billing'), payload, { merge: true });
 
       if (logAction) {
-        logAction('Configuració Facturació', 'Es van actualitzar les dades de capçalera, banc i plantilles bilingües de liquidació.');
+        logAction('Configuració Pressupostos', 'Es van actualitzar les dades de capçalera, banc i plantilles bilingües de pressupost.');
       }
 
       setFeedback({ text: 'Configuració desada correctament (Català & Castellano).', type: 'success' });
@@ -121,10 +121,10 @@ export default function BillingSettingsManager({
         <div>
           <h2 className="text-base font-bold flex items-center gap-2">
             <Coins className="w-5 h-5 text-emerald-400" />
-            Configuració de Liquidacions Econòmiques & Cobraments
+            Configuració de Pressupostos & Honoraris
           </h2>
           <p className="text-xs text-slate-300 mt-0.5">
-            Personalitza la capçalera corporativa, dades bancàries i les plantilles de correu en Català i Castellà.
+            Personalitza la capçalera corporativa, dades bancàries i les plantilles de correu de pressupost en Català i Castellà.
           </p>
         </div>
 
@@ -291,7 +291,7 @@ export default function BillingSettingsManager({
           <div className="flex items-center gap-2">
             <Mail className="w-4 h-4 text-blue-600" />
             <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-              3. Plantilles de Correu de Liquidació (Bilingüe)
+              3. Plantilles de Correu de Pressupost (Bilingüe)
             </h3>
           </div>
 
@@ -358,14 +358,14 @@ export default function BillingSettingsManager({
                 type="text"
                 value={formData.emailSubject_ca || ''}
                 onChange={(e) => handleChange('emailSubject_ca', e.target.value)}
-                placeholder="Ex: Liquidació de Despeses i Honoraris - {expediente} ({ref})"
+                placeholder="Ex: Pressupost d'Honoraris i Despeses - {expediente} ({ref})"
                 className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
 
             <div>
               <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                Cos del Missatge de Liquidació (Català)
+                Cos del Missatge de Pressupost (Català)
               </label>
               <textarea
                 rows={12}
@@ -385,14 +385,14 @@ export default function BillingSettingsManager({
                 type="text"
                 value={formData.emailSubject_es || ''}
                 onChange={(e) => handleChange('emailSubject_es', e.target.value)}
-                placeholder="Ej: Liquidación de Gastos y Honorarios - {expediente} ({ref})"
+                placeholder="Ej: Presupuesto de Honorarios y Gastos - {expediente} ({ref})"
                 className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
 
             <div>
               <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                Cuerpo del Mensaje de Liquidación (Castellano)
+                Cuerpo del Mensaje de Presupuesto (Castellano)
               </label>
               <textarea
                 rows={12}

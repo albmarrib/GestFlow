@@ -129,27 +129,22 @@ export default function Login({ onLoginSuccess }) {
   // ==========================================
   if (view === 'landing') {
     return (
-      <div className="min-h-screen bg-slate-950 text-white font-sans selection:bg-indigo-500 selection:text-white flex flex-col">
+      <div className="min-h-screen bg-[#152427] text-white font-sans selection:bg-indigo-500 selection:text-white flex flex-col">
         
         {/* CABECERA / NAVBAR SUPERIOR */}
-        <header className="sticky top-0 z-50 bg-slate-950/85 backdrop-blur-xl border-b border-slate-800/80">
+        <header className="sticky top-0 z-50 bg-[#152427]/90 backdrop-blur-xl border-b border-white/10">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
             
-            {/* Logo y Marca */}
+            {/* Logo y Marca Ferrer Assessoria */}
             <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-500 text-white shadow-glow-indigo ring-1 ring-white/10 shrink-0">
-                <Briefcase className="w-5 h-5 drop-shadow-xs text-white" />
-              </div>
-              <div className="leading-tight">
-                <div className="flex items-center gap-2">
-                  <span className="font-extrabold text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-slate-300">
-                    GestFlow
-                  </span>
-                </div>
-                <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-                  Despacho & Asesoría
-                </p>
-              </div>
+              <img
+                src="/logo-ferrer-blanc.svg"
+                alt="Ferrer Assessoria"
+                className="h-9 w-auto object-contain shrink-0"
+              />
+              <p className="hidden sm:block text-[10px] text-slate-300 font-semibold uppercase tracking-wider border-l border-white/15 pl-3">
+                Despatx & Assessoria
+              </p>
             </div>
 
             {/* Enlaces informativos (Desktop) */}
@@ -385,13 +380,12 @@ export default function Login({ onLoginSuccess }) {
         </section>
 
         {/* PIE DE PÁGINA */}
-        <footer className="mt-auto py-8 bg-slate-950 border-t border-slate-900 text-slate-500 text-xs">
+        <footer className="mt-auto py-8 bg-[#101c1e] border-t border-white/10 text-slate-400 text-xs">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <Briefcase className="w-4 h-4 text-indigo-400" />
-              <span className="font-bold text-slate-400">GestFlow</span>
+            <div className="flex items-center gap-3">
+              <img src="/logo-ferrer-blanc.svg" alt="Ferrer Assessoria" className="h-6 w-auto object-contain opacity-90" />
               <span className="text-slate-600">|</span>
-              <span>Software para Despachos Profesionales y Asesorías</span>
+              <span>Portal de Gestió d'Expedients — Despatx Professional</span>
             </div>
             <div className="flex items-center gap-4 text-[11px]">
               <button onClick={handleOpenLogin} className="hover:text-slate-300 transition-colors">Entrar al Portal</button>
@@ -408,11 +402,11 @@ export default function Login({ onLoginSuccess }) {
   // VISTA 2: PANTALLA DE ENTRADA AL PORTAL (LOGIN & SIGN IN)
   // ==========================================
   return (
-    <div className="min-h-screen bg-slate-950 text-white font-sans flex flex-col justify-center items-center p-3 sm:p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-[#152427] text-white font-sans flex flex-col justify-center items-center p-3 sm:p-6 relative overflow-hidden">
       
-      {/* Luces y ambiente de fondo */}
-      <div className="absolute top-0 right-1/4 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none"></div>
-      <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-violet-600/10 rounded-full blur-3xl pointer-events-none"></div>
+      {/* Luces y ambiente de fondo corporativo */}
+      <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#5C9682]/15 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-[#143C3C]/30 rounded-full blur-3xl pointer-events-none"></div>
 
       {/* Botón flotante para regresar a la página de inicio */}
       <div className="w-full max-w-4xl mb-3 flex justify-between items-center z-10">
@@ -432,29 +426,30 @@ export default function Login({ onLoginSuccess }) {
       </div>
 
       {/* CONTENEDOR SPLIT: IMAGEN CORPORATIVA A LA IZQUIERDA + FORMULARIO A LA DERECHA */}
-      <div className="w-full max-w-4xl bg-slate-900/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-slate-800 overflow-hidden flex flex-col md:flex-row z-10 animate-in zoom-in-95 duration-200">
+      <div className="w-full max-w-4xl bg-[#192b2e]/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 overflow-hidden flex flex-col md:flex-row z-10 animate-in zoom-in-95 duration-200">
         
         {/* PANEL IZQUIERDO: IMAGEN Y COMPROMISO CORPORATIVO */}
-        <div className="w-full md:w-1/2 relative bg-slate-950 flex flex-col justify-between p-6 sm:p-8 min-h-[220px] md:min-h-[500px]">
+        <div className="w-full md:w-1/2 relative bg-[#152427] flex flex-col justify-between p-6 sm:p-8 min-h-[220px] md:min-h-[500px]">
           
           {/* Fondo fotográfico con overlay elegante */}
           <img
             src="/gestoria_office.jpg"
-            alt="Oficina de Gestoría GestFlow"
-            className="absolute inset-0 w-full h-full object-cover object-center opacity-40"
+            alt="Oficina Ferrer Assessoria"
+            className="absolute inset-0 w-full h-full object-cover object-center opacity-35"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-slate-950/40"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-[#152427] via-[#152427]/75 to-[#152427]/45"></div>
 
           {/* Encabezado sobre la imagen */}
           <div className="relative z-10">
-            <div className="flex items-center gap-2.5 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-glow-indigo">
-                <Briefcase className="w-4 h-4" />
-              </div>
-              <span className="font-extrabold text-base tracking-tight text-white">GestFlow</span>
+            <div className="mb-3">
+              <img
+                src="/logo-ferrer-blanc.svg"
+                alt="Ferrer Assessoria"
+                className="h-9 w-auto object-contain"
+              />
             </div>
-            <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider">
-              Despacho & Asesoría
+            <p className="text-[11px] text-slate-300 font-medium uppercase tracking-wider">
+              Despatx & Assessoria Integral
             </p>
           </div>
 
@@ -483,7 +478,7 @@ export default function Login({ onLoginSuccess }) {
         </div>
 
         {/* PANEL DERECHO: FORMULARIO DE ACCESO (LOGIN / REGISTRO) */}
-        <div className="w-full md:w-1/2 p-6 sm:p-8 bg-slate-900/95 flex flex-col justify-between">
+        <div className="w-full md:w-1/2 p-6 sm:p-8 bg-[#192b2e]/95 flex flex-col justify-between">
           
           <div>
             {/* Título y Selector de Modo */}
@@ -589,7 +584,7 @@ export default function Login({ onLoginSuccess }) {
                   </>
                 ) : (
                   <>
-                    <LogIn className="w-3.5 h-3.5" /> <span>Entrar al Portal GestFlow</span>
+                    <LogIn className="w-3.5 h-3.5" /> <span>Entrar al Portal Ferrer Assessoria</span>
                   </>
                 )}
               </button>

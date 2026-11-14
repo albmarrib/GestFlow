@@ -31,6 +31,7 @@ import {
   Filter
 } from 'lucide-react';
 import { translations } from '../i18n/translations';
+import { getLocalizedItemLabel, getLocalizedItemDesc, translateClassificationName, BILINGUAL_AREA_PAIRS, BILINGUAL_TRAMO_PAIRS } from '../utils/classificationI18n';
 
 // Paleta de colores semántica para estados
 export const STATUS_COLORS = {
@@ -165,7 +166,7 @@ export const DEFAULT_ESTADOS_CA = [
     categoria: 'urgente', 
     isCompleted: false, 
     orden: 3, 
-    descripcion: 'Termini superat automàticament sense haver-se tancat l\'expedient' 
+    descripcion: 'Expedient marcat manualment amb retard o prioritat' 
   },
   { 
     nombre: 'Tancat', 
@@ -225,7 +226,7 @@ export const DEFAULT_ESTADOS_ES = [
     categoria: 'urgente', 
     isCompleted: false, 
     orden: 3, 
-    descripcion: 'Plazo superado automáticamente sin haberse cerrado el expediente' 
+    descripcion: 'Expediente marcado manualmente con retraso o prioridad' 
   },
   { 
     nombre: 'Cerrado', 
@@ -261,7 +262,9 @@ const ClassificationManager = ({
   
   // Form states
   const [formNombre, setFormNombre] = useState('');
+  const [formNombreEs, setFormNombreEs] = useState('');
   const [formDescripcion, setFormDescripcion] = useState('');
+  const [formDescripcionEs, setFormDescripcionEs] = useState('');
   const [formColor, setFormColor] = useState('emerald');
   const [formCategoria, setFormCategoria] = useState('activo');
   const [formIsCompleted, setFormIsCompleted] = useState(false);
@@ -278,11 +281,15 @@ const ClassificationManager = ({
   const filteredItems = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
     if (!term) return currentItems;
-    return currentItems.filter(item => 
-      (item.nombre || item.name || '').toLowerCase().includes(term) ||
-      (item.descripcion || item.description || '').toLowerCase().includes(term)
-    );
-  }, [currentItems, searchTerm]);
+    return currentItems.filter(item => {
+      const n = (item.nombre || item.name || '').toLowerCase();
+      const nEs = (item.nombre_es || '').toLowerCase();
+      const d = (item.descripcion || item.description || '').toLowerCase();
+      const dEs = (item.descripcion_es || '').toLowerCase();
+      const loc = activeTab === 'estados' ? '' : getLocalizedItemLabel(item, lang, activeTab).toLowerCase();
+      return n.includes(term) || nEs.includes(term) || d.includes(term) || dEs.includes(term) || loc.includes(term);
+    });
+  }, [currentItems, searchTerm, activeTab, lang]);
 
   // Contar expedientes que usan cada área, tramo o estado
   const usageCounts = useMemo(() => {
@@ -301,7 +308,9 @@ const ClassificationManager = ({
   const handleOpenCreate = () => {
     setEditingItem(null);
     setFormNombre('');
+    setFormNombreEs('');
     setFormDescripcion('');
+    setFormDescripcionEs('');
     setFormColor('emerald');
     setFormCategoria('activo');
     setFormIsCompleted(false);
@@ -313,8 +322,18 @@ const ClassificationManager = ({
   // Abrir modal de edición
   const handleOpenEdit = (item) => {
     setEditingItem(item);
-    setFormNombre(item.nombre || item.name || '');
-    setFormDescripcion(item.descripcion || item.description || '');
+    const baseName = item.nombre || item.name || '';
+    const baseDesc = item.descripcion || item.description || '';
+    setFormNombre(baseName);
+    setFormNombreEs(
+      item.nombre_es ||
+      (activeTab !== 'estados' ? translateClassificationName(baseName, activeTab, [], 'es') : '')
+    );
+    setFormDescripcion(baseDesc);
+    setFormDescripcionEs(
+      item.descripcion_es ||
+      (activeTab !== 'estados' ? getLocalizedItemDesc(item, 'es', activeTab) : '')
+    );
     setFormColor(item.color || 'emerald');
     setFormCategoria(item.categoria || 'activo');
     setFormIsCompleted(Boolean(item.isCompleted));
@@ -354,6 +373,11 @@ const ClassificationManager = ({
         updatedAt: serverTimestamp(),
         updatedBy: currentUser?.email || 'Admin'
       };
+
+      if (activeTab === 'areas' || activeTab === 'tramos') {
+        payload.nombre_es = formNombreEs.trim();
+        payload.descripcion_es = formDescripcionEs.trim();
+      }
 
       if (activeTab === 'estados') {
         payload.color = formColor;
@@ -452,7 +476,7 @@ const ClassificationManager = ({
       const batch = writeBatch(db);
       let added = 0;
 
-      defaults.forEach(def => {
+      defaults.forEach((def, idx) => {
         const alreadyExists = currentItems.some(i => 
           (i.nombre || i.name || '').toLowerCase() === def.nombre.toLowerCase()
         );
@@ -469,7 +493,23 @@ const ClassificationManager = ({
             updatedBy: currentUser?.email || 'Sistema (Seed)'
           };
 
-          if (activeTab === 'estados') {
+          if (activeTab === 'areas') {
+            const pair = BILINGUAL_AREA_PAIRS[idx];
+            if (pair) {
+              docData.nombre = pair.ca;
+              docData.nombre_es = pair.es;
+              docData.descripcion = pair.desc_ca;
+              docData.descripcion_es = pair.desc_es;
+            }
+          } else if (activeTab === 'tramos') {
+            const pair = BILINGUAL_TRAMO_PAIRS[idx];
+            if (pair) {
+              docData.nombre = pair.ca;
+              docData.nombre_es = pair.es;
+              docData.descripcion = pair.desc_ca;
+              docData.descripcion_es = pair.desc_es;
+            }
+          } else if (activeTab === 'estados') {
             docData.color = def.color;
             docData.categoria = def.categoria;
             docData.isCompleted = def.isCompleted;
@@ -508,8 +548,8 @@ const ClassificationManager = ({
   // Configuración de los 4 estados operativos oficiales según SLA / Plazos
   const handleApplyOfficial4States = async () => {
     const confirmMsg = isCa 
-      ? "Voleu configurar els 4 estats operatius oficials del despatx en Català?\n\n🟢 Obert (Verd - En marxa i dins de termini)\n🟡 En Risc (Groc - Previsió de no acabar a temps)\n🔴 Amb Retard (Vermell - Termini superat automàticament)\n🔵 Tancat (Blau - Completat i liquidat)\n\nEs sincronitzaran aquests 4 estats a Firestore."
-      : "¿Deseas configurar los 4 estados operativos oficiales del despacho?\n\n🟢 Abierto (Verde - En marcha y dentro de plazo)\n🟡 En Riesgo (Amarillo - Previsión de no terminar a tiempo)\n🔴 Con Retraso (Rojo - Plazo superado automáticamente)\n🔵 Cerrado (Azul - Completado y facturado)\n\nSe sincronizarán estos 4 estados en Firestore.";
+      ? "Voleu configurar els 4 estats operatius oficials del despatx en Català?\n\n🟢 Obert (Verd - En marxa i dins de termini)\n🟡 En Risc (Groc - Previsió de no acabar a temps)\n🔴 Amb Retard (Vermell - Marcat manualment amb retard)\n🔵 Tancat (Blau - Completat i pressupostat)\n\nEs sincronitzaran aquests 4 estats a Firestore."
+      : "¿Deseas configurar los 4 estados operativos oficiales del despacho?\n\n🟢 Abierto (Verde - En marcha y dentro de plazo)\n🟡 En Riesgo (Amarillo - Previsión de no terminar a tiempo)\n🔴 Con Retraso (Rojo - Marcado manualmente con retraso)\n🔵 Cerrado (Azul - Completado y facturado)\n\nSe sincronizarán estos 4 estados en Firestore.";
 
     if (!window.confirm(confirmMsg)) {
       return;
@@ -776,8 +816,18 @@ const ClassificationManager = ({
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredItems.map((item) => {
-                const itemName = item.nombre || item.name || (isCa ? 'Sense nom' : 'Sin nombre');
-                const usage = usageCounts[itemName] || 0;
+                const rawName = item.nombre || item.name || (isCa ? 'Sense nom' : 'Sin nombre');
+                const itemName = activeTab === 'estados'
+                  ? rawName
+                  : (getLocalizedItemLabel(item, lang, activeTab) || rawName);
+                const altName = activeTab === 'estados'
+                  ? ''
+                  : (getLocalizedItemLabel(item, isCa ? 'es' : 'ca', activeTab) || '');
+                const showAltName = altName && altName.toLowerCase() !== itemName.toLowerCase();
+                const itemDesc = activeTab === 'estados'
+                  ? (item.descripcion || item.description || '')
+                  : getLocalizedItemDesc(item, lang, activeTab);
+                const usage = (usageCounts[rawName] || 0) + (altName && altName !== rawName ? (usageCounts[altName] || 0) : 0);
                 const colorConfig = STATUS_COLORS[item.color] || STATUS_COLORS.slate;
 
                 return (
@@ -792,9 +842,16 @@ const ClassificationManager = ({
                           </span>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2">
-                          <span className={`w-2 h-2 rounded-full ${activeTab === 'areas' ? 'bg-indigo-500' : 'bg-emerald-500'}`}></span>
-                          <span className="text-slate-900 font-semibold">{itemName}</span>
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2 h-2 rounded-full ${activeTab === 'areas' ? 'bg-indigo-500' : 'bg-emerald-500'}`}></span>
+                            <span className="text-slate-900 font-semibold">{itemName}</span>
+                          </div>
+                          {showAltName && (
+                            <span className="pl-4 text-[10px] font-medium text-slate-400">
+                              {isCa ? 'ES:' : 'CA:'} {altName}
+                            </span>
+                          )}
                         </div>
                       )}
                     </td>
@@ -822,9 +879,9 @@ const ClassificationManager = ({
 
                     {/* Descripción */}
                     <td className="p-3.5 text-slate-500 max-w-md">
-                      {item.descripcion || item.description ? (
-                        <span className="line-clamp-2" title={item.descripcion || item.description}>
-                          {item.descripcion || item.description}
+                      {itemDesc ? (
+                        <span className="line-clamp-2" title={itemDesc}>
+                          {itemDesc}
                         </span>
                       ) : (
                         <span className="text-slate-400 italic text-[11px]">{t.classification?.tableBody?.noDescription || (isCa ? 'Sense descripció' : 'Sin descripción')}</span>
@@ -995,6 +1052,21 @@ const ClassificationManager = ({
                 />
               </div>
 
+              {(activeTab === 'areas' || activeTab === 'tramos') && (
+                <div>
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1">
+                    {isCa ? 'Nom en Castellà (Opcional — Multilingüe)' : 'Nombre en Castellano (Opcional — Multilingüe)'}
+                  </label>
+                  <input
+                    type="text"
+                    value={formNombreEs}
+                    onChange={(e) => setFormNombreEs(e.target.value)}
+                    placeholder={activeTab === 'areas' ? 'Ej: Fiscal / Tributario' : 'Ej: Vencimiento Fiscal'}
+                    className="w-full border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                  />
+                </div>
+              )}
+
               {/* Campos específicos de Estados: Selector de Color */}
               {activeTab === 'estados' && (
                 <div>
@@ -1098,6 +1170,21 @@ const ClassificationManager = ({
                   className="w-full border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
                 />
               </div>
+
+              {(activeTab === 'areas' || activeTab === 'tramos') && (
+                <div>
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1">
+                    {isCa ? 'Descripció en Castellà (Opcional)' : 'Descripción en Castellano (Opcional)'}
+                  </label>
+                  <textarea
+                    value={formDescripcionEs}
+                    onChange={(e) => setFormDescripcionEs(e.target.value)}
+                    placeholder={isCa ? 'Descripció equivalent en castellà...' : 'Descripción equivalente en castellano...'}
+                    rows="2"
+                    className="w-full border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                  />
+                </div>
+              )}
 
               {/* Botones de acción */}
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">

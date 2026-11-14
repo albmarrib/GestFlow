@@ -18,11 +18,11 @@ export const translations = {
       expedientes: 'Expedients',
       plan: 'Pla Fiscal',
       vencimientos: 'Venciments',
-      gtd: 'Tràmits GTD',
+      gtd: 'GTD',
       clientes: 'Clients',
-      facturacion: 'Facturació',
+      facturacion: 'Pressupostos',
       informes: 'Informes',
-      admin: 'Panell Admin'
+      admin: 'Admin'
     },
     userMenu: {
       online: 'En línia',
@@ -38,6 +38,10 @@ export const translations = {
       searchPlaceholder: 'Cercar per expedient o client...',
       exportExcel: 'Exportar a Excel',
       newExpediente: 'Nou Expedient',
+      newVariable: 'Variable',
+      typeAll: 'Tots',
+      typeExpedientes: 'Expedients',
+      typeVariables: 'Variables',
       activeFilters: 'Filtres actius:',
       clearAll: 'Netejar tots',
       hideCompleted: 'Ocultar Tramitats / Tancats',
@@ -55,37 +59,38 @@ export const translations = {
     expedienteTabs: {
       bitacora: 'Bitàcola',
       gtd: 'GTD',
-      facturacion: 'Facturació',
+      facturacion: 'Pressupost',
       adjuntos: 'Adjunts',
       chat: 'Xat'
     },
-    // Facturación y Liquidaciones
+    // Pressupostos i Facturació
     billing: {
-      title: 'Facturació & Honoraris del Despatx',
-      liquidationTitle: 'Liquidació Econòmica',
-      conditionTitle: 'Condició de Facturació & Honoraris',
-      billable: 'A Cobrar / Facturable',
+      title: 'Pressupostos & Honoraris del Despatx',
+      liquidationTitle: 'Pressupost del Tràmit',
+      conditionTitle: 'Condició del Pressupost & Honoraris',
+      billable: 'A Pressupostar / Facturable',
       included: 'Inclòs en Quota',
       nonBillable: 'No Facturable / Intern',
       feeAmount: 'Import Honoraris (€)',
       billingStatus: 'Estat de Facturació',
-      pending: 'Pendent',
+      pending: 'Pendent de facturar',
       invoiced: 'Facturat',
-      paid: 'Cobrat i Liquidat',
+      paid: 'Facturat',
       invoiceNumber: 'Núm. Factura Despatx',
       expensesTitle: 'Suplerts i Despeses Externes (Tercers)',
       expensesSubtitle: 'Notaries, Registres Mercantils, Taxes DGT, Col·legis Oficials',
       addExpense: '+ Afegir Suplert',
       downPaymentsTitle: 'Lliuraments a Compte i Provisions de Fons',
       addDownPayment: '+ Afegir Bestreta',
-      netBalance: 'Saldo Net a Cobrar',
+      netBalance: 'Total Net Pressupostat',
       netBalanceToReturn: 'Saldo a Favor del Client (Retorn)',
-      settled: 'Liquidat',
+      settled: 'Cobert per provisions',
       clientAssignee: 'Client Assignat',
       documentLang: 'Idioma del Document',
       generatePdf: 'Generar / Descarregar PDF',
-      sendEmail: 'Enviar Liquidació per Email',
-      pdfHelp: 'Genera el document formal en l\'idioma seleccionat preparat per imprimir o desar.',
+      sendEmail: 'Enviar Pressupost per Email',
+      pdfHelp: 'Genera el document de pressupost en l\'idioma seleccionat preparat per imprimir o desar.',
+      internalNotes: 'Observacions Internes (No visibles al client)',
       tableHeaders: {
         expedienteClient: 'Expedient & Client',
         status: 'Estat Tràmit',
@@ -93,7 +98,7 @@ export const translations = {
         expenses: 'Suplerts',
         downPayments: 'Bestretes',
         balance: 'Saldo Pendent',
-        billingStatus: 'Facturació',
+        billingStatus: 'Estat',
         actions: 'Accions'
       }
     },
@@ -127,13 +132,13 @@ export const translations = {
       statusOptions: {
         abierto: "🟢 Obert (En Termini)",
         enRiesgo: "🟡 En Risc (Previsió de retard)",
-        conRetraso: "🔴 Amb Retard (Termini vençut)",
+        conRetraso: "🔴 Amb Retard",
         cerrado: "🔵 Tancat (Finalitzat)"
       },
       statusDescriptions: {
         abierto: "En marxa i previst en data",
         enRiesgo: "Risc de no acabar a temps",
-        conRetraso: "Termini superat automàticament",
+        conRetraso: "Marcat manualment amb retard",
         cerrado: "Expedient arxivat i tancat"
       },
       dueDateLabel: "Venciment Termini",
@@ -317,7 +322,7 @@ export const translations = {
       tabs: {
         classification: 'Classificació',
         templates: 'Plantilles',
-        billing: 'Facturació',
+        billing: 'Pressupostos',
         personal: 'Equip',
         clients: 'Clients',
         maintenance: 'Auditoria & Logs'
@@ -526,11 +531,11 @@ export const translations = {
       expedientes: 'Expedientes',
       plan: 'Plan Fiscal',
       vencimientos: 'Vencimientos',
-      gtd: 'Trámites GTD',
+      gtd: 'GTD',
       clientes: 'Clientes',
-      facturacion: 'Facturación',
+      facturacion: 'Presupuestos',
       informes: 'Informes',
-      admin: 'Panel Admin'
+      admin: 'Admin'
     },
     userMenu: {
       online: 'En línea',
@@ -546,6 +551,10 @@ export const translations = {
       searchPlaceholder: 'Buscar por expediente o cliente...',
       exportExcel: 'Exportar a Excel',
       newExpediente: 'Nuevo Expediente',
+      newVariable: 'Variable',
+      typeAll: 'Todos',
+      typeExpedientes: 'Expedientes',
+      typeVariables: 'Variables',
       activeFilters: 'Filtros activos:',
       clearAll: 'Limpiar todos',
       hideCompleted: 'Ocultar Tramitados / Cerrados',
@@ -563,37 +572,38 @@ export const translations = {
     expedienteTabs: {
       bitacora: 'Bitácora',
       gtd: 'GTD',
-      facturacion: 'Facturación',
+      facturacion: 'Presupuesto',
       adjuntos: 'Adjuntos',
       chat: 'Chat'
     },
-    // Facturación y Liquidaciones
+    // Presupuestos y Facturación
     billing: {
-      title: 'Facturación & Honorarios del Despacho',
-      liquidationTitle: 'Liquidación Económica',
-      conditionTitle: 'Condición de Facturación & Honorarios',
-      billable: 'A Cobrar / Facturable',
+      title: 'Presupuestos & Honorarios del Despacho',
+      liquidationTitle: 'Presupuesto del Trámite',
+      conditionTitle: 'Condición del Presupuesto & Honorarios',
+      billable: 'A Presupuestar / Facturable',
       included: 'Incluido en Cuota',
       nonBillable: 'No Facturable / Interno',
       feeAmount: 'Importe Honorarios (€)',
       billingStatus: 'Estado de Facturación',
-      pending: 'Pendiente',
+      pending: 'Pendiente de facturar',
       invoiced: 'Facturado',
-      paid: 'Cobrado y Liquidado',
+      paid: 'Facturado',
       invoiceNumber: 'Nº Factura Despacho',
       expensesTitle: 'Suplidos y Gastos Externos (Terceros)',
       expensesSubtitle: 'Notarías, Registros Mercantiles, Tasas DGT, Colegios Oficiales',
       addExpense: '+ Añadir Suplido',
       downPaymentsTitle: 'Entregas a Cuenta y Provisiones de Fondos',
       addDownPayment: '+ Añadir Anticipo',
-      netBalance: 'Saldo Neto a Cobrar',
+      netBalance: 'Total Neto Presupuestado',
       netBalanceToReturn: 'Saldo a Favor del Cliente (Devolución)',
-      settled: 'Liquidado',
+      settled: 'Cubierto por provisiones',
       clientAssignee: 'Cliente Asignado',
       documentLang: 'Idioma del Documento',
       generatePdf: 'Generar / Descargar PDF',
-      sendEmail: 'Enviar Liquidación por Email',
-      pdfHelp: 'Genera el documento formal en el idioma seleccionado preparado para imprimir o guardar.',
+      sendEmail: 'Enviar Presupuesto por Email',
+      pdfHelp: 'Genera el documento de presupuesto en el idioma seleccionado preparado para imprimir o guardar.',
+      internalNotes: 'Observaciones Internas (No visibles al cliente)',
       tableHeaders: {
         expedienteClient: 'Expediente & Cliente',
         status: 'Estado Trámite',
@@ -601,7 +611,7 @@ export const translations = {
         expenses: 'Suplidos',
         downPayments: 'Anticipos',
         balance: 'Saldo Pendiente',
-        billingStatus: 'Facturación',
+        billingStatus: 'Estado',
         actions: 'Acciones'
       }
     },
@@ -635,13 +645,13 @@ export const translations = {
       statusOptions: {
         abierto: "🟢 Abierto (En Plazo)",
         enRiesgo: "🟡 En Riesgo (Previsión de retraso)",
-        conRetraso: "🔴 Con Retraso (Plazo vencido)",
+        conRetraso: "🔴 Con Retraso",
         cerrado: "🔵 Cerrado (Finalizado)"
       },
       statusDescriptions: {
         abierto: "En marcha y previsto en fecha",
         enRiesgo: "Riesgo de no terminar a tiempo",
-        conRetraso: "Plazo superado automáticamente",
+        conRetraso: "Marcado manualmente con retraso",
         cerrado: "Expediente archivado y cerrado"
       },
       dueDateLabel: "Vencimiento Plazo",
@@ -825,7 +835,7 @@ export const translations = {
       tabs: {
         classification: 'Clasificación',
         templates: 'Plantillas',
-        billing: 'Facturación',
+        billing: 'Presupuestos',
         personal: 'Equipo',
         clients: 'Clientes',
         maintenance: 'Auditoría & Logs'

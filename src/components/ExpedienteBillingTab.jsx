@@ -12,6 +12,9 @@ import {
   Clock, 
   ExternalLink,
   ChevronDown,
+  ChevronUp,
+  Eye,
+  Users,
   Building,
   DollarSign,
   UploadCloud,
@@ -28,13 +31,22 @@ import {
   Globe
 } from 'lucide-react';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from '../firebase';
-import { openLiquidationPdf, openBillingEmail } from '../utils/billingUtils';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { storage, db } from '../firebase';
+import {
+  openLiquidationPdf,
+  openBillingEmail,
+  getTaskTotalHours,
+  formatBudgetSentDate,
+  buildBudgetSentPayload,
+  buildBudgetUnsentPayload
+} from '../utils/billingUtils';
 
 export default function ExpedienteBillingTab({ 
   formData, 
   setFormData, 
   currentUser,
+  usersList = [],
   clientes = [],
   billingSettings = {},
   logAction,
@@ -52,6 +64,8 @@ export default function ExpedienteBillingTab({
   }, [lang]);
   const [showAddPayment, setShowAddPayment] = useState(false);
   const [showAddExpense, setShowAddExpense] = useState(false);
+  const [showAddHoursForm, setShowAddHoursForm] = useState(false);
+  const [showHoursDetail, setShowHoursDetail] = useState(false);
 
   // Estados para subida de archivos de suplidos
   const [isUploadingExpenseFile, setIsUploadingExpenseFile] = useState(false);
@@ -83,15 +97,79 @@ export default function ExpedienteBillingTab({
     receiptName: ''
   });
 
+  // Opciones de equipo y estado local para imputación informativa de horas
+  const teamMemberOptions = useMemo(() => {
+    const map = new Map();
+    (usersList || []).forEach(u => {
+      const email = (u?.email || '').trim();
+      const label = (u?.name || '').trim() || email;
+      const key = (email || label).toLowerCase();
+      if (key && !map.has(key)) {
+        map.set(key, { key, label, email });
+      }
+    });
+    const curEmail = (currentUser?.email || '').trim();
+    if (curEmail && !map.has(curEmail.toLowerCase())) {
+      map.set(curEmail.toLowerCase(), {
+        key: curEmail.toLowerCase(),
+        label: currentUser?.displayName || curEmail,
+        email: curEmail
+      });
+    }
+    return Array.from(map.values());
+  }, [usersList, currentUser]);
+
+  const defaultTeamPerson = useMemo(() => {
+    const curEmail = (currentUser?.email || '').trim().toLowerCase();
+    const matched = teamMemberOptions.find(m => m.email.toLowerCase() === curEmail);
+    return matched?.label || teamMemberOptions[0]?.label || curEmail || '';
+  }, [teamMemberOptions, currentUser]);
+
+  const [hoursForm, setHoursForm] = useState({
+    hours: '',
+    date: new Date().toISOString().split('T')[0],
+    person: '',
+    note: ''
+  });
+
+  useEffect(() => {
+    if (!hoursForm.person && defaultTeamPerson) {
+      setHoursForm(prev => ({ ...prev, person: defaultTeamPerson }));
+    }
+  }, [defaultTeamPerson, hoursForm.person]);
+
   // Valores económicos calculados
   const billingType = formData.billingType || (formData.esFacturable === false ? 'included' : 'billable');
   const feeAmount = billingType === 'billable' ? (Number(formData.feeAmount) || 0) : 0;
   
   const downPayments = Array.isArray(formData.downPayments) ? formData.downPayments : [];
   const externalExpenses = Array.isArray(formData.externalExpenses) ? formData.externalExpenses : [];
+  const hoursEntries = useMemo(
+    () => (Array.isArray(formData.hoursEntries) ? formData.hoursEntries : []),
+    [formData.hoursEntries]
+  );
 
   const totalDownPayments = downPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
   const totalExternalExpenses = externalExpenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
+  const totalHours = getTaskTotalHours({ hoursEntries });
+
+  const hoursByPerson = useMemo(() => {
+    const grouped = new Map();
+    hoursEntries.forEach(entry => {
+      const person = (entry?.person || entry?.createdBy || (isCa ? 'Equip' : 'Equipo')).trim();
+      const hrs = Number(entry?.hours) || 0;
+      grouped.set(person, (grouped.get(person) || 0) + hrs);
+    });
+    return Array.from(grouped.entries()).sort((a, b) => b[1] - a[1]);
+  }, [hoursEntries, isCa]);
+
+  const sortedHoursEntries = useMemo(() => {
+    return [...hoursEntries].sort((a, b) => {
+      const dateCmp = String(b?.date || '').localeCompare(String(a?.date || ''));
+      if (dateCmp !== 0) return dateCmp;
+      return String(b?.createdAt || '').localeCompare(String(a?.createdAt || ''));
+    });
+  }, [hoursEntries]);
 
   // Total bruto = Honorarios + Suplidos
   const totalGross = feeAmount + totalExternalExpenses;
@@ -253,6 +331,56 @@ export default function ExpedienteBillingTab({
     });
   };
 
+  // Añadir registro informativo de horas al expediente
+  const handleAddHoursEntry = () => {
+    const rawHours = String(hoursForm.hours || '').replace(',', '.');
+    const hoursNum = parseFloat(rawHours);
+    if (isNaN(hoursNum) || hoursNum <= 0) {
+      alert(isCa ? "Introdueix una quantitat d'hores vàlida (major que 0)." : "Introduce una cantidad de horas válida (mayor que 0).");
+      return;
+    }
+
+    const selectedPerson = (hoursForm.person || defaultTeamPerson || currentUser?.email || '').trim();
+    if (!selectedPerson) {
+      alert(isCa ? "Selecciona la persona de l'equip." : "Selecciona la persona del equipo.");
+      return;
+    }
+
+    const matchedMember = teamMemberOptions.find(m => m.label === selectedPerson || m.email === selectedPerson);
+    const newEntry = {
+      id: 'hrs_' + Date.now(),
+      hours: Math.round(hoursNum * 100) / 100,
+      date: hoursForm.date || new Date().toISOString().split('T')[0],
+      person: selectedPerson,
+      personEmail: matchedMember?.email || '',
+      note: (hoursForm.note || '').trim(),
+      createdBy: currentUser?.email || 'gestor',
+      createdAt: new Date().toISOString()
+    };
+
+    setFormData({
+      ...formData,
+      hoursEntries: [...hoursEntries, newEntry]
+    });
+
+    setHoursForm({
+      hours: '',
+      date: new Date().toISOString().split('T')[0],
+      person: defaultTeamPerson || selectedPerson,
+      note: ''
+    });
+    setShowAddHoursForm(false);
+  };
+
+  const handleRemoveHoursEntry = (id) => {
+    const msg = isCa ? "Voleu eliminar aquest registre d'hores?" : "¿Eliminar este registro de horas?";
+    if (!window.confirm(msg)) return;
+    setFormData({
+      ...formData,
+      hoursEntries: hoursEntries.filter(h => h.id !== id)
+    });
+  };
+
   // Búsqueda inteligente del cliente en el censo de clientes
   const selectedClient = useMemo(() => {
     if (!clientes || clientes.length === 0) return null;
@@ -285,23 +413,69 @@ export default function ExpedienteBillingTab({
     openLiquidationPdf(formData, selectedClient, billingSettings, docLang);
   };
 
-  // Enviar liquidación por correo electrónico directamente al cliente
-  const handleSendBillingEmail = () => {
-    openBillingEmail(formData, selectedClient, billingSettings, recipientEmail, logAction, docLang);
+  const persistBudgetSentState = async (sentFields) => {
+    setFormData(prev => ({ ...prev, ...sentFields }));
+    if (formData?.id) {
+      const firestorePayload = { ...sentFields, lastUpdated: serverTimestamp() };
+      await updateDoc(doc(db, 'expedientes', formData.id), firestorePayload).catch(async () => {
+        await updateDoc(doc(db, 'tasks', formData.id), firestorePayload).catch(() => {});
+      });
+    }
+  };
+
+  // Enviar liquidación por correo electrónico + abrir PDF y marcar como enviado
+  const handleSendBillingEmail = async () => {
+    if (formData.budgetSentAt) {
+      const sentDate = formatBudgetSentDate(formData.budgetSentAt, docLang);
+      const dupMsg = docLang === 'ca'
+        ? `Aquest pressupost ja consta com enviat el ${sentDate}${formData.budgetSentTo ? ` (${formData.budgetSentTo})` : ''}. Voleu tornar a enviar-lo per email i generar el PDF?`
+        : `Este presupuesto ya consta como enviado el ${sentDate}${formData.budgetSentTo ? ` (${formData.budgetSentTo})` : ''}. ¿Deseas volver a enviarlo por email y generar el PDF?`;
+      if (!window.confirm(dupMsg)) return;
+    }
+
+    const res = openBillingEmail(formData, selectedClient, billingSettings, recipientEmail, logAction, docLang, { withPdf: true });
+    if (res?.sent) {
+      const sentFields = buildBudgetSentPayload(formData, {
+        sentTo: res.recipient,
+        sentBy: currentUser?.email || 'gestor',
+        mode: 'individual'
+      });
+      await persistBudgetSentState(sentFields);
+    }
+  };
+
+  const handleToggleBudgetSent = async () => {
+    if (formData.budgetSentAt) {
+      const sentDate = formatBudgetSentDate(formData.budgetSentAt, docLang);
+      const confirmUnmark = window.confirm(
+        docLang === 'ca'
+          ? `Vols desmarcar el registre d'enviament (${sentDate})?`
+          : `¿Deseas desmarcar el registro de envío (${sentDate})?`
+      );
+      if (!confirmUnmark) return;
+      await persistBudgetSentState(buildBudgetUnsentPayload());
+    } else {
+      const sentFields = buildBudgetSentPayload(formData, {
+        sentTo: recipientEmail || selectedClient?.email || formData.clientEmail || '',
+        sentBy: currentUser?.email || 'gestor',
+        mode: 'manual'
+      });
+      await persistBudgetSentState(sentFields);
+    }
   };
 
   return (
     <div className="flex-1 overflow-y-auto p-3.5 space-y-3 bg-slate-50/70 text-slate-800">
       
-      {/* TARJETA 1: CONFIGURACIÓN GENERAL DE HONORARIOS & FACTURACIÓN (COMPACTA) */}
+      {/* TARJETA 1: CONFIGURACIÓN GENERAL DE HONORARIOS & PRESUPUESTO (COMPACTA) */}
       <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs space-y-2.5">
         <div className="flex justify-between items-center pb-1.5 border-b border-slate-100">
           <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
             <Coins className="w-3.5 h-3.5 text-indigo-600" />
-            {isCa ? "Condició de Facturació & Honoraris" : "Condición de Facturación & Honorarios"}
+            {isCa ? "Condició del Pressupost & Honoraris" : "Condición del Presupuesto & Honorarios"}
           </span>
           <span className="text-[11px] font-semibold text-slate-500">
-            {billingType === 'billable' ? `${feeAmount.toFixed(2)} € Honorarios` : (billingType === 'included' ? 'En Cuota Mensual' : 'Sin Cargo')}
+            {billingType === 'billable' ? `${feeAmount.toFixed(2)} € ${isCa ? 'Honoraris' : 'Honorarios'}` : (billingType === 'included' ? (isCa ? 'En Quota Mensual' : 'En Cuota Mensual') : (isCa ? 'Sense Càrrec' : 'Sin Cargo'))}
           </span>
         </div>
 
@@ -316,7 +490,7 @@ export default function ExpedienteBillingTab({
                 : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 font-medium'
             }`}
           >
-            <span className="truncate">{isCa ? "A Cobrar / Facturable" : "A Cobrar / Facturable"}</span>
+            <span className="truncate">{isCa ? "A Pressupostar / Facturable" : "A Presupuestar / Facturable"}</span>
             <Coins className={`w-3.5 h-3.5 shrink-0 ${billingType === 'billable' ? 'text-emerald-600' : 'text-slate-400'}`} />
           </button>
 
@@ -369,13 +543,12 @@ export default function ExpedienteBillingTab({
             <div>
               <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">{isCa ? "Estat de Facturació" : "Estado de Facturación"}</label>
               <select
-                value={formData.billingStatus || 'pending'}
+                value={formData.billingStatus === 'paid' ? 'invoiced' : (formData.billingStatus || 'pending')}
                 onChange={(e) => setFormData({ ...formData, billingStatus: e.target.value })}
                 className="w-full py-1.5 px-2 border border-slate-300 rounded-lg text-xs font-semibold bg-white text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 <option value="pending">{isCa ? "⏳ Pendent de Facturar" : "⏳ Pendiente de Facturar"}</option>
                 <option value="invoiced">{isCa ? "📑 Facturat" : "📑 Facturado"}</option>
-                <option value="paid">{isCa ? "✅ Cobrat i Liquidat" : "✅ Cobrado y Liquidado"}</option>
               </select>
             </div>
 
@@ -869,31 +1042,31 @@ export default function ExpedienteBillingTab({
         )}
       </div>
 
-      {/* TARJETA 4: LIQUIDACIÓN ECONÓMICA EN VIVO DEL EXPEDIENTE (COMPACTA) */}
+      {/* TARJETA 4: RESUMEN DE PRESUPUESTO EN VIVO DEL EXPEDIENTE (COMPACTA) */}
       <div className="bg-gradient-to-br from-slate-900 to-indigo-950 text-white p-3.5 rounded-xl shadow-premium border border-slate-800 space-y-2.5">
         <div className="flex justify-between items-center pb-1.5 border-b border-white/10">
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
             <Coins className="w-3.5 h-3.5 text-amber-400" />
-            Liquidación Económica del Expediente
+            {isCa ? 'Pressupost del Tràmit' : 'Presupuesto del Expediente'}
           </span>
           <span className="text-[10px] bg-white/10 text-slate-200 px-2 py-0.5 rounded-full border border-white/10 font-semibold">
-            {billingType === 'billable' ? 'Facturación Adicional' : (billingType === 'included' ? 'Cuota Mensual' : 'Gestión Interna')}
+            {billingType === 'billable' ? (isCa ? 'Facturació Addicional' : 'Facturación Adicional') : (billingType === 'included' ? (isCa ? 'Quota Mensual' : 'Cuota Mensual') : (isCa ? 'Gestió Interna' : 'Gestión Interna'))}
           </span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
           <div className="bg-white/5 p-2 rounded-lg border border-white/10">
-            <span className="text-[9px] uppercase tracking-wide text-slate-400 block font-semibold mb-0.5">Honorarios</span>
+            <span className="text-[9px] uppercase tracking-wide text-slate-400 block font-semibold mb-0.5">{isCa ? 'Honoraris' : 'Honorarios'}</span>
             <span className="text-xs font-bold text-white">{feeAmount.toFixed(2)} €</span>
           </div>
 
           <div className="bg-white/5 p-2 rounded-lg border border-white/10">
-            <span className="text-[9px] uppercase tracking-wide text-slate-400 block font-semibold mb-0.5">(+) Suplidos</span>
+            <span className="text-[9px] uppercase tracking-wide text-slate-400 block font-semibold mb-0.5">(+) {isCa ? 'Suplerts' : 'Suplidos'}</span>
             <span className="text-xs font-bold text-amber-300">+{totalExternalExpenses.toFixed(2)} €</span>
           </div>
 
           <div className="bg-white/5 p-2 rounded-lg border border-white/10">
-            <span className="text-[9px] uppercase tracking-wide text-slate-400 block font-semibold mb-0.5">(-) Anticipos</span>
+            <span className="text-[9px] uppercase tracking-wide text-slate-400 block font-semibold mb-0.5">(-) {isCa ? 'Bestretes' : 'Anticipos'}</span>
             <span className="text-xs font-bold text-emerald-400">-{totalDownPayments.toFixed(2)} €</span>
           </div>
 
@@ -905,7 +1078,7 @@ export default function ExpedienteBillingTab({
               : 'bg-blue-500/20 border-blue-500/40 text-blue-300'
           }`}>
             <span className="text-[9px] uppercase tracking-wide block font-bold mb-0.5">
-              {pendingBalance > 0 ? 'Saldo a Cobrar' : (pendingBalance === 0 ? 'Liquidado' : 'A Devolver')}
+              {pendingBalance > 0 ? (isCa ? 'Total Pressupost' : 'Total Presupuesto') : (pendingBalance === 0 ? (isCa ? 'Cobert' : 'Cubierto') : (isCa ? 'A Retornar' : 'A Devolver'))}
             </span>
             <span className="text-xs font-extrabold">{Math.abs(pendingBalance).toFixed(2)} €</span>
           </div>
@@ -914,21 +1087,245 @@ export default function ExpedienteBillingTab({
         {pendingBalance > 0 && (
           <p className="text-[10px] text-amber-200/90 bg-amber-500/10 p-1.5 rounded-md border border-amber-500/20 flex items-center gap-1.5">
             <AlertCircle className="w-3 h-3 text-amber-400 shrink-0" />
-            <span>Saldo pendiente: <strong>{pendingBalance.toFixed(2)} €</strong> (honorarios pactados + suplidos adelantados).</span>
+            <span>{isCa ? 'Import net pressupostat:' : 'Importe neto presupuestado:'} <strong>{pendingBalance.toFixed(2)} €</strong> ({isCa ? 'honoraris previstos + suplerts estimats' : 'honorarios previstos + suplidos estimados'}).</span>
           </p>
         )}
       </div>
 
-      {/* TARJETA 5: ACCIONES DE COBRO & ENVÍO DE LIQUIDACIÓN AL CLIENTE (SIN N8N) */}
+      {/* TARJETA 4A: CONTROL INFORMATIVO DE HORAS DEDICADAS */}
       <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs space-y-2.5">
-        <div className="flex justify-between items-center pb-1.5 border-b border-slate-100">
+        <div className="flex flex-wrap justify-between items-center gap-2 pb-1.5 border-b border-slate-100">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Clock className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wide">
+              {isCa ? 'Hores Dedicades' : 'Horas Dedicadas'}
+            </span>
+            <span className="text-[9px] font-semibold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200">
+              {isCa ? 'Informatiu' : 'Informativo'}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setShowHoursDetail(prev => !prev)}
+              className={`text-[11px] font-bold px-2 py-1 rounded-md border transition-colors flex items-center gap-1 cursor-pointer ${
+                showHoursDetail
+                  ? 'bg-teal-50 text-teal-800 border-teal-300'
+                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              <Eye className="w-3 h-3" />
+              <span>{showHoursDetail ? (isCa ? 'Ocultar detall' : 'Ocultar detalle') : (isCa ? 'Veure detall' : 'Ver detalle')}</span>
+              {showHoursDetail ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowAddHoursForm(prev => !prev)}
+              className="text-[11px] font-bold text-teal-700 hover:text-teal-800 bg-teal-50 hover:bg-teal-100 px-2 py-1 rounded-md border border-teal-200 transition-colors flex items-center gap-1 cursor-pointer"
+            >
+              <Plus className="w-3 h-3" />
+              {showAddHoursForm ? (isCa ? 'Cancel·lar' : 'Cancelar') : (isCa ? 'Afegir hores' : 'Añadir horas')}
+            </button>
+          </div>
+        </div>
+
+        {/* Resumen del acumulado */}
+        <div className="flex items-center justify-between bg-slate-50/90 px-3 py-2 rounded-lg border border-slate-200/80">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-xs font-semibold text-slate-600">
+              {isCa ? 'Total acumulat:' : 'Total acumulado:'}
+            </span>
+            <span className="text-sm font-extrabold text-teal-700">
+              {totalHours.toFixed(2)} h
+            </span>
+          </div>
+          <span className="text-[11px] font-medium text-slate-500">
+            {hoursEntries.length === 0
+              ? (isCa ? 'Sense registres' : 'Sin registros')
+              : `${hoursEntries.length} ${hoursEntries.length === 1 ? (isCa ? 'registre' : 'registro') : (isCa ? 'registres' : 'registros')}`}
+          </span>
+        </div>
+
+        {/* Formulario para añadir nuevo registro de horas */}
+        {showAddHoursForm && (
+          <div className="p-2.5 bg-teal-50/50 rounded-lg border border-teal-200/80 space-y-2 animate-in fade-in duration-150">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div>
+                <label className="text-[10px] font-bold text-slate-600 block mb-0.5">
+                  {isCa ? 'Total hores *' : 'Total horas *'}
+                </label>
+                <input
+                  type="number"
+                  step="0.25"
+                  min="0.01"
+                  placeholder="Ex: 1.5"
+                  value={hoursForm.hours}
+                  onChange={(e) => setHoursForm({ ...hoursForm, hours: e.target.value })}
+                  className="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-xs bg-white font-bold text-slate-800 outline-none focus:ring-1 focus:ring-teal-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-600 block mb-0.5">
+                  {isCa ? 'Data *' : 'Fecha *'}
+                </label>
+                <input
+                  type="date"
+                  value={hoursForm.date}
+                  onChange={(e) => setHoursForm({ ...hoursForm, date: e.target.value })}
+                  className="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-xs bg-white text-slate-800 outline-none focus:ring-1 focus:ring-teal-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-600 block mb-0.5">
+                  {isCa ? "Persona de l'equip *" : 'Persona del equipo *'}
+                </label>
+                <select
+                  value={hoursForm.person}
+                  onChange={(e) => setHoursForm({ ...hoursForm, person: e.target.value })}
+                  className="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-xs bg-white font-semibold text-slate-800 outline-none focus:ring-1 focus:ring-teal-500 cursor-pointer"
+                >
+                  {teamMemberOptions.length === 0 && (
+                    <option value={currentUser?.email || ''}>{currentUser?.email || (isCa ? 'Gestor' : 'Gestor')}</option>
+                  )}
+                  {teamMemberOptions.map(member => (
+                    <option key={member.key} value={member.label}>
+                      {member.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-end">
+              <div className="flex-1">
+                <label className="text-[10px] font-bold text-slate-600 block mb-0.5">
+                  {isCa ? 'Comentari breu (opcional)' : 'Comentario breve (opcional)'}
+                </label>
+                <input
+                  type="text"
+                  placeholder={isCa ? 'Ex: Revisió documentació o gestió notaria' : 'Ej: Revisión documentación o gestión notaría'}
+                  value={hoursForm.note}
+                  onChange={(e) => setHoursForm({ ...hoursForm, note: e.target.value })}
+                  className="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-xs bg-white text-slate-800 outline-none focus:ring-1 focus:ring-teal-500"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleAddHoursEntry}
+                className="bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shrink-0 shadow-xs"
+              >
+                <Check className="w-3.5 h-3.5" />
+                {isCa ? 'Registrar Hores' : 'Registrar Horas'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Detalle desplegable de horas imputadas */}
+        {showHoursDetail && (
+          <div className="space-y-2 pt-1 animate-in fade-in duration-150">
+            {hoursByPerson.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {hoursByPerson.map(([person, hrs]) => (
+                  <span
+                    key={person}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 border border-teal-200 text-[10px] font-semibold"
+                  >
+                    <Users className="w-2.5 h-2.5 text-teal-600" />
+                    <span>{person}:</span>
+                    <strong>{hrs.toFixed(2)} h</strong>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {sortedHoursEntries.length === 0 ? (
+              <p className="text-[11px] text-slate-400 italic py-2 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                {isCa ? "Encara no s'han imputat hores en aquest expedient." : 'Todavía no se han imputado horas en este expediente.'}
+              </p>
+            ) : (
+              <div className="divide-y divide-slate-100 border border-slate-200/80 rounded-lg overflow-hidden max-h-48 overflow-y-auto bg-white">
+                {sortedHoursEntries.map(entry => (
+                  <div key={entry.id} className="flex items-center justify-between px-2.5 py-1.5 text-xs hover:bg-slate-50 gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[10px] font-mono text-slate-500 shrink-0">{entry.date || '—'}</span>
+                        <span className="font-bold text-slate-800 truncate">{entry.person || entry.createdBy}</span>
+                      </div>
+                      {entry.note && (
+                        <p className="text-[10px] text-slate-500 truncate mt-0.5">{entry.note}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="font-extrabold text-teal-700 text-xs">{(Number(entry.hours) || 0).toFixed(2)} h</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveHoursEntry(entry.id)}
+                        className="text-slate-300 hover:text-rose-600 transition-colors p-0.5 cursor-pointer"
+                        title={isCa ? 'Eliminar registre' : 'Eliminar registro'}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* TARJETA 4B: OBSERVACIONES INTERNAS DEL DESPACHO (PRIVADO, NO SALE EN PDF/EMAIL) */}
+      <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs space-y-1.5">
+        <div className="flex justify-between items-center">
+          <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+            <FileText className="w-3.5 h-3.5 text-indigo-500" />
+            <span>{isCa ? 'Observacions Internes' : 'Observaciones Internas'}</span>
+          </label>
+          <span className="text-[10px] text-slate-400 font-medium">
+            {isCa ? 'Només ús intern · No visible al client' : 'Solo uso interno · No visible al cliente'}
+          </span>
+        </div>
+        <textarea
+          rows={2}
+          value={formData.billingInternalNotes || ''}
+          onChange={(e) => setFormData({ ...formData, billingInternalNotes: e.target.value })}
+          placeholder={isCa ? 'Anota recordatoris, acords verbals o comentaris sobre aquest pressupost o client...' : 'Anota recordatorios, acuerdos verbales o comentarios internos sobre este presupuesto o cliente...'}
+          className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 bg-slate-50/50 focus:bg-white transition-colors"
+        />
+      </div>
+
+      {/* TARJETA 5: EMISIÓN Y ENVÍO DE PRESUPUESTO AL CLIENTE PARA AUTORIZACIÓN */}
+      <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs space-y-2.5">
+        <div className="flex justify-between items-center pb-1.5 border-b border-slate-100 gap-2">
           <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
             <Send className="w-3.5 h-3.5 text-blue-600" />
-            Emisión de Liquidación & Comunicación al Cliente
+            {isCa ? 'Emissió de Pressupost & Autorització del Client' : 'Emisión de Presupuesto & Autorización del Cliente'}
           </span>
-          <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
-            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Envío Directo (Sin n8n)
-          </span>
+          <button
+            type="button"
+            onClick={handleToggleBudgetSent}
+            title={formData.budgetSentAt
+              ? `${isCa ? 'Pressupost enviat el' : 'Presupuesto enviado el'} ${formatBudgetSentDate(formData.budgetSentAt, lang)}${formData.budgetSentTo ? ` · ${formData.budgetSentTo}` : ''} (${isCa ? 'clic per desmarcar' : 'clic para desmarcar'})`
+              : (isCa ? 'Marcar manualment com a pressupost enviat' : 'Marcar manualmente como presupuesto enviado')}
+            className={`text-[10px] font-bold px-2 py-0.5 rounded border flex items-center gap-1 transition-all cursor-pointer shrink-0 ${
+              formData.budgetSentAt
+                ? 'text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100'
+                : 'text-slate-400 bg-slate-50 border-slate-200 hover:text-slate-600 hover:border-slate-300'
+            }`}
+          >
+            <CheckCircle2 className={`w-3 h-3 ${formData.budgetSentAt ? 'text-emerald-600' : 'text-slate-300'}`} />
+            <span>
+              {formData.budgetSentAt
+                ? `${isCa ? 'Enviat' : 'Enviado'} ${formatBudgetSentDate(formData.budgetSentAt, lang)}`
+                : (isCa ? 'No enviat' : 'No enviado')}
+            </span>
+          </button>
         </div>
 
         {/* Destinatario de correo del cliente */}
@@ -1011,12 +1408,14 @@ export default function ExpedienteBillingTab({
             className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2 px-3 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
           >
             <Mail className="w-3.5 h-3.5" />
-            <span>Enviar Liquidación por Email</span>
+            <span>{isCa ? 'Enviar Email + PDF' : 'Enviar Email + PDF'}</span>
           </button>
         </div>
 
         <p className="text-[10px] text-slate-400 text-center pt-0.5">
-          El botón de PDF genera el documento formal con membrete listo para imprimir o guardar. El botón de email redacta el correo con desglose completo y cuenta bancaria.
+          {isCa
+            ? 'El botó Email + PDF obre el pressupost en PDF per desar-lo, redacta el correu i marca automàticament l\'expedient com a enviat.'
+            : 'El botón Email + PDF abre el presupuesto en PDF para guardarlo, redacta el correo y marca automáticamente el presupuesto como enviado.'}
         </p>
       </div>
 
