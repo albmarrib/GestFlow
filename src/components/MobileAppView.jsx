@@ -30,7 +30,8 @@ import {
   Eye,
   EyeOff,
   User,
-  Users
+  Users,
+  MessageSquare
 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import {
@@ -475,10 +476,13 @@ export default function MobileAppView({
         : classifiedReminders.done;
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col pb-24 antialiased">
-      {/* HEADER MÓVIL COMPACTO */}
-      <header className="sticky top-0 z-30 bg-[#152427] text-white border-b border-[#233b3f] shadow-sm">
-        <div className="px-3.5 py-2.5 flex items-center justify-between gap-2">
+    <div className="min-h-[100dvh] w-full max-w-full overflow-x-hidden bg-slate-100 text-slate-900 flex flex-col pb-20 antialiased">
+      {/* HEADER MÓVIL COMPACTO CON SAFE-AREA SUPERIOR PARA PWA */}
+      <header
+        className="sticky top-0 z-30 bg-[#152427] text-white border-b border-[#233b3f] shadow-sm"
+        style={{ paddingTop: 'env(safe-area-inset-top)' }}
+      >
+        <div className="px-3.5 py-2 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <img src="/logo-ferrer-blanc.svg" alt="Ferrer Assessoria" className="h-6 w-auto object-contain shrink-0" />
             <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-300 border-l border-white/15 pl-2 truncate">
@@ -730,48 +734,56 @@ export default function MobileAppView({
                         </p>
                       </button>
 
-                      {/* Barra inferior de contacto directo + acceso rápido a Dictado / Cámara */}
+                      {/* Barra inferior de contacto directo (solo iconos) + acceso rápido a Dictado / Cámara / Chat */}
                       <div className="px-3 pb-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-1.5 bg-slate-50/70">
                         <div className="flex items-center gap-1.5 min-w-0">
                           {telHref ? (
                             <a
                               href={telHref}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-600 text-white text-[11px] font-bold"
+                              className="w-8 h-8 inline-flex items-center justify-center rounded-lg bg-emerald-600 text-white shadow-2xs shrink-0"
                               title={clientPhone}
+                              aria-label={isCa ? 'Trucar' : 'Llamar'}
                             >
                               <Phone className="w-3.5 h-3.5" />
-                              <span>{isCa ? 'Trucar' : 'Llamar'}</span>
                             </a>
-                          ) : (
-                            <span className="text-[10px] text-slate-400 px-1.5">
-                              {isCa ? 'Sense tel.' : 'Sin tel.'}
-                            </span>
-                          )}
+                          ) : null}
 
                           {waHref && (
                             <a
                               href={waHref}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-[11px] font-bold"
+                              className="w-8 h-8 inline-flex items-center justify-center rounded-lg bg-[#25D366] text-slate-950 shadow-2xs shrink-0"
+                              title={`WhatsApp (${clientPhone})`}
+                              aria-label="WhatsApp"
                             >
                               <MessageCircle className="w-3.5 h-3.5" />
-                              <span>WA</span>
                             </a>
                           )}
 
                           {clientEmail && (
                             <a
                               href={`mailto:${clientEmail}?subject=${encodeURIComponent(task.title || '')}`}
-                              className="inline-flex items-center justify-center p-1.5 rounded-lg bg-slate-800 text-white"
+                              className="w-8 h-8 inline-flex items-center justify-center rounded-lg bg-blue-600 text-white shadow-2xs shrink-0"
                               title={clientEmail}
+                              aria-label="Email"
                             >
                               <Mail className="w-3.5 h-3.5" />
                             </a>
                           )}
+
+                          {clientPhone ? (
+                            <span className="text-[11px] font-semibold text-slate-600 truncate ml-0.5">
+                              {clientPhone}
+                            </span>
+                          ) : !clientEmail ? (
+                            <span className="text-[10px] text-slate-400">
+                              {isCa ? 'Sense contacte' : 'Sin contacto'}
+                            </span>
+                          ) : null}
                         </div>
 
-                        <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="flex items-center gap-1 shrink-0">
                           <button
                             type="button"
                             onClick={() => openTaskDetail(task, 'bitacora')}
@@ -790,6 +802,15 @@ export default function MobileAppView({
                           >
                             <Camera className="w-3.5 h-3.5 text-amber-600" />
                             <span>{attachCount}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => openTaskDetail(task, 'chat')}
+                            className="inline-flex items-center justify-center p-1.5 rounded-lg bg-white border border-slate-200 text-indigo-600 cursor-pointer"
+                            title={isCa ? 'Xat intern' : 'Chat interno'}
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </div>
@@ -1031,35 +1052,46 @@ export default function MobileAppView({
         )}
       </main>
 
-      {/* NAVEGACIÓN INFERIOR FIJA */}
-      <nav className="fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-lg border-t border-slate-200 px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-4px_16px_rgba(15,23,42,0.06)]">
+      {/* NAVEGACIÓN INFERIOR FIJA Y FINA (SIEMPRE VISIBLE INCLUSO DENTRO DE EXPEDIENTE) */}
+      <nav
+        className="fixed bottom-0 inset-x-0 z-50 bg-white/95 backdrop-blur-lg border-t border-slate-200 px-2 pt-1 shadow-[0_-4px_16px_rgba(15,23,42,0.06)]"
+        style={{ paddingBottom: 'max(6px, env(safe-area-inset-bottom))' }}
+      >
         <div className="max-w-2xl mx-auto grid grid-cols-3 gap-1">
           <button
             type="button"
-            onClick={() => setActiveTab('expedients')}
-            className={`flex flex-col items-center justify-center py-1.5 rounded-xl transition-all cursor-pointer ${
-              activeTab === 'expedients'
+            onClick={() => {
+              setSelectedTaskId(null);
+              setFocusedStepId(null);
+              setActiveTab('expedients');
+            }}
+            className={`flex flex-col items-center justify-center py-1 rounded-xl transition-all cursor-pointer ${
+              activeTab === 'expedients' && !liveSelectedTask
                 ? 'bg-indigo-50 text-indigo-700 font-extrabold'
                 : 'text-slate-500 font-semibold'
             }`}
           >
-            <Briefcase className="w-5 h-5" />
-            <span className="text-[10px] mt-0.5">{isCa ? 'Expedients' : 'Expedientes'}</span>
+            <Briefcase className="w-[18px] h-[18px]" />
+            <span className="text-[10px] leading-tight mt-0.5">{isCa ? 'Expedients' : 'Expedientes'}</span>
           </button>
 
           <button
             type="button"
-            onClick={() => setActiveTab('gtd')}
-            className={`relative flex flex-col items-center justify-center py-1.5 rounded-xl transition-all cursor-pointer ${
-              activeTab === 'gtd'
+            onClick={() => {
+              setSelectedTaskId(null);
+              setFocusedStepId(null);
+              setActiveTab('gtd');
+            }}
+            className={`relative flex flex-col items-center justify-center py-1 rounded-xl transition-all cursor-pointer ${
+              activeTab === 'gtd' && !liveSelectedTask
                 ? 'bg-indigo-50 text-indigo-700 font-extrabold'
                 : 'text-slate-500 font-semibold'
             }`}
           >
-            <Target className="w-5 h-5" />
-            <span className="text-[10px] mt-0.5">GTD</span>
+            <Target className="w-[18px] h-[18px]" />
+            <span className="text-[10px] leading-tight mt-0.5">GTD</span>
             {gtdItems.length > 0 && (
-              <span className="absolute top-1 right-1/4 px-1.5 min-w-[16px] h-4 rounded-full bg-indigo-600 text-white text-[9px] font-extrabold flex items-center justify-center">
+              <span className="absolute top-0.5 right-1/4 px-1.5 min-w-[15px] h-3.5 rounded-full bg-indigo-600 text-white text-[9px] font-extrabold flex items-center justify-center">
                 {gtdItems.length}
               </span>
             )}
@@ -1067,17 +1099,21 @@ export default function MobileAppView({
 
           <button
             type="button"
-            onClick={() => setActiveTab('reminders')}
-            className={`relative flex flex-col items-center justify-center py-1.5 rounded-xl transition-all cursor-pointer ${
-              activeTab === 'reminders'
+            onClick={() => {
+              setSelectedTaskId(null);
+              setFocusedStepId(null);
+              setActiveTab('reminders');
+            }}
+            className={`relative flex flex-col items-center justify-center py-1 rounded-xl transition-all cursor-pointer ${
+              activeTab === 'reminders' && !liveSelectedTask
                 ? 'bg-indigo-50 text-indigo-700 font-extrabold'
                 : 'text-slate-500 font-semibold'
             }`}
           >
-            <Bell className="w-5 h-5" />
-            <span className="text-[10px] mt-0.5">{isCa ? 'Recordatoris' : 'Recordatorios'}</span>
+            <Bell className="w-[18px] h-[18px]" />
+            <span className="text-[10px] leading-tight mt-0.5">{isCa ? 'Recordatoris' : 'Recordatorios'}</span>
             {classifiedReminders.active.length > 0 && (
-              <span className={`absolute top-1 right-1/4 px-1.5 min-w-[16px] h-4 rounded-full text-white text-[9px] font-extrabold flex items-center justify-center ${
+              <span className={`absolute top-0.5 right-1/4 px-1.5 min-w-[15px] h-3.5 rounded-full text-white text-[9px] font-extrabold flex items-center justify-center ${
                 classifiedReminders.overdueCount > 0 ? 'bg-rose-600' : 'bg-indigo-600'
               }`}>
                 {classifiedReminders.active.length}

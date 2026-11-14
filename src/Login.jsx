@@ -18,8 +18,17 @@ const SUPER_ADMINS = ['albmarrib@gmail.com'];
 const PRE_AUTHORIZED_USERS = ['josep@ferrer-assessoria.com'];
 
 export default function Login({ onLoginSuccess }) {
-  // 'landing' para la página de inicio corporativa, 'portal' para la pantalla de acceso
-  const [view, setView] = useState('landing');
+  // 'landing' para la página de inicio corporativa, 'portal' directo en móvil / PWA instalada
+  const [view, setView] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const isSmallOrStandalone =
+        window.innerWidth < 768 ||
+        window.navigator.standalone === true ||
+        window.matchMedia?.('(display-mode: standalone)').matches;
+      if (isSmallOrStandalone) return 'portal';
+    }
+    return 'landing';
+  });
   const [isRegistering, setIsRegistering] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -402,7 +411,10 @@ export default function Login({ onLoginSuccess }) {
   // VISTA 2: PANTALLA DE ENTRADA AL PORTAL (LOGIN & SIGN IN)
   // ==========================================
   return (
-    <div className="min-h-screen bg-[#152427] text-white font-sans flex flex-col justify-center items-center p-3 sm:p-6 relative overflow-hidden">
+    <div
+      className="min-h-screen bg-[#152427] text-white font-sans flex flex-col justify-center items-center p-3 sm:p-6 relative overflow-x-hidden overflow-y-auto"
+      style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+    >
       
       {/* Luces y ambiente de fondo corporativo */}
       <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#5C9682]/15 rounded-full blur-3xl pointer-events-none"></div>

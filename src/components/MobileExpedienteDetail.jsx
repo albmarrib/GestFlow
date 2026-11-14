@@ -27,6 +27,7 @@ import { db, storage } from '../firebase';
 import { findClientForTask } from '../utils/billingUtils';
 import { translateClassificationName } from '../utils/classificationI18n';
 import { buildTelHref, buildWhatsAppHref } from '../utils/contactUtils';
+import ExpedienteChatTab from './ExpedienteChatTab';
 
 async function compressImageIfNeeded(file) {
   if (!file || !file.type || !file.type.startsWith('image/')) return file;
@@ -427,17 +428,24 @@ export default function MobileExpedienteDetail({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-50 flex flex-col">
-      {/* Cabecera móvil del expediente */}
-      <div className="bg-[#152427] text-white px-3 pt-3 pb-2.5 shadow-sm shrink-0">
+    <div
+      className="fixed inset-x-0 top-0 z-40 bg-slate-50 flex flex-col overflow-hidden w-full max-w-full"
+      style={{ bottom: 'calc(44px + max(6px, env(safe-area-inset-bottom, 0px)))' }}
+    >
+      {/* Cabecera móvil del expediente con safe-area superior para PWA */}
+      <div
+        className="bg-[#152427] text-white px-3 pb-2.5 shadow-sm shrink-0"
+        style={{ paddingTop: 'max(0.625rem, env(safe-area-inset-top))' }}
+      >
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="w-9 h-9 rounded-xl bg-white/10 active:bg-white/20 flex items-center justify-center shrink-0 cursor-pointer"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/15 active:bg-white/25 text-white text-xs font-extrabold shrink-0 cursor-pointer"
             title={isCa ? 'Tornar' : 'Volver'}
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
+            <span>{isCa ? 'Tornar' : 'Volver'}</span>
           </button>
 
           <div className="flex-1 min-w-0">
@@ -457,14 +465,14 @@ export default function MobileExpedienteDetail({
           </div>
         </div>
 
-        {/* Barra de contacto directo con el cliente: Llamar / WhatsApp / Email */}
-        <div className="mt-2.5 bg-[#0f1b1d] border border-white/10 rounded-xl p-2 flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block">
-              {isCa ? 'Contacte directe client' : 'Contacto directo cliente'}
+        {/* Barra de contacto directo con el cliente: solo iconos para dejar espacio completo al teléfono */}
+        <div className="mt-2 bg-[#0f1b1d] border border-white/10 rounded-xl px-2.5 py-1.5 flex items-center justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block leading-none mb-0.5">
+              {isCa ? 'Client' : 'Cliente'}
             </span>
             <span className="text-xs font-bold text-slate-100 truncate block">
-              {clientPhone || (clientEmail || (isCa ? 'Sense dades de contacte' : 'Sin datos de contacto'))}
+              {clientPhone || clientEmail || (isCa ? 'Sense dades' : 'Sin datos')}
             </span>
           </div>
 
@@ -472,15 +480,15 @@ export default function MobileExpedienteDetail({
             {telHref ? (
               <a
                 href={telHref}
-                className="flex items-center gap-1 bg-emerald-600 active:bg-emerald-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-bold shadow-xs"
+                className="w-9 h-9 flex items-center justify-center bg-emerald-600 active:bg-emerald-700 text-white rounded-xl shadow-xs"
                 title={isCa ? `Trucar a ${clientPhone}` : `Llamar a ${clientPhone}`}
+                aria-label={isCa ? 'Trucar' : 'Llamar'}
               >
-                <Phone className="w-3.5 h-3.5" />
-                <span>{isCa ? 'Trucar' : 'Llamar'}</span>
+                <Phone className="w-4 h-4" />
               </a>
             ) : (
-              <span className="flex items-center gap-1 bg-white/5 text-slate-500 px-2.5 py-1.5 rounded-lg text-xs font-semibold">
-                <Phone className="w-3.5 h-3.5" />
+              <span className="w-9 h-9 flex items-center justify-center bg-white/5 text-slate-500 rounded-xl">
+                <Phone className="w-4 h-4" />
               </span>
             )}
 
@@ -489,41 +497,41 @@ export default function MobileExpedienteDetail({
                 href={waHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1 bg-[#25D366] active:bg-[#1fb858] text-slate-950 px-2.5 py-1.5 rounded-lg text-xs font-extrabold shadow-xs"
+                className="w-9 h-9 flex items-center justify-center bg-[#25D366] active:bg-[#1fb858] text-slate-950 rounded-xl shadow-xs"
                 title={`WhatsApp (${clientPhone})`}
+                aria-label="WhatsApp"
               >
-                <MessageCircle className="w-3.5 h-3.5" />
-                <span>WA</span>
+                <MessageCircle className="w-4 h-4" />
               </a>
             ) : (
-              <span className="flex items-center gap-1 bg-white/5 text-slate-500 px-2.5 py-1.5 rounded-lg text-xs font-semibold">
-                <MessageCircle className="w-3.5 h-3.5" />
+              <span className="w-9 h-9 flex items-center justify-center bg-white/5 text-slate-500 rounded-xl">
+                <MessageCircle className="w-4 h-4" />
               </span>
             )}
 
             {clientEmail ? (
               <a
                 href={`mailto:${encodeURIComponent(clientEmail)}?subject=${encodeURIComponent(task?.title || '')}`}
-                className="flex items-center gap-1 bg-blue-600 active:bg-blue-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-bold shadow-xs"
+                className="w-9 h-9 flex items-center justify-center bg-blue-600 active:bg-blue-700 text-white rounded-xl shadow-xs"
                 title={clientEmail}
+                aria-label="Email"
               >
-                <Mail className="w-3.5 h-3.5" />
-                <span>Email</span>
+                <Mail className="w-4 h-4" />
               </a>
             ) : (
-              <span className="flex items-center gap-1 bg-white/5 text-slate-500 px-2.5 py-1.5 rounded-lg text-xs font-semibold">
-                <Mail className="w-3.5 h-3.5" />
+              <span className="w-9 h-9 flex items-center justify-center bg-white/5 text-slate-500 rounded-xl">
+                <Mail className="w-4 h-4" />
               </span>
             )}
           </div>
         </div>
 
-        {/* Sub-pestañas táctiles: Resum, Bitàcola, GTD, Adjunts */}
-        <div className="grid grid-cols-4 gap-1 mt-2.5 bg-[#0f1b1d] p-1 rounded-xl border border-white/10 text-[11px]">
+        {/* Sub-pestañas táctiles: Resum, Bitàcola, GTD, Adjunts, Xat */}
+        <div className="grid grid-cols-5 gap-1 mt-2 bg-[#0f1b1d] p-1 rounded-xl border border-white/10 text-[10.5px]">
           <button
             type="button"
             onClick={() => setActiveTab('resum')}
-            className={`py-1.5 rounded-lg font-bold transition-colors cursor-pointer ${
+            className={`py-1.5 px-1 rounded-lg font-bold transition-colors cursor-pointer truncate ${
               activeTab === 'resum' ? 'bg-indigo-600 text-white' : 'text-slate-300'
             }`}
           >
@@ -532,29 +540,38 @@ export default function MobileExpedienteDetail({
           <button
             type="button"
             onClick={() => setActiveTab('bitacora')}
-            className={`py-1.5 rounded-lg font-bold transition-colors cursor-pointer ${
+            className={`py-1.5 px-1 rounded-lg font-bold transition-colors cursor-pointer truncate ${
               activeTab === 'bitacora' ? 'bg-indigo-600 text-white' : 'text-slate-300'
             }`}
           >
-            {isCa ? 'Bitàcola' : 'Bitácora'} ({updatesList.length})
+            {isCa ? 'Bitàcola' : 'Bitácora'}
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('gtd')}
-            className={`py-1.5 rounded-lg font-bold transition-colors cursor-pointer ${
+            className={`py-1.5 px-1 rounded-lg font-bold transition-colors cursor-pointer truncate ${
               activeTab === 'gtd' ? 'bg-indigo-600 text-white' : 'text-slate-300'
             }`}
           >
-            GTD ({actionsList.filter(a => !a.isCompleted).length})
+            GTD
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('adjunts')}
-            className={`py-1.5 rounded-lg font-bold transition-colors cursor-pointer ${
+            className={`py-1.5 px-1 rounded-lg font-bold transition-colors cursor-pointer truncate ${
               activeTab === 'adjunts' ? 'bg-indigo-600 text-white' : 'text-slate-300'
             }`}
           >
-            {isCa ? 'Adjunts' : 'Adjuntos'} ({attachmentsList.length})
+            {isCa ? 'Adjunts' : 'Adjuntos'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('chat')}
+            className={`py-1.5 px-1 rounded-lg font-bold transition-colors cursor-pointer truncate ${
+              activeTab === 'chat' ? 'bg-indigo-600 text-white' : 'text-slate-300'
+            }`}
+          >
+            {isCa ? 'Xat' : 'Chat'}
           </button>
         </div>
       </div>
@@ -566,8 +583,17 @@ export default function MobileExpedienteDetail({
         </div>
       )}
 
-      {/* Cuerpo scrollable */}
-      <div className="flex-1 overflow-y-auto p-3.5 space-y-3 pb-10">
+      {/* Cuerpo: Chat usa flex-1 interno; el resto hace scroll completo */}
+      {activeTab === 'chat' ? (
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <ExpedienteChatTab
+            task={task}
+            currentUser={currentUser}
+            logAction={logAction}
+          />
+        </div>
+      ) : (
+      <div className="flex-1 overflow-y-auto p-3.5 space-y-3 pb-6">
         {activeTab === 'resum' && (
           <div className="space-y-3">
             {focusedStepId && (() => {
@@ -1032,6 +1058,7 @@ export default function MobileExpedienteDetail({
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
