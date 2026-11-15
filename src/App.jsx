@@ -5426,7 +5426,7 @@ const ExpedienteManager = ({ currentUser }) => {
         </main>
       </div>
 
-      {/* GLOBO FLOTANTE SUPERIOR IZQUIERDA (SIEMPRE VISIBLE ENCIMA DE TODO, INCLUSO DENTRO DE EXPEDIENTES) */}
+      {/* GLOBO FLOTANTE ABAJO A LA DERECHA (SIEMPRE VISIBLE ENCIMA DE TODO, INCLUSO DENTRO DE EXPEDIENTES) */}
       <ChatFloatingAlert
         unreadChatTasks={unreadChatTasks}
         onOpenChatTask={(t) => handleOpenEdit(t, 'chat')}

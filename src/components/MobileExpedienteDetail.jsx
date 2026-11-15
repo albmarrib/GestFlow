@@ -96,10 +96,15 @@ export default function MobileExpedienteDetail({
   logAction,
   lang = 'ca',
   initialTab = 'resum',
+  initialTabTrigger = 0,
   focusedStepId = null
 }) {
   const isCa = lang === 'ca';
-  const [activeTab, setActiveTab] = useState(initialTab); // 'resum' | 'bitacora' | 'gtd' | 'adjunts'
+  const [activeTab, setActiveTab] = useState(initialTab); // 'resum' | 'bitacora' | 'gtd' | 'adjunts' | 'chat'
+
+  useEffect(() => {
+    if (initialTab) setActiveTab(initialTab);
+  }, [task?.id, initialTab, initialTabTrigger]);
 
   // Campos editables básicos
   const [title, setTitle] = useState(task?.title || '');

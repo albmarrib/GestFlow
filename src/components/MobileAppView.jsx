@@ -31,7 +31,8 @@ import {
   EyeOff,
   User,
   Users,
-  MessageSquare
+  MessageSquare,
+  RefreshCw
 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import {
@@ -120,6 +121,7 @@ export default function MobileAppView({
 
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [detailInitialTab, setDetailInitialTab] = useState('resum');
+  const [detailOpenSeq, setDetailOpenSeq] = useState(0);
   const [focusedStepId, setFocusedStepId] = useState(null);
   const [showHeaderChatMenu, setShowHeaderChatMenu] = useState(false);
 
@@ -258,6 +260,7 @@ export default function MobileAppView({
 
   const openTaskDetail = (task, initialTab = 'resum', stepId = null) => {
     setDetailInitialTab(initialTab);
+    setDetailOpenSeq(s => s + 1);
     setFocusedStepId(stepId);
     setSelectedTaskId(task.id);
   };
@@ -595,6 +598,16 @@ export default function MobileAppView({
                 <span>{isCa ? 'Escriptori' : 'Escritorio'}</span>
               </button>
             )}
+
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="p-1.5 rounded-lg bg-[#0f1b1d] border border-white/10 text-slate-300 hover:text-white cursor-pointer"
+              title={isCa ? 'Actualitzar aplicació' : 'Actualizar aplicación'}
+              aria-label={isCa ? 'Actualitzar aplicació' : 'Actualizar aplicación'}
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
 
             <button
               type="button"
@@ -1467,7 +1480,7 @@ export default function MobileAppView({
         </div>
       )}
 
-      {/* GLOBO FLOTANTE SUPERIOR IZQUIERDA (POR ENCIMA DE TODO) */}
+      {/* GLOBO FLOTANTE ABAJO A LA DERECHA (POR ENCIMA DE TODO) */}
       <ChatFloatingAlert
         unreadChatTasks={unreadChatTasks}
         onOpenChatTask={(t) => openTaskDetail(t, 'chat')}
@@ -1493,6 +1506,7 @@ export default function MobileAppView({
           logAction={logAction}
           lang={lang}
           initialTab={detailInitialTab}
+          initialTabTrigger={detailOpenSeq}
           focusedStepId={focusedStepId}
         />
       )}

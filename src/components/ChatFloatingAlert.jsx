@@ -21,41 +21,35 @@ export default function ChatFloatingAlert({
 
   return (
     <>
-      {/* GLOBO FLOTANTE ARRIBA A LA IZQUIERDA (POR ENCIMA DE TODO) */}
+      {/* GLOBO TIPO BOCADILLO ROJO GRANDE ABAJO A LA DERECHA (POR ENCIMA DE TODO) */}
       <button
         type="button"
         onClick={() => setShowModal(true)}
         style={
           isMobile
-            ? { top: 'calc(54px + env(safe-area-inset-top, 0px))' }
+            ? { bottom: 'calc(74px + env(safe-area-inset-bottom, 0px))' }
             : undefined
         }
-        className={`fixed z-[80] left-3 ${
-          isMobile ? '' : 'top-16 sm:left-4'
-        } group flex items-center gap-2.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white pl-3 pr-3.5 py-2.5 rounded-2xl shadow-2xl border-2 border-white/95 cursor-pointer transition-all`}
-        title={isCa ? 'Tens missatges nous al Xat' : 'Tienes mensajes nuevos en el Chat'}
+        className={`fixed z-[80] ${
+          isMobile ? 'right-4 w-14 h-14' : 'bottom-6 right-6 w-16 h-16'
+        } rounded-full bg-rose-600 hover:bg-rose-700 active:scale-95 text-white shadow-2xl border-2 border-white/95 flex items-center justify-center cursor-pointer transition-all ${
+          currentHasUnread ? 'ring-4 ring-amber-400/80' : ''
+        }`}
+        title={
+          isCa
+            ? `Tens ${unreadChatTasks.length} ${unreadChatTasks.length === 1 ? 'xat amb missatges nous' : 'xats amb missatges nous'}`
+            : `Tienes ${unreadChatTasks.length} ${unreadChatTasks.length === 1 ? 'chat con mensajes nuevos' : 'chats con mensajes nuevos'}`
+        }
+        aria-label={isCa ? 'Missatges de Xat pendents' : 'Mensajes de Chat pendientes'}
       >
-        <span className="relative flex items-center justify-center">
-          <span className="absolute inline-flex h-full w-full rounded-full bg-white/60 animate-ping opacity-75"></span>
-          <MessageSquare className="w-5 h-5 relative z-10 shrink-0" />
+        <span className="absolute inset-0 rounded-full bg-rose-500/45 animate-ping pointer-events-none" />
+        <MessageSquare
+          className={`${isMobile ? 'w-7 h-7' : 'w-8 h-8'} relative z-10 shrink-0`}
+          strokeWidth={2.2}
+        />
+        <span className="absolute -top-1 -right-1 z-20 min-w-[26px] h-[26px] px-1.5 rounded-full bg-white text-rose-700 border-2 border-rose-600 text-xs font-black flex items-center justify-center shadow-md">
+          {unreadChatTasks.length > 9 ? '9+' : unreadChatTasks.length}
         </span>
-
-        <div className="text-left leading-tight">
-          <span className="text-xs font-extrabold tracking-tight block">
-            {isCa
-              ? `Xat nou (${unreadChatTasks.length})`
-              : `Chat nuevo (${unreadChatTasks.length})`}
-          </span>
-          {currentHasUnread ? (
-            <span className="text-[10px] font-bold text-amber-200 block">
-              {isCa ? 'En aquest expedient!' : '¡En este expediente!'}
-            </span>
-          ) : (
-            <span className="text-[10px] font-medium text-rose-100 block max-w-[140px] truncate">
-              {unreadChatTasks[0]?.title}
-            </span>
-          )}
-        </div>
       </button>
 
       {/* MODAL CON TODOS LOS MENSAJES PENDIENTES Y SUS EXPEDIENTES */}
