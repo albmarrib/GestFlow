@@ -1428,6 +1428,59 @@ const AccessDeniedView = ({ currentUser, onSignOut }) => {
   );
 };
 
+// --- VISTA RESTRINGIDA MÓVIL (SOLO ADMINISTRADORES Y SUPERADMINISTRADORES) ---
+const MobileRestrictedView = ({ currentUser, onSignOut, lang = 'ca' }) => {
+  const isCa = lang === 'ca';
+  return (
+    <div className="min-h-[100dvh] bg-slate-950 flex flex-col justify-center items-center p-4 text-white">
+      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-7 text-center shadow-2xl relative overflow-hidden">
+        <div className="w-16 h-16 bg-amber-500/10 border border-amber-500/25 text-amber-400 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner">
+          <Smartphone className="w-8 h-8 text-amber-400" />
+        </div>
+        <h2 className="text-xl font-bold text-white mb-2">
+          {isCa ? 'Accés mòbil restringit' : 'Acceso móvil restringido'}
+        </h2>
+        <p className="text-xs text-slate-300 mb-5 leading-relaxed">
+          {isCa ? (
+            <>Has iniciat sessió com <strong className="text-white">{currentUser?.email}</strong>.</>
+          ) : (
+            <>Has iniciado sesión como <strong className="text-white">{currentUser?.email}</strong>.</>
+          )}
+        </p>
+        <div className="bg-slate-950/80 rounded-xl p-3.5 border border-slate-800/80 text-left mb-6 text-xs text-slate-300 space-y-2">
+          <p className="font-bold text-amber-300 flex items-center gap-1.5">
+            <Lock className="w-3.5 h-3.5 shrink-0" />
+            <span>
+              {isCa ? 'Només Administradors i Superadministradors' : 'Solo Administradores y Superadministradores'}
+            </span>
+          </p>
+          <p className="text-[11px] leading-normal text-slate-400">
+            {isCa
+              ? "De moment, l'aplicació mòbil només està habilitada per a usuaris amb categoria d'Administrador o Superadministrador. Pots treballar amb normalitat accedint des d'un ordinador."
+              : 'De momento, la aplicación móvil solo está habilitada para usuarios con categoría de Administrador o Superadministrador. Puedes trabajar con normalidad accediendo desde un ordenador.'}
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="flex-1 py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <RefreshCw className="w-3.5 h-3.5" /> {isCa ? 'Actualitzar' : 'Actualizar'}
+          </button>
+          <button
+            type="button"
+            onClick={onSignOut}
+            className="flex-1 py-2.5 px-4 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 shadow-md shadow-rose-900/30 cursor-pointer"
+          >
+            <LogOut className="w-3.5 h-3.5" /> {isCa ? 'Tancar sessió' : 'Cerrar sesión'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- VISTA ADMIN: GESTIÓN Y AUDITORÍA DEL DESPACHO ---
 const AdminView = ({ 
   tasks = [], 
@@ -4269,8 +4322,11 @@ const ExpedienteManager = ({ currentUser }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const shouldRenderMobile =
+  const isAdminRole = isAdmin;
+  const wantsMobile =
     viewModeOverride === 'mobile' || (viewModeOverride === 'auto' && isMobileViewport);
+  const shouldRenderMobile = isAdminRole && wantsMobile;
+  const isMobileRestricted = !isAdminRole && wantsMobile;
 
   // Idioma de la aplicación: Català (per defecte) o Castellano
   const [lang, setLangState] = useState(() => {
@@ -5003,6 +5059,16 @@ const ExpedienteManager = ({ currentUser }) => {
     );
   }
 
+  if (isMobileRestricted) {
+    return (
+      <MobileRestrictedView
+        currentUser={currentUser}
+        onSignOut={() => signOut(auth)}
+        lang={lang}
+      />
+    );
+  }
+
   if (shouldRenderMobile) {
     return (
       <EstadosContext.Provider value={estados}>
@@ -5120,16 +5186,18 @@ const ExpedienteManager = ({ currentUser }) => {
 
                <NotificationDropdown tasks={tasks} currentUser={currentUser} onOpenTask={handleOpenEdit} />
                
-               {/* User Avatar Pill, Mobile Switch & Logout */}
+               {/* User Avatar Pill, Mobile Switch (Admin/Superadmin) & Logout */}
                <div className="flex items-center gap-1.5 pl-1.5 border-l border-white/15 shrink-0">
-                 <button
-                   type="button"
-                   onClick={() => setViewModeOverride('mobile')}
-                   className="bg-[#0f1b1d]/90 hover:bg-indigo-600/30 text-slate-300 hover:text-indigo-200 p-1.5 rounded-xl border border-white/10 transition-all cursor-pointer shrink-0"
-                   title={lang === 'ca' ? 'Versió Mòbil' : 'Versión Móvil'}
-                 >
-                   <Smartphone className="w-3.5 h-3.5" />
-                 </button>
+                 {isAdmin && (
+                   <button
+                     type="button"
+                     onClick={() => setViewModeOverride('mobile')}
+                     className="bg-[#0f1b1d]/90 hover:bg-indigo-600/30 text-slate-300 hover:text-indigo-200 p-1.5 rounded-xl border border-white/10 transition-all cursor-pointer shrink-0"
+                     title={lang === 'ca' ? 'Versió Mòbil' : 'Versión Móvil'}
+                   >
+                     <Smartphone className="w-3.5 h-3.5" />
+                   </button>
+                 )}
 
                  <div className="flex items-center gap-1.5 bg-[#0f1b1d]/90 px-2 py-1 rounded-full border border-white/10 shadow-inner">
                    <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-indigo-500 to-indigo-700 flex items-center justify-center text-[10px] font-bold text-white uppercase ring-1 ring-white/20 shrink-0">

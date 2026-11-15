@@ -486,6 +486,10 @@ export default function MobileAppView({
         ? classifiedReminders.future
         : classifiedReminders.done;
 
+  if (!isAdmin) {
+    return null;
+  }
+
   return (
     <div className="min-h-[100dvh] w-full max-w-full overflow-x-hidden bg-slate-100 text-slate-900 flex flex-col pb-20 antialiased">
       {/* HEADER MÓVIL COMPACTO CON SAFE-AREA SUPERIOR PARA PWA */}
