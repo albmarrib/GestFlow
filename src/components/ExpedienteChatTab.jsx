@@ -11,7 +11,7 @@ import {
   arrayUnion
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import { emailToChatKey, markTaskChatAsRead } from '../utils/chatUtils';
+import { emailToChatKey, markTaskChatAsRead, forceMarkTaskChatAsRead } from '../utils/chatUtils';
 import { 
   Send, 
   MessageSquare, 
@@ -59,9 +59,14 @@ export default function ExpedienteChatTab({
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef(null);
+  const lastMarkedMsgIdRef = useRef(null);
 
   const taskId = task?.id;
   const myEmail = (currentUser?.email || '').toLowerCase().trim();
+
+  useEffect(() => {
+    lastMarkedMsgIdRef.current = null;
+  }, [taskId]);
 
   // Escuchar subcolección de mensajes en tiempo real
   useEffect(() => {
@@ -93,12 +98,22 @@ export default function ExpedienteChatTab({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Marcar mensajes de este expediente como leídos para el usuario actual mientras el chat esté abierto
+  // Marcar mensajes de este expediente como leídos mientras el chat esté abierto (tanto por snapshot de task como por mensajes en vivo)
   useEffect(() => {
     if (task?.id && myEmail) {
       markTaskChatAsRead(db, task, myEmail);
     }
-  }, [task?.id, task?.lastMessageAt, myEmail, task]);
+  }, [task?.id, task?.lastMessageAt, task?.lastUpdated, myEmail, task]);
+
+  useEffect(() => {
+    if (!taskId || !myEmail || messages.length === 0) return;
+    const latestMsg = messages[messages.length - 1];
+    const sender = (latestMsg?.senderEmail || '').toLowerCase().trim();
+    if (latestMsg?.id && latestMsg.id !== lastMarkedMsgIdRef.current && sender && sender !== myEmail) {
+      lastMarkedMsgIdRef.current = latestMsg.id;
+      forceMarkTaskChatAsRead(db, task, myEmail);
+    }
+  }, [messages, taskId, myEmail, task]);
 
   // Enviar mensaje
   const handleSendMessage = async (e) => {

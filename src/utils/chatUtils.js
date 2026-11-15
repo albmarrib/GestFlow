@@ -76,10 +76,9 @@ export function getUnreadChatTasks(tasks = [], userEmail = '') {
     .sort((a, b) => String(getTaskMessageTimestamp(b)).localeCompare(String(getTaskMessageTimestamp(a))));
 }
 
-export async function markTaskChatAsRead(db, task, userEmail) {
+export async function forceMarkTaskChatAsRead(db, task, userEmail) {
   const norm = normalizeChatEmail(userEmail);
   if (!db || !task?.id || !norm) return;
-  if (!hasUnreadChatMessage(task, norm)) return;
 
   const key = emailToChatKey(norm);
   if (!key) return;
@@ -87,7 +86,7 @@ export async function markTaskChatAsRead(db, task, userEmail) {
   const msgTs = getTaskMessageTimestamp(task);
   const parsedMsgTime = msgTs ? Date.parse(msgTs) : 0;
   const readStamp = new Date(
-    Math.max(Date.now(), Number.isNaN(parsedMsgTime) ? 0 : parsedMsgTime + 1000)
+    Math.max(Date.now() + 2000, Number.isNaN(parsedMsgTime) ? 0 : parsedMsgTime + 2000)
   ).toISOString();
 
   const payload = {
@@ -97,4 +96,11 @@ export async function markTaskChatAsRead(db, task, userEmail) {
   await updateDoc(doc(db, 'expedientes', task.id), payload).catch(async () => {
     await updateDoc(doc(db, 'tasks', task.id), payload).catch(() => {});
   });
+}
+
+export async function markTaskChatAsRead(db, task, userEmail) {
+  const norm = normalizeChatEmail(userEmail);
+  if (!db || !task?.id || !norm) return;
+  if (!hasUnreadChatMessage(task, norm)) return;
+  await forceMarkTaskChatAsRead(db, task, norm);
 }

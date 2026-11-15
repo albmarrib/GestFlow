@@ -53,6 +53,7 @@ import TemplateManager from './components/TemplateManager';
 import ExpedienteBillingTab from './components/ExpedienteBillingTab';
 import BillingView from './components/BillingView';
 import ExpedienteChatTab from './components/ExpedienteChatTab';
+import ChatFloatingAlert from './components/ChatFloatingAlert';
 import BillingSettingsManager from './components/BillingSettingsManager';
 import VariableModal from './components/VariableModal';
 import VariablesCatalogManager from './components/VariablesCatalogManager';
@@ -2924,7 +2925,8 @@ const ExpedienteModal = ({
   onDelete,
   isAdmin = false,
   lang = 'ca',
-  initialRightTab = 'activity'
+  initialRightTab = 'activity',
+  initialTabTrigger = 0
 }) => {
   const t = translations[lang] || translations.ca;
   const effectiveFormStatus = useMemo(() => {
@@ -3017,7 +3019,7 @@ const ExpedienteModal = ({
     if (show) {
       setRightTab(initialRightTab || 'activity');
     }
-  }, [show, task?.id, initialRightTab]);
+  }, [show, task?.id, initialRightTab, initialTabTrigger]);
   const [newActionText, setNewActionText] = useState('');
   const [newActionAssignee, setNewActionAssignee] = useState(currentUser?.email || '');
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -4303,10 +4305,16 @@ const ExpedienteManager = ({ currentUser }) => {
   }, [reminders]);
 
   const [modalInitialTab, setModalInitialTab] = useState('activity');
+  const [modalOpenSeq, setModalOpenSeq] = useState(0);
 
   const unreadChatTasks = useMemo(
     () => getUnreadChatTasks(tasks, currentUser?.email),
     [tasks, currentUser?.email]
+  );
+
+  const liveEditingTask = useMemo(
+    () => (editingTask ? (tasks.find(t => t.id === editingTask.id) || editingTask) : null),
+    [tasks, editingTask]
   );
 
   // Derivación dinámica de opciones para filtros a partir de Firestore
@@ -4730,6 +4738,7 @@ const ExpedienteManager = ({ currentUser }) => {
       return;
     }
     setModalInitialTab(preferredTab || 'activity');
+    setModalOpenSeq(s => s + 1);
     setEditingTask(task);
     const dept = task.department || task.area || normalizeDepartment(task.department);
     const typ = task.type || task.tramo || normalizeType(task.type);
@@ -5223,49 +5232,6 @@ const ExpedienteManager = ({ currentUser }) => {
         />
 
         <main className="flex-1 min-w-0">
-        {unreadChatTasks.length > 0 && (
-          <div className="mb-4 bg-rose-50 border border-rose-300 rounded-2xl p-3 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-              <div className="flex items-center gap-2 text-rose-800">
-                <span className="inline-flex items-center justify-center w-7 h-7 rounded-xl bg-rose-600 text-white animate-pulse">
-                  <MessageSquare className="w-4 h-4" />
-                </span>
-                <span className="text-xs sm:text-sm font-extrabold tracking-tight">
-                  {lang === 'ca'
-                    ? `ATENCIÓ: Tens ${unreadChatTasks.length} ${unreadChatTasks.length === 1 ? 'missatge nou' : 'missatges nous'} per Xat`
-                    : `ATENCIÓN: Tienes ${unreadChatTasks.length} ${unreadChatTasks.length === 1 ? 'mensaje nuevo' : 'mensajes nuevos'} por Chat`}
-                </span>
-              </div>
-              <span className="text-[11px] font-bold text-rose-700">
-                {lang === 'ca'
-                  ? 'Expedients amb missatges sense llegir:'
-                  : 'Expedientes con mensajes sin leer:'}
-              </span>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {unreadChatTasks.map(ut => (
-                <button
-                  key={ut.id}
-                  type="button"
-                  onClick={() => handleOpenEdit(ut, 'chat')}
-                  className="bg-white hover:bg-rose-100/70 border border-rose-200 rounded-xl px-3 py-1.5 text-left transition-colors cursor-pointer flex items-center gap-2 shadow-2xs max-w-full"
-                >
-                  <MessageSquare className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                  <div className="min-w-0">
-                    <span className="text-xs font-extrabold text-slate-900 block truncate max-w-[260px]">
-                      {ut.title}
-                    </span>
-                    <span className="text-[11px] text-slate-600 block truncate max-w-[260px]">
-                      <strong className="text-rose-700">{ut.client || '—'}</strong>
-                      {ut.lastMessagePreview ? ` · "${ut.lastMessagePreview}"` : ''}
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
         {currentView === 'admin' ? (
              isAdmin ? (
                <AdminView 
@@ -5460,13 +5426,22 @@ const ExpedienteManager = ({ currentUser }) => {
         </main>
       </div>
 
+      {/* GLOBO FLOTANTE SUPERIOR IZQUIERDA (SIEMPRE VISIBLE ENCIMA DE TODO, INCLUSO DENTRO DE EXPEDIENTES) */}
+      <ChatFloatingAlert
+        unreadChatTasks={unreadChatTasks}
+        onOpenChatTask={(t) => handleOpenEdit(t, 'chat')}
+        currentTaskId={showModal ? (liveEditingTask?.id || null) : null}
+        lang={lang}
+        isMobile={false}
+      />
+
       {/* MODAL FICHA DE EXPEDIENTE */}
       <ExpedienteModal 
         tasks={tasks} 
         onOpenMergeModal={(cName) => setMergeModalTarget(cName)} 
         show={showModal} 
         onClose={() => setShowModal(false)} 
-        task={editingTask} 
+        task={liveEditingTask} 
         formData={formData} 
         setFormData={setFormData} 
         onSave={handleSaveTask} 
@@ -5489,6 +5464,7 @@ const ExpedienteManager = ({ currentUser }) => {
         isAdmin={isAdmin}
         lang={lang}
         initialRightTab={modalInitialTab}
+        initialTabTrigger={modalOpenSeq}
       />
 
       {/* MODAL COMPACTO DE VARIABLE / ACTUACIÓN DIRECTA */}

@@ -45,6 +45,7 @@ import {
 import { db, auth } from '../firebase';
 import ClientAutocomplete from './ClientAutocomplete';
 import MobileExpedienteDetail from './MobileExpedienteDetail';
+import ChatFloatingAlert from './ChatFloatingAlert';
 import { buildTelHref, buildWhatsAppHref } from '../utils/contactUtils';
 import { getUnreadChatTasks, hasUnreadChatMessage } from '../utils/chatUtils';
 import { findClientForTask } from '../utils/billingUtils';
@@ -120,7 +121,7 @@ export default function MobileAppView({
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [detailInitialTab, setDetailInitialTab] = useState('resum');
   const [focusedStepId, setFocusedStepId] = useState(null);
-  const [chatBannerExpanded, setChatBannerExpanded] = useState(true);
+  const [showHeaderChatMenu, setShowHeaderChatMenu] = useState(false);
 
   // Nuevo expediente rápido
   const [showNewExpSheet, setShowNewExpSheet] = useState(false);
@@ -498,6 +499,74 @@ export default function MobileAppView({
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowHeaderChatMenu(prev => !prev)}
+                className={`relative p-1.5 rounded-lg border transition-all cursor-pointer ${
+                  unreadChatTasks.length > 0
+                    ? 'bg-rose-600 border-rose-400 text-white animate-pulse'
+                    : 'bg-[#0f1b1d] border-white/10 text-slate-300'
+                }`}
+                title={isCa ? 'Missatges de Xat intern' : 'Mensajes de Chat interno'}
+                aria-label={isCa ? 'Missatges de Xat intern' : 'Mensajes de Chat interno'}
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                {unreadChatTasks.length > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-white text-rose-700 border border-rose-600 text-[9px] font-black flex items-center justify-center shadow-xs">
+                    {unreadChatTasks.length > 9 ? '9+' : unreadChatTasks.length}
+                  </span>
+                )}
+              </button>
+
+              {showHeaderChatMenu && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowHeaderChatMenu(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-2 w-72 bg-white text-slate-900 rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden">
+                    <div className="bg-rose-50 px-3 py-2 border-b border-rose-100 flex items-center justify-between">
+                      <span className="text-[11px] font-extrabold text-rose-900 uppercase flex items-center gap-1.5">
+                        <MessageSquare className="w-3.5 h-3.5 text-rose-600" />
+                        {isCa ? 'Missatges al Xat' : 'Mensajes en Chat'}
+                      </span>
+                      <span className="px-1.5 py-0.2 rounded-full bg-rose-600 text-white text-[10px] font-bold">
+                        {unreadChatTasks.length}
+                      </span>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto p-2 space-y-1.5">
+                      {unreadChatTasks.length === 0 ? (
+                        <p className="py-6 text-center text-xs text-slate-400">
+                          {isCa ? 'Cap missatge pendent.' : 'Ningún mensaje pendiente.'}
+                        </p>
+                      ) : (
+                        unreadChatTasks.map(ut => (
+                          <button
+                            key={ut.id}
+                            type="button"
+                            onClick={() => {
+                              setShowHeaderChatMenu(false);
+                              openTaskDetail(ut, 'chat');
+                            }}
+                            className="w-full text-left p-2 rounded-xl border border-rose-200 bg-rose-50/40 active:bg-rose-100 cursor-pointer"
+                          >
+                            <p className="text-xs font-extrabold text-slate-900 truncate">{ut.title}</p>
+                            <p className="text-[11px] font-semibold text-rose-700 truncate">{ut.client || '—'}</p>
+                            {ut.lastMessagePreview && (
+                              <p className="text-[10px] text-slate-600 truncate mt-0.5">
+                                {ut.lastMessagePreview}
+                              </p>
+                            )}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
             <div className="flex items-center bg-[#0f1b1d] rounded-lg p-0.5 border border-white/10">
               <button
                 type="button"
@@ -541,56 +610,6 @@ export default function MobileAppView({
 
       {/* CUERPO PRINCIPAL */}
       <main className="flex-1 px-3 py-3 space-y-3 max-w-2xl w-full mx-auto">
-        {/* AVISO VISUAL GENERAL DE MENSAJES DE CHAT + DETALLE DE EXPEDIENTE */}
-        {unreadChatTasks.length > 0 && (
-          <div className="bg-rose-50 border border-rose-300 rounded-2xl shadow-sm overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setChatBannerExpanded(prev => !prev)}
-              className="w-full px-3.5 py-2.5 bg-rose-600 text-white flex items-center justify-between gap-2 text-left cursor-pointer"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <MessageSquare className="w-4 h-4 shrink-0 animate-bounce" />
-                <span className="text-xs font-extrabold tracking-tight truncate">
-                  {isCa
-                    ? `ATENCIÓ: Tens ${unreadChatTasks.length} ${unreadChatTasks.length === 1 ? 'missatge nou' : 'missatges nous'} per Xat`
-                    : `ATENCIÓN: Tienes ${unreadChatTasks.length} ${unreadChatTasks.length === 1 ? 'mensaje nuevo' : 'mensajes nuevos'} por Chat`}
-                </span>
-              </div>
-              <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full shrink-0">
-                {chatBannerExpanded ? (isCa ? 'Amagar' : 'Ocultar') : (isCa ? 'Veure' : 'Ver')}
-              </span>
-            </button>
-
-            {chatBannerExpanded && (
-              <div className="p-2 space-y-1.5">
-                {unreadChatTasks.map(ut => (
-                  <button
-                    key={ut.id}
-                    type="button"
-                    onClick={() => openTaskDetail(ut, 'chat')}
-                    className="w-full bg-white hover:bg-rose-50/70 border border-rose-200 rounded-xl px-3 py-2 flex items-center justify-between gap-2 text-left cursor-pointer"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-extrabold text-slate-900 truncate">
-                        {ut.title}
-                      </p>
-                      <p className="text-[11px] text-slate-600 truncate">
-                        <span className="font-semibold text-rose-700">{ut.client || '—'}</span>
-                        {ut.lastMessagePreview ? ` · "${ut.lastMessagePreview}"` : ''}
-                      </p>
-                    </div>
-                    <span className="inline-flex items-center gap-0.5 px-2 py-1 rounded-lg bg-rose-600 text-white text-[10px] font-bold shrink-0">
-                      {isCa ? 'Xat' : 'Chat'}
-                      <ChevronRight className="w-3 h-3" />
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* ================= TAB 1: EXPEDIENTS & VARIABLES ================= */}
         {activeTab === 'expedients' && (
           <>
@@ -1447,6 +1466,15 @@ export default function MobileAppView({
           </div>
         </div>
       )}
+
+      {/* GLOBO FLOTANTE SUPERIOR IZQUIERDA (POR ENCIMA DE TODO) */}
+      <ChatFloatingAlert
+        unreadChatTasks={unreadChatTasks}
+        onOpenChatTask={(t) => openTaskDetail(t, 'chat')}
+        currentTaskId={liveSelectedTask?.id || null}
+        lang={lang}
+        isMobile={true}
+      />
 
       {/* DETALLE DE EXPEDIENTE / VARIABLE MÓVIL */}
       {liveSelectedTask && (
