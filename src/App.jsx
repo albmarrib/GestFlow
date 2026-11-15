@@ -59,6 +59,7 @@ import VariablesCatalogManager from './components/VariablesCatalogManager';
 import RemindersSidebar from './components/RemindersSidebar';
 import { DEFAULT_BILLING_SETTINGS } from './utils/billingUtils';
 import { classifyReminder, getLocalTodayStr, getEndOfCurrentWeekStr } from './utils/reminderUtils';
+import { getUnreadChatTasks, hasUnreadChatMessage } from './utils/chatUtils';
 import { translations } from './i18n/translations';
 import { translateClassificationName, matchesClassificationFilter } from './utils/classificationI18n';
 
@@ -480,6 +481,84 @@ const NotificationDropdown = ({ tasks, currentUser, onOpenTask }) => {
                   </div>
                 ))}
               </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const ChatNotificationsDropdown = ({ unreadChatTasks = [], onOpenChatTask, lang = 'ca' }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const wrapperRef = useRef(null);
+  const isCa = lang === 'ca';
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) setIsOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div className="relative" ref={wrapperRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(prev => !prev)}
+        className={`relative p-2 transition-all rounded-xl border cursor-pointer ${
+          unreadChatTasks.length > 0
+            ? 'text-white bg-rose-600 hover:bg-rose-700 border-rose-400/50 animate-pulse'
+            : 'text-slate-300 hover:text-white hover:bg-slate-800/80 border-transparent hover:border-slate-700/50'
+        }`}
+        title={isCa ? 'Missatges de Xat intern' : 'Mensajes de Chat interno'}
+      >
+        <MessageSquare className="w-4 h-4" />
+        {unreadChatTasks.length > 0 && (
+          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-white text-rose-700 rounded-full border border-rose-600 flex items-center justify-center text-[10px] font-black shadow-xs">
+            {unreadChatTasks.length > 9 ? '9+' : unreadChatTasks.length}
+          </span>
+        )}
+      </button>
+
+      {isOpen && (
+        <div className="absolute top-full right-0 mt-2 w-84 bg-white/95 backdrop-blur-md rounded-2xl shadow-premium border border-slate-200/90 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-rose-50 p-3 border-b border-rose-100 flex justify-between items-center">
+            <h3 className="font-bold text-rose-900 text-xs tracking-wide uppercase flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-rose-600" />
+              <span>{isCa ? 'Missatges nous per Xat' : 'Mensajes nuevos por Chat'}</span>
+            </h3>
+            <span className="bg-rose-600 text-white text-[11px] px-2 py-0.5 rounded-full font-bold">
+              {unreadChatTasks.length}
+            </span>
+          </div>
+
+          <div className="max-h-72 overflow-y-auto p-2 space-y-1.5">
+            {unreadChatTasks.length === 0 ? (
+              <div className="py-8 text-center text-slate-400 text-xs">
+                {isCa ? 'No tens missatges pendents.' : 'No tienes mensajes pendientes.'}
+              </div>
+            ) : (
+              unreadChatTasks.map(task => (
+                <button
+                  key={task.id}
+                  type="button"
+                  onClick={() => {
+                    setIsOpen(false);
+                    onOpenChatTask(task);
+                  }}
+                  className="w-full text-left p-2.5 rounded-xl border border-rose-200 bg-white hover:bg-rose-50/70 transition-colors cursor-pointer"
+                >
+                  <p className="text-xs font-extrabold text-slate-900 truncate">{task.title}</p>
+                  <p className="text-[11px] font-semibold text-indigo-700 truncate">{task.client || '—'}</p>
+                  {task.lastMessagePreview && (
+                    <p className="text-[11px] text-slate-600 truncate mt-0.5">
+                      <span className="font-bold text-rose-700">{(task.lastMessageAuthor || '').split('@')[0]}:</span> {task.lastMessagePreview}
+                    </p>
+                  )}
+                </button>
+              ))
             )}
           </div>
         </div>
@@ -2663,7 +2742,7 @@ const AnnualPlanView = ({ tasks, currentUser, onEdit, lang = 'ca', areas = [], t
 };
 
 // --- VISTA LISTA: LISTADO DE EXPEDIENTES ---
-const ListView = ({ tasks, onEdit, lang = 'ca', areas = [], tramos = [] }) => {
+const ListView = ({ tasks, onEdit, onOpenChat, currentUser, lang = 'ca', areas = [], tramos = [] }) => {
   const [showEmpty, setShowEmpty] = useState(false);
   const dateLocale = lang === 'ca' ? 'ca-ES' : 'es-ES';
 
@@ -2706,12 +2785,15 @@ const ListView = ({ tasks, onEdit, lang = 'ca', areas = [], tramos = [] }) => {
         const effectiveStatus = getEffectiveStatus(task);
         const normType = translateClassificationName(normalizeType(task.type), 'tramos', tramos, lang);
         const normDept = translateClassificationName(normalizeDepartment(task.department), 'areas', areas, lang);
+        const hasUnreadChat = hasUnreadChatMessage(task, currentUser?.email);
 
         return (
         <div 
           key={task.id} 
           onClick={() => onEdit(task)} 
-          className="group hover-card-elevate bg-white/95 backdrop-blur-xs rounded-2xl p-4 sm:p-4.5 border border-slate-200/80 shadow-xs hover:border-indigo-200/80 transition-all cursor-pointer relative overflow-hidden"
+          className={`group hover-card-elevate bg-white/95 backdrop-blur-xs rounded-2xl p-4 sm:p-4.5 border shadow-xs transition-all cursor-pointer relative overflow-hidden ${
+            hasUnreadChat ? 'border-rose-400 ring-1 ring-rose-200 hover:border-rose-500' : 'border-slate-200/80 hover:border-indigo-200/80'
+          }`}
         >
           <div className={`absolute left-0 top-0 bottom-0 w-1.5 transition-colors ${
             effectiveStatus === 'Cerrado' ? 'bg-blue-500' : 
@@ -2730,6 +2812,21 @@ const ListView = ({ tasks, onEdit, lang = 'ca', areas = [], tramos = [] }) => {
                   </span>
                 )}
                 <h3 className="font-bold text-slate-900 text-sm sm:text-base group-hover:text-indigo-600 transition-colors tracking-tight truncate">{task.title}</h3>
+                {hasUnreadChat && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onOpenChat) onOpenChat(task);
+                      else onEdit(task);
+                    }}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-600 text-white shadow-xs shrink-0 animate-pulse cursor-pointer"
+                    title={task.lastMessagePreview || (lang === 'ca' ? 'Nou missatge al Xat' : 'Nuevo mensaje en Chat')}
+                  >
+                    <MessageSquare className="w-3 h-3" />
+                    <span>{lang === 'ca' ? 'Missatge nou al Xat' : 'Mensaje nuevo en Chat'}</span>
+                  </button>
+                )}
                 {normDept && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80 shrink-0">
                     <Briefcase className="w-2.5 h-2.5 text-indigo-600" />
@@ -2826,7 +2923,8 @@ const ExpedienteModal = ({
   onOpenMergeModal,
   onDelete,
   isAdmin = false,
-  lang = 'ca'
+  lang = 'ca',
+  initialRightTab = 'activity'
 }) => {
   const t = translations[lang] || translations.ca;
   const effectiveFormStatus = useMemo(() => {
@@ -2913,7 +3011,13 @@ const ExpedienteModal = ({
   const fileInputRef = useRef(null);
   const [editingUpdateIndex, setEditingUpdateIndex] = useState(null);
   const [editedUpdateText, setEditedUpdateText] = useState('');
-  const [rightTab, setRightTab] = useState('activity');
+  const [rightTab, setRightTab] = useState(initialRightTab || 'activity');
+
+  useEffect(() => {
+    if (show) {
+      setRightTab(initialRightTab || 'activity');
+    }
+  }, [show, task?.id, initialRightTab]);
   const [newActionText, setNewActionText] = useState('');
   const [newActionAssignee, setNewActionAssignee] = useState(currentUser?.email || '');
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -3555,8 +3659,11 @@ const ExpedienteModal = ({
                   : 'text-slate-500 border-transparent hover:text-slate-800 hover:bg-slate-50/60'
               }`}
             >
-              <MessageSquare className="w-3.5 h-3.5 shrink-0 text-indigo-600"/>
+              <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${hasUnreadChatMessage(task, currentUser?.email) ? 'text-rose-600 animate-pulse' : 'text-indigo-600'}`}/>
               <span className="truncate">{t.expedienteTabs?.chat || 'Chat'}</span>
+              {hasUnreadChatMessage(task, currentUser?.email) && (
+                <span className="w-2 h-2 rounded-full bg-rose-600 animate-pulse shrink-0" />
+              )}
             </button>
           </div>
 
@@ -4195,6 +4302,13 @@ const ExpedienteManager = ({ currentUser }) => {
     return { active, overdue };
   }, [reminders]);
 
+  const [modalInitialTab, setModalInitialTab] = useState('activity');
+
+  const unreadChatTasks = useMemo(
+    () => getUnreadChatTasks(tasks, currentUser?.email),
+    [tasks, currentUser?.email]
+  );
+
   // Derivación dinámica de opciones para filtros a partir de Firestore
   const dynamicDepartments = useMemo(() => {
     if (areas.length > 0) return areas.map(a => a.nombre || a.name).filter(Boolean);
@@ -4609,12 +4723,13 @@ const ExpedienteManager = ({ currentUser }) => {
     setShowVariableModal(true);
   };
 
-  const handleOpenEdit = (task) => {
-    if (task?.recordType === 'variable') {
+  const handleOpenEdit = (task, preferredTab = 'activity') => {
+    if (task?.recordType === 'variable' && preferredTab !== 'chat') {
       setEditingVariable(task);
       setShowVariableModal(true);
       return;
     }
+    setModalInitialTab(preferredTab || 'activity');
     setEditingTask(task);
     const dept = task.department || task.area || normalizeDepartment(task.department);
     const typ = task.type || task.tramo || normalizeType(task.type);
@@ -4988,6 +5103,12 @@ const ExpedienteManager = ({ currentUser }) => {
                  </button>
                </div>
 
+               <ChatNotificationsDropdown
+                 unreadChatTasks={unreadChatTasks}
+                 onOpenChatTask={(t) => handleOpenEdit(t, 'chat')}
+                 lang={lang}
+               />
+
                <NotificationDropdown tasks={tasks} currentUser={currentUser} onOpenTask={handleOpenEdit} />
                
                {/* User Avatar Pill, Mobile Switch & Logout */}
@@ -5056,7 +5177,13 @@ const ExpedienteManager = ({ currentUser }) => {
                   )}
                 </button>
 
-                <NotificationDropdown tasks={tasks} currentUser={currentUser} onOpenTask={handleOpenEdit} />
+                <ChatNotificationsDropdown
+                 unreadChatTasks={unreadChatTasks}
+                 onOpenChatTask={(t) => handleOpenEdit(t, 'chat')}
+                 lang={lang}
+               />
+
+               <NotificationDropdown tasks={tasks} currentUser={currentUser} onOpenTask={handleOpenEdit} />
                 <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-slate-200 hover:text-white hover:bg-white/10 rounded-xl border border-white/10">{isMobileMenuOpen ? <X className="w-5 h-5"/> : <Menu className="w-5 h-5"/>}</button>
             </div>
           </div>
@@ -5096,6 +5223,49 @@ const ExpedienteManager = ({ currentUser }) => {
         />
 
         <main className="flex-1 min-w-0">
+        {unreadChatTasks.length > 0 && (
+          <div className="mb-4 bg-rose-50 border border-rose-300 rounded-2xl p-3 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <div className="flex items-center gap-2 text-rose-800">
+                <span className="inline-flex items-center justify-center w-7 h-7 rounded-xl bg-rose-600 text-white animate-pulse">
+                  <MessageSquare className="w-4 h-4" />
+                </span>
+                <span className="text-xs sm:text-sm font-extrabold tracking-tight">
+                  {lang === 'ca'
+                    ? `ATENCIÓ: Tens ${unreadChatTasks.length} ${unreadChatTasks.length === 1 ? 'missatge nou' : 'missatges nous'} per Xat`
+                    : `ATENCIÓN: Tienes ${unreadChatTasks.length} ${unreadChatTasks.length === 1 ? 'mensaje nuevo' : 'mensajes nuevos'} por Chat`}
+                </span>
+              </div>
+              <span className="text-[11px] font-bold text-rose-700">
+                {lang === 'ca'
+                  ? 'Expedients amb missatges sense llegir:'
+                  : 'Expedientes con mensajes sin leer:'}
+              </span>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {unreadChatTasks.map(ut => (
+                <button
+                  key={ut.id}
+                  type="button"
+                  onClick={() => handleOpenEdit(ut, 'chat')}
+                  className="bg-white hover:bg-rose-100/70 border border-rose-200 rounded-xl px-3 py-1.5 text-left transition-colors cursor-pointer flex items-center gap-2 shadow-2xs max-w-full"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                  <div className="min-w-0">
+                    <span className="text-xs font-extrabold text-slate-900 block truncate max-w-[260px]">
+                      {ut.title}
+                    </span>
+                    <span className="text-[11px] text-slate-600 block truncate max-w-[260px]">
+                      <strong className="text-rose-700">{ut.client || '—'}</strong>
+                      {ut.lastMessagePreview ? ` · "${ut.lastMessagePreview}"` : ''}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {currentView === 'admin' ? (
              isAdmin ? (
                <AdminView 
@@ -5271,7 +5441,7 @@ const ExpedienteManager = ({ currentUser }) => {
             </div>
 
             {/* VISTAS */}
-            {currentView === 'list' && <ListView tasks={filteredTasks} onEdit={handleOpenEdit} lang={lang} areas={areas} tramos={tramos} />}
+            {currentView === 'list' && <ListView tasks={filteredTasks} onEdit={handleOpenEdit} onOpenChat={(t) => handleOpenEdit(t, 'chat')} currentUser={currentUser} lang={lang} areas={areas} tramos={tramos} />}
             {currentView === 'plan' && <AnnualPlanView tasks={filteredTasks} currentUser={currentUser} onEdit={handleOpenEdit} lang={lang} areas={areas} tramos={tramos} />}
             {currentView === 'analytics' && <AnalyticsView tasks={filteredTasks} onEdit={handleOpenEdit} lang={lang} areas={areas} tramos={tramos} />}
             {currentView === 'roadmap' && <RoadmapView tasks={filteredTasks} onEdit={handleOpenEdit} lang={lang} areas={areas} tramos={tramos} />}
@@ -5318,6 +5488,7 @@ const ExpedienteManager = ({ currentUser }) => {
         onDelete={handleDeleteSingleTask}
         isAdmin={isAdmin}
         lang={lang}
+        initialRightTab={modalInitialTab}
       />
 
       {/* MODAL COMPACTO DE VARIABLE / ACTUACIÓN DIRECTA */}

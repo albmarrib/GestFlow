@@ -7,9 +7,11 @@ import {
   addDoc, 
   serverTimestamp,
   doc,
-  updateDoc
+  updateDoc,
+  arrayUnion
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { emailToChatKey, markTaskChatAsRead } from '../utils/chatUtils';
 import { 
   Send, 
   MessageSquare, 
@@ -91,6 +93,13 @@ export default function ExpedienteChatTab({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Marcar mensajes de este expediente como leídos para el usuario actual mientras el chat esté abierto
+  useEffect(() => {
+    if (task?.id && myEmail) {
+      markTaskChatAsRead(db, task, myEmail);
+    }
+  }, [task?.id, task?.lastMessageAt, myEmail, task]);
+
   // Enviar mensaje
   const handleSendMessage = async (e) => {
     if (e) e.preventDefault();
@@ -111,12 +120,19 @@ export default function ExpedienteChatTab({
         await addDoc(collection(db, 'tasks', taskId, 'messages'), messagePayload);
       });
 
-      // Actualizar timestamp en el expediente padre para disparar alertas
+      // Actualizar timestamp y estado de lectura en el expediente padre para disparar alertas
+      const nowIso = new Date().toISOString();
+      const myReadKey = emailToChatKey(myEmail);
       const updatePayload = {
         lastUpdated: serverTimestamp(),
         lastMessagePreview: cleanText.slice(0, 100),
-        lastMessageAuthor: myEmail
+        lastMessageAuthor: myEmail,
+        lastMessageAt: nowIso,
+        chatParticipants: arrayUnion(myEmail)
       };
+      if (myReadKey) {
+        updatePayload[`chatLastRead.${myReadKey}`] = nowIso;
+      }
       await updateDoc(doc(db, 'expedientes', taskId), updatePayload).catch(async () => {
         await updateDoc(doc(db, 'tasks', taskId), updatePayload);
       });

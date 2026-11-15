@@ -27,6 +27,7 @@ import { db, storage } from '../firebase';
 import { findClientForTask } from '../utils/billingUtils';
 import { translateClassificationName } from '../utils/classificationI18n';
 import { buildTelHref, buildWhatsAppHref } from '../utils/contactUtils';
+import { hasUnreadChatMessage } from '../utils/chatUtils';
 import ExpedienteChatTab from './ExpedienteChatTab';
 
 async function compressImageIfNeeded(file) {
@@ -567,11 +568,14 @@ export default function MobileExpedienteDetail({
           <button
             type="button"
             onClick={() => setActiveTab('chat')}
-            className={`py-1.5 px-1 rounded-lg font-bold transition-colors cursor-pointer truncate ${
+            className={`relative py-1.5 px-1 rounded-lg font-bold transition-colors cursor-pointer truncate flex items-center justify-center gap-1 ${
               activeTab === 'chat' ? 'bg-indigo-600 text-white' : 'text-slate-300'
             }`}
           >
-            {isCa ? 'Xat' : 'Chat'}
+            <span>{isCa ? 'Xat' : 'Chat'}</span>
+            {hasUnreadChatMessage(task, currentUser?.email) && (
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
+            )}
           </button>
         </div>
       </div>

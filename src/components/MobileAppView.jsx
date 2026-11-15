@@ -46,6 +46,7 @@ import { db, auth } from '../firebase';
 import ClientAutocomplete from './ClientAutocomplete';
 import MobileExpedienteDetail from './MobileExpedienteDetail';
 import { buildTelHref, buildWhatsAppHref } from '../utils/contactUtils';
+import { getUnreadChatTasks, hasUnreadChatMessage } from '../utils/chatUtils';
 import { findClientForTask } from '../utils/billingUtils';
 import { translateClassificationName } from '../utils/classificationI18n';
 import {
@@ -119,6 +120,7 @@ export default function MobileAppView({
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [detailInitialTab, setDetailInitialTab] = useState('resum');
   const [focusedStepId, setFocusedStepId] = useState(null);
+  const [chatBannerExpanded, setChatBannerExpanded] = useState(true);
 
   // Nuevo expediente rápido
   const [showNewExpSheet, setShowNewExpSheet] = useState(false);
@@ -155,6 +157,11 @@ export default function MobileAppView({
   const liveSelectedTask = useMemo(
     () => tasks.find(t => t.id === selectedTaskId) || null,
     [tasks, selectedTaskId]
+  );
+
+  const unreadChatTasks = useMemo(
+    () => getUnreadChatTasks(tasks, currentUser?.email),
+    [tasks, currentUser?.email]
   );
 
   // --- EXPEDIENTES Y VARIABLES FILTRADOS ---
@@ -534,6 +541,56 @@ export default function MobileAppView({
 
       {/* CUERPO PRINCIPAL */}
       <main className="flex-1 px-3 py-3 space-y-3 max-w-2xl w-full mx-auto">
+        {/* AVISO VISUAL GENERAL DE MENSAJES DE CHAT + DETALLE DE EXPEDIENTE */}
+        {unreadChatTasks.length > 0 && (
+          <div className="bg-rose-50 border border-rose-300 rounded-2xl shadow-sm overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setChatBannerExpanded(prev => !prev)}
+              className="w-full px-3.5 py-2.5 bg-rose-600 text-white flex items-center justify-between gap-2 text-left cursor-pointer"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <MessageSquare className="w-4 h-4 shrink-0 animate-bounce" />
+                <span className="text-xs font-extrabold tracking-tight truncate">
+                  {isCa
+                    ? `ATENCIÓ: Tens ${unreadChatTasks.length} ${unreadChatTasks.length === 1 ? 'missatge nou' : 'missatges nous'} per Xat`
+                    : `ATENCIÓN: Tienes ${unreadChatTasks.length} ${unreadChatTasks.length === 1 ? 'mensaje nuevo' : 'mensajes nuevos'} por Chat`}
+                </span>
+              </div>
+              <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full shrink-0">
+                {chatBannerExpanded ? (isCa ? 'Amagar' : 'Ocultar') : (isCa ? 'Veure' : 'Ver')}
+              </span>
+            </button>
+
+            {chatBannerExpanded && (
+              <div className="p-2 space-y-1.5">
+                {unreadChatTasks.map(ut => (
+                  <button
+                    key={ut.id}
+                    type="button"
+                    onClick={() => openTaskDetail(ut, 'chat')}
+                    className="w-full bg-white hover:bg-rose-50/70 border border-rose-200 rounded-xl px-3 py-2 flex items-center justify-between gap-2 text-left cursor-pointer"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-extrabold text-slate-900 truncate">
+                        {ut.title}
+                      </p>
+                      <p className="text-[11px] text-slate-600 truncate">
+                        <span className="font-semibold text-rose-700">{ut.client || '—'}</span>
+                        {ut.lastMessagePreview ? ` · "${ut.lastMessagePreview}"` : ''}
+                      </p>
+                    </div>
+                    <span className="inline-flex items-center gap-0.5 px-2 py-1 rounded-lg bg-rose-600 text-white text-[10px] font-bold shrink-0">
+                      {isCa ? 'Xat' : 'Chat'}
+                      <ChevronRight className="w-3 h-3" />
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ================= TAB 1: EXPEDIENTS & VARIABLES ================= */}
         {activeTab === 'expedients' && (
           <>
@@ -677,12 +734,17 @@ export default function MobileAppView({
                   const isOverdue = effStatus === 'Vencido';
                   const updatesCount = Array.isArray(task.updates) ? task.updates.length : 0;
                   const attachCount = Array.isArray(task.attachments) ? task.attachments.length : 0;
+                  const hasUnreadChat = hasUnreadChatMessage(task, currentUser?.email);
 
                   return (
                     <div
                       key={task.id}
                       className={`bg-white rounded-2xl border shadow-xs overflow-hidden ${
-                        isOverdue ? 'border-rose-300' : 'border-slate-200'
+                        hasUnreadChat
+                          ? 'border-rose-400 ring-1 ring-rose-200'
+                          : isOverdue
+                            ? 'border-rose-300'
+                            : 'border-slate-200'
                       }`}
                     >
                       <button
@@ -711,6 +773,12 @@ export default function MobileAppView({
                             {task.department && (
                               <span className="text-[10px] font-semibold text-slate-400 truncate">
                                 {translateClassificationName(task.department, lang)}
+                              </span>
+                            )}
+                            {hasUnreadChat && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-rose-600 text-white text-[9px] font-extrabold uppercase shrink-0 animate-pulse">
+                                <MessageSquare className="w-2.5 h-2.5" />
+                                {isCa ? 'Xat nou' : 'Chat nuevo'}
                               </span>
                             )}
                           </div>
@@ -807,7 +875,11 @@ export default function MobileAppView({
                           <button
                             type="button"
                             onClick={() => openTaskDetail(task, 'chat')}
-                            className="inline-flex items-center justify-center p-1.5 rounded-lg bg-white border border-slate-200 text-indigo-600 cursor-pointer"
+                            className={`inline-flex items-center justify-center p-1.5 rounded-lg border cursor-pointer ${
+                              hasUnreadChat
+                                ? 'bg-rose-600 border-rose-600 text-white animate-pulse'
+                                : 'bg-white border-slate-200 text-indigo-600'
+                            }`}
                             title={isCa ? 'Xat intern' : 'Chat interno'}
                           >
                             <MessageSquare className="w-3.5 h-3.5" />
