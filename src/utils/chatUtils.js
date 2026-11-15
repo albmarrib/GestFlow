@@ -7,7 +7,27 @@ export function normalizeChatEmail(email = '') {
 export function emailToChatKey(email = '') {
   const norm = normalizeChatEmail(email);
   if (!norm) return '';
-  return encodeURIComponent(norm).replace(/\./g, '_dot_');
+  return norm
+    .replace(/@/g, '_at_')
+    .replace(/\./g, '_dot_')
+    .replace(/[^a-z0-9_]/g, '_');
+}
+
+export function getTaskMessageTimestamp(task) {
+  if (!task) return '';
+  if (task.lastMessageAt) return String(task.lastMessageAt);
+
+  // Retrocompatibilidad: si un cliente antiguo envió un mensaje sin lastMessageAt
+  if (task.lastMessageAuthor && task.lastMessagePreview) {
+    if (task.lastUpdated?.seconds) {
+      return new Date(task.lastUpdated.seconds * 1000).toISOString();
+    }
+    if (typeof task.lastUpdated === 'string' && task.lastUpdated) {
+      return task.lastUpdated;
+    }
+    return '2026-01-01T00:00:01.000Z';
+  }
+  return '';
 }
 
 export function isTaskChatParticipant(task, userEmail) {
@@ -34,7 +54,8 @@ export function isTaskChatParticipant(task, userEmail) {
 
 export function hasUnreadChatMessage(task, userEmail) {
   const norm = normalizeChatEmail(userEmail);
-  if (!norm || !task?.lastMessageAt) return false;
+  const msgTs = getTaskMessageTimestamp(task);
+  if (!norm || !msgTs) return false;
 
   const author = normalizeChatEmail(task.lastMessageAuthor);
   if (!author || author === norm) return false;
@@ -45,14 +66,14 @@ export function hasUnreadChatMessage(task, userEmail) {
   const lastReadAt = task?.chatLastRead?.[key];
   if (!lastReadAt) return true;
 
-  return String(task.lastMessageAt) > String(lastReadAt);
+  return String(msgTs) > String(lastReadAt);
 }
 
 export function getUnreadChatTasks(tasks = [], userEmail = '') {
   if (!userEmail || !Array.isArray(tasks)) return [];
   return tasks
     .filter(t => hasUnreadChatMessage(t, userEmail))
-    .sort((a, b) => String(b.lastMessageAt || '').localeCompare(String(a.lastMessageAt || '')));
+    .sort((a, b) => String(getTaskMessageTimestamp(b)).localeCompare(String(getTaskMessageTimestamp(a))));
 }
 
 export async function markTaskChatAsRead(db, task, userEmail) {
@@ -63,8 +84,10 @@ export async function markTaskChatAsRead(db, task, userEmail) {
   const key = emailToChatKey(norm);
   if (!key) return;
 
+  const msgTs = getTaskMessageTimestamp(task);
+  const parsedMsgTime = msgTs ? Date.parse(msgTs) : 0;
   const readStamp = new Date(
-    Math.max(Date.now(), task.lastMessageAt ? new Date(task.lastMessageAt).getTime() + 1000 : 0)
+    Math.max(Date.now(), Number.isNaN(parsedMsgTime) ? 0 : parsedMsgTime + 1000)
   ).toISOString();
 
   const payload = {
