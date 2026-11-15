@@ -41,7 +41,7 @@ import {
   Activity, PauseCircle, BookOpen, Link as LinkIcon, File, Menu, Copy, Target, Eye, EyeOff,
   Building2, Scale, UserCheck, CalendarCheck, RefreshCw, Crown, Shield, UserPlus,
   Coins, Receipt, CreditCard, Sparkles, CheckSquare, Palette, UploadCloud, GitMerge,
-  Maximize2, Minimize2, Zap, Smartphone
+  Maximize2, Minimize2, Zap, Smartphone, ArrowUpDown, ArrowUp, ArrowDown, Table2
 } from 'lucide-react';
 import MobileAppView from './components/MobileAppView';
 import ClientAutocomplete from './components/ClientAutocomplete';
@@ -551,8 +551,8 @@ const ChatNotificationsDropdown = ({ unreadChatTasks = [], onOpenChatTask, lang 
                   }}
                   className="w-full text-left p-2.5 rounded-xl border border-rose-200 bg-white hover:bg-rose-50/70 transition-colors cursor-pointer"
                 >
-                  <p className="text-xs font-extrabold text-slate-900 truncate">{task.title}</p>
-                  <p className="text-[11px] font-semibold text-indigo-700 truncate">{task.client || '—'}</p>
+                  <p className="text-xs font-extrabold text-slate-900 truncate">{task.client || task.clientRazonSocial || '—'}</p>
+                  <p className="text-[11px] font-semibold text-indigo-700 truncate">{task.title}</p>
                   {task.lastMessagePreview && (
                     <p className="text-[11px] text-slate-600 truncate mt-0.5">
                       <span className="font-bold text-rose-700">{(task.lastMessageAuthor || '').split('@')[0]}:</span> {task.lastMessagePreview}
@@ -2795,10 +2795,119 @@ const AnnualPlanView = ({ tasks, currentUser, onEdit, lang = 'ca', areas = [], t
   );
 };
 
+// --- ORDENACIÓN TIPO EXCEL / ACCESS PARA LISTADOS ---
+const getTaskStartTimestampMs = (task) => {
+  if (!task) return 0;
+  if (task.startDate) {
+    const parsed = Date.parse(task.startDate);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  if (task.createdAt?.seconds) return task.createdAt.seconds * 1000;
+  if (typeof task.createdAt?.toMillis === 'function') return task.createdAt.toMillis();
+  if (typeof task.createdAt === 'string') {
+    const parsed = Date.parse(task.createdAt);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  return 0;
+};
+
+const compareTasksByField = (a, b, field, dir, locale, areas = [], tramos = [], lang = 'ca') => {
+  const statusRank = { 'Con Retraso': 0, 'En Riesgo': 1, Abierto: 2, Cerrado: 3 };
+
+  if (field === 'client') {
+    const aClient = (a.client || a.clientRazonSocial || '').trim();
+    const bClient = (b.client || b.clientRazonSocial || '').trim();
+    if (!aClient && bClient) return 1;
+    if (aClient && !bClient) return -1;
+    return aClient.localeCompare(bClient, locale, { sensitivity: 'base' }) * dir;
+  }
+
+  if (field === 'title') {
+    return (a.title || '').localeCompare(b.title || '', locale, { sensitivity: 'base' }) * dir;
+  }
+
+  if (field === 'department') {
+    const aDept = translateClassificationName(normalizeDepartment(a.department), 'areas', areas, lang);
+    const bDept = translateClassificationName(normalizeDepartment(b.department), 'areas', areas, lang);
+    const cmp = (aDept || '').localeCompare(bDept || '', locale, { sensitivity: 'base' });
+    if (cmp !== 0) return cmp * dir;
+    const aType = translateClassificationName(normalizeType(a.type), 'tramos', tramos, lang);
+    const bType = translateClassificationName(normalizeType(b.type), 'tramos', tramos, lang);
+    return (aType || '').localeCompare(bType || '', locale, { sensitivity: 'base' }) * dir;
+  }
+
+  if (field === 'dueDate') {
+    const aDate = (a.dueDate || '').trim();
+    const bDate = (b.dueDate || '').trim();
+    if (!aDate && bDate) return 1;
+    if (aDate && !bDate) return -1;
+    return aDate.localeCompare(bDate) * dir;
+  }
+
+  if (field === 'status') {
+    const aRank = statusRank[getEffectiveStatus(a)] ?? 99;
+    const bRank = statusRank[getEffectiveStatus(b)] ?? 99;
+    return (aRank - bRank) * dir;
+  }
+
+  // Default: 'createdAt' (Fecha de inicio / alta)
+  return (getTaskStartTimestampMs(a) - getTaskStartTimestampMs(b)) * dir;
+};
+
+const sortTasksForList = (
+  list = [],
+  sortField = 'createdAt',
+  sortDirection = 'desc',
+  lang = 'ca',
+  areas = [],
+  tramos = [],
+  secondaryField = '',
+  secondaryDirection = 'asc'
+) => {
+  const primaryDir = sortDirection === 'asc' ? 1 : -1;
+  const secondaryDir = secondaryDirection === 'asc' ? 1 : -1;
+  const locale = lang === 'ca' ? 'ca' : 'es';
+
+  return [...list].sort((a, b) => {
+    const primaryCmp = compareTasksByField(a, b, sortField, primaryDir, locale, areas, tramos, lang);
+    if (primaryCmp !== 0) return primaryCmp;
+
+    if (secondaryField && secondaryField !== sortField) {
+      const secondaryCmp = compareTasksByField(a, b, secondaryField, secondaryDir, locale, areas, tramos, lang);
+      if (secondaryCmp !== 0) return secondaryCmp;
+    }
+
+    const tieClient = (a.client || a.clientRazonSocial || '').localeCompare(
+      b.client || b.clientRazonSocial || '',
+      locale,
+      { sensitivity: 'base' }
+    );
+    if (tieClient !== 0) return tieClient;
+    return (a.title || '').localeCompare(b.title || '', locale, { sensitivity: 'base' });
+  });
+};
+
 // --- VISTA LISTA: LISTADO DE EXPEDIENTES ---
-const ListView = ({ tasks, onEdit, onOpenChat, currentUser, lang = 'ca', areas = [], tramos = [] }) => {
+const ListView = ({
+  tasks,
+  onEdit,
+  onOpenChat,
+  currentUser,
+  lang = 'ca',
+  areas = [],
+  tramos = [],
+  sortField = 'createdAt',
+  sortDirection = 'desc',
+  onSortChange,
+  secondarySortField = '',
+  secondarySortDirection = 'asc',
+  onSecondarySortChange,
+  displayMode = 'cards',
+  onDisplayModeChange
+}) => {
   const [showEmpty, setShowEmpty] = useState(false);
   const dateLocale = lang === 'ca' ? 'ca-ES' : 'es-ES';
+  const isCa = lang === 'ca';
 
   useEffect(() => {
     const timer = setTimeout(() => setShowEmpty(true), 1200);
@@ -2806,14 +2915,68 @@ const ListView = ({ tasks, onEdit, onOpenChat, currentUser, lang = 'ca', areas =
   }, []);
 
   const formatDateLocal = (isoString) => isoString ? new Date(isoString).toLocaleDateString(dateLocale, { dateStyle: 'medium' }) : '-';
-  const formatCreationDate = (timestamp) => timestamp?.seconds ? new Date(timestamp.seconds * 1000).toLocaleDateString(dateLocale) : '';
-  
+  const formatStartDate = (task) => {
+    const ms = getTaskStartTimestampMs(task);
+    return ms ? new Date(ms).toLocaleDateString(dateLocale) : '—';
+  };
+
+  const sortedTasks = useMemo(
+    () => sortTasksForList(tasks, sortField, sortDirection, lang, areas, tramos, secondarySortField, secondarySortDirection),
+    [tasks, sortField, sortDirection, lang, areas, tramos, secondarySortField, secondarySortDirection]
+  );
+
+  const sortColumns = [
+    { id: 'client', label: isCa ? 'Client' : 'Cliente', defaultDir: 'asc' },
+    { id: 'title', label: isCa ? 'Tasca / Expedient' : 'Tarea / Expediente', defaultDir: 'asc' },
+    { id: 'department', label: isCa ? 'Àrea' : 'Área', defaultDir: 'asc' },
+    { id: 'dueDate', label: isCa ? 'Venciment' : 'Vencimiento', defaultDir: 'asc' },
+    { id: 'createdAt', label: isCa ? "Data d'inici" : 'Fecha inicio', defaultDir: 'desc' },
+    { id: 'status', label: isCa ? 'Estat' : 'Estado', defaultDir: 'asc' }
+  ];
+
+  const handleHeaderClick = (colId, defaultDir = 'asc', e = null) => {
+    if (e?.shiftKey && onSecondarySortChange && colId !== sortField) {
+      if (secondarySortField === colId) {
+        onSecondarySortChange(colId, secondarySortDirection === 'asc' ? 'desc' : 'asc');
+      } else {
+        onSecondarySortChange(colId, defaultDir);
+      }
+      return;
+    }
+    if (!onSortChange) return;
+    if (sortField === colId) {
+      onSortChange(colId, sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      onSortChange(colId, defaultDir);
+    }
+  };
+
+  const renderSortIcon = (colId) => {
+    if (sortField === colId) {
+      return (
+        <span className="inline-flex items-center gap-0.5 shrink-0">
+          {secondarySortField && <span className="text-[9px] font-bold opacity-80">1</span>}
+          {sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+        </span>
+      );
+    }
+    if (secondarySortField === colId) {
+      return (
+        <span className="inline-flex items-center gap-0.5 shrink-0">
+          <span className="text-[9px] font-bold opacity-80">2</span>
+          {secondarySortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+        </span>
+      );
+    }
+    return <ArrowUpDown className="w-3 h-3 opacity-45 shrink-0" />;
+  };
+
   if (tasks.length === 0) {
     if (!showEmpty) {
       return (
         <div className="text-center py-20">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-50 text-indigo-600 text-xs font-semibold animate-pulse">
-            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> {lang === 'ca' ? 'Carregant expedients del despatx...' : 'Cargando expedientes del despacho...'}
+            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> {isCa ? 'Carregant expedients del despatx...' : 'Cargando expedientes del despacho...'}
           </div>
         </div>
       );
@@ -2823,9 +2986,9 @@ const ListView = ({ tasks, onEdit, onOpenChat, currentUser, lang = 'ca', areas =
         <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
           <Briefcase className="w-6 h-6" />
         </div>
-        <h4 className="text-sm font-bold text-slate-700">{lang === 'ca' ? 'Sense expedients coincidents' : 'Sin expedientes coincidentes'}</h4>
+        <h4 className="text-sm font-bold text-slate-700">{isCa ? 'Sense expedients coincidents' : 'Sin expedientes coincidentes'}</h4>
         <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-          {lang === 'ca' 
+          {isCa 
             ? 'No s\'han trobat expedients amb els filtres aplicats en aquest moment.' 
             : 'No se han encontrado expedientes con los filtros aplicados en este momento.'}
         </p>
@@ -2834,119 +2997,349 @@ const ListView = ({ tasks, onEdit, onOpenChat, currentUser, lang = 'ca', areas =
   }
 
   return (
-    <div className="space-y-2.5 animate-in fade-in duration-300">
-      {tasks.map(task => {
-        const effectiveStatus = getEffectiveStatus(task);
-        const normType = translateClassificationName(normalizeType(task.type), 'tramos', tramos, lang);
-        const normDept = translateClassificationName(normalizeDepartment(task.department), 'areas', areas, lang);
-        const hasUnreadChat = hasUnreadChatMessage(task, currentUser?.email);
+    <div className="space-y-2 animate-in fade-in duration-300">
+      {/* CABECERA SUTIL TIPO EXCEL / ACCESS: ORDENACIÓN COMBINADA (1º + 2º) Y SELECTOR DE VISTA */}
+      <div className="bg-slate-50/85 border border-slate-200/75 rounded-xl px-2.5 py-1 flex flex-wrap items-center justify-between gap-1.5">
+        <div className="flex flex-wrap items-center gap-1 min-w-0">
+          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mr-0.5">
+            {isCa ? 'Ordenar' : 'Ordenar'}:
+          </span>
+          {sortColumns.map(col => {
+            const isPrimary = sortField === col.id;
+            const isSecondary = secondarySortField === col.id;
+            return (
+              <button
+                key={col.id}
+                type="button"
+                onClick={(e) => handleHeaderClick(col.id, col.defaultDir, e)}
+                title={isCa ? 'Clic: 1r criteri · Shift+Clic: 2n criteri' : 'Clic: 1er criterio · Shift+Clic: 2º criterio'}
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] border transition-colors cursor-pointer whitespace-nowrap ${
+                  isPrimary
+                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold'
+                    : isSecondary
+                      ? 'bg-slate-200/75 text-slate-800 border-slate-300 font-semibold'
+                      : 'bg-white/80 text-slate-600 border-slate-200/80 font-medium hover:bg-white hover:text-slate-900'
+                }`}
+              >
+                <span>{col.label}</span>
+                {renderSortIcon(col.id)}
+              </button>
+            );
+          })}
 
-        return (
-        <div 
-          key={task.id} 
-          onClick={() => onEdit(task)} 
-          className={`group hover-card-elevate bg-white/95 backdrop-blur-xs rounded-2xl p-4 sm:p-4.5 border shadow-xs transition-all cursor-pointer relative overflow-hidden ${
-            hasUnreadChat ? 'border-rose-400 ring-1 ring-rose-200 hover:border-rose-500' : 'border-slate-200/80 hover:border-indigo-200/80'
-          }`}
-        >
-          <div className={`absolute left-0 top-0 bottom-0 w-1.5 transition-colors ${
-            effectiveStatus === 'Cerrado' ? 'bg-blue-500' : 
-            effectiveStatus === 'Abierto' ? 'bg-emerald-500' : 
-            effectiveStatus === 'En Riesgo' ? 'bg-amber-500' : 
-            effectiveStatus === 'Con Retraso' ? 'bg-rose-500' : 'bg-slate-300'
-          }`}></div>
-
-          <div className="flex flex-col md:flex-row gap-3.5 items-start md:items-center justify-between pl-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                {task.recordType === 'variable' && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-teal-50 text-teal-800 border border-teal-200 shrink-0 uppercase">
-                    <Zap className="w-2.5 h-2.5 text-teal-600" />
-                    Variable
-                  </span>
-                )}
-                <h3 className="font-bold text-slate-900 text-sm sm:text-base group-hover:text-indigo-600 transition-colors tracking-tight truncate">{task.title}</h3>
-                {hasUnreadChat && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (onOpenChat) onOpenChat(task);
-                      else onEdit(task);
-                    }}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-600 text-white shadow-xs shrink-0 animate-pulse cursor-pointer"
-                    title={task.lastMessagePreview || (lang === 'ca' ? 'Nou missatge al Xat' : 'Nuevo mensaje en Chat')}
-                  >
-                    <MessageSquare className="w-3 h-3" />
-                    <span>{lang === 'ca' ? 'Missatge nou al Xat' : 'Mensaje nuevo en Chat'}</span>
-                  </button>
-                )}
-                {normDept && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80 shrink-0">
-                    <Briefcase className="w-2.5 h-2.5 text-indigo-600" />
-                    {normDept}
-                  </span>
-                )}
-                <Badge text={normType} size="xs" />
-              </div>
-              
-              {task.client && (
-                <div className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg font-semibold text-xs border mb-2 ${
-                  task.isProvisionalClient 
-                    ? 'bg-amber-50/90 text-amber-900 border-amber-200' 
-                    : 'bg-indigo-50/70 text-indigo-700 border-indigo-100/70'
-                }`}>
-                  <Building2 className={`w-3.5 h-3.5 shrink-0 ${task.isProvisionalClient ? 'text-amber-600' : 'text-indigo-500'}`} />
-                  <span className="truncate max-w-md">{task.client}</span>
-                  {task.isProvisionalClient && (
-                    <span className="text-[9px] font-bold bg-amber-200/80 text-amber-900 px-1.5 py-0.2 rounded shrink-0">
-                      {lang === 'ca' ? 'Provisional' : 'Provisional'}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-0.5">
-                <span className="flex items-center gap-1.5 text-slate-600 font-medium">
-                  <Briefcase className="w-3.5 h-3.5 text-slate-400"/> {normDept}
-                </span>
-                
-                <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200/70 text-slate-600">
-                  <Users className="w-3.5 h-3.5 text-slate-400"/>
-                  {task.assignees && task.assignees.length > 0 ? (
-                    <span className="truncate max-w-[200px]">{task.assignees.join(', ')}</span>
-                  ) : (
-                    <span>{task.assigneeEmail || (lang === 'ca' ? 'Sense Assessor Assignat' : 'Sin Asesor Asignado')}</span>
-                  )}
-                </div>
-
-                {task.dueDate && (
-                  <span className="flex items-center gap-1.5 font-medium text-slate-600">
-                    <Clock className="w-3.5 h-3.5 text-slate-400"/> {lang === 'ca' ? 'Venciment:' : 'Vencimiento:'} {formatDateLocal(task.dueDate)}
-                  </span>
-                )}
-                {task.attachments?.length > 0 && (
-                  <span className="flex items-center gap-1 text-slate-500 font-medium">
-                    <Paperclip className="w-3.5 h-3.5 text-slate-400"/> {task.attachments.length} {lang === 'ca' ? 'fitxers' : 'archivos'}
-                  </span>
-                )}
-                {task.actions?.length > 0 && (
-                  <span className="flex items-center gap-1 text-emerald-600 font-semibold bg-emerald-50/50 px-2 py-0.5 rounded-full border border-emerald-100/60">
-                    <Target className="w-3.5 h-3.5"/> {task.actions.filter(a => a.isCompleted).length}/{task.actions.length} {lang === 'ca' ? 'passos' : 'pasos'}
-                  </span>
-                )}
-              </div>
-            </div>
-            
-            <div className="flex flex-col sm:items-end gap-1.5 shrink-0 self-end sm:self-center">
-              <Badge task={task} text={effectiveStatus} />
-              <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
-                <CalendarDays className="w-3 h-3 text-slate-400"/> Alta: {formatCreationDate(task.createdAt)}
+          {onSecondarySortChange && (
+            <div className="inline-flex items-center gap-1 ml-1 pl-1.5 border-l border-slate-200/90">
+              <span className="text-[10px] font-medium text-slate-400 whitespace-nowrap">
+                {isCa ? 'Després:' : 'Luego:'}
               </span>
+              <select
+                value={secondarySortField || ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const colMeta = sortColumns.find(c => c.id === val);
+                  onSecondarySortChange(val, colMeta ? colMeta.defaultDir : 'asc');
+                }}
+                aria-label={isCa ? 'Segon criteri d’ordenació' : 'Segundo criterio de ordenación'}
+                className="bg-white/90 border border-slate-200/90 rounded-lg px-1.5 py-0.5 text-[11px] font-medium text-slate-600 focus:outline-hidden focus:ring-1 focus:ring-indigo-400 cursor-pointer"
+              >
+                <option value="">{isCa ? 'Cap' : 'Ninguno'}</option>
+                {sortColumns
+                  .filter(col => col.id !== sortField)
+                  .map(col => (
+                    <option key={col.id} value={col.id}>{col.label}</option>
+                  ))}
+              </select>
+              {secondarySortField && (
+                <button
+                  type="button"
+                  onClick={() => onSecondarySortChange(secondarySortField, secondarySortDirection === 'asc' ? 'desc' : 'asc')}
+                  title={secondarySortDirection === 'asc' ? (isCa ? 'Ascendent (canviar)' : 'Ascendente (cambiar)') : (isCa ? 'Descendent (canviar)' : 'Descendente (cambiar)')}
+                  className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 cursor-pointer"
+                >
+                  {secondarySortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                </button>
+              )}
             </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-[10px] font-medium text-slate-400 px-1">
+            {sortedTasks.length} {isCa ? 'reg.' : 'reg.'}
+          </span>
+
+          {onDisplayModeChange && (
+            <div className="flex bg-slate-200/60 p-0.5 rounded-lg border border-slate-200/70">
+              <button
+                type="button"
+                onClick={() => onDisplayModeChange('cards')}
+                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
+                  displayMode === 'cards'
+                    ? 'bg-white text-indigo-700 shadow-2xs font-semibold'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+                title={isCa ? 'Vista en targetes' : 'Vista en tarjetas'}
+              >
+                <LayoutList className="w-3 h-3" />
+                <span className="hidden sm:inline">{isCa ? 'Targetes' : 'Tarjetas'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onDisplayModeChange('table')}
+                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
+                  displayMode === 'table'
+                    ? 'bg-white text-indigo-700 shadow-2xs font-semibold'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+                title={isCa ? 'Vista taula estil Excel / Access' : 'Vista tabla estilo Excel / Access'}
+              >
+                <Table2 className="w-3 h-3" />
+                <span className="hidden sm:inline">{isCa ? 'Taula' : 'Tabla'}</span>
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {displayMode === 'table' ? (
+        <div className="bg-white/95 backdrop-blur-xs rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wide text-slate-600 select-none">
+                  <th
+                    onClick={(e) => handleHeaderClick('client', 'asc', e)}
+                    title={isCa ? 'Clic: 1r criteri · Shift+Clic: 2n criteri' : 'Clic: 1er criterio · Shift+Clic: 2º criterio'}
+                    className={`py-2 px-3 cursor-pointer hover:bg-slate-100 transition-colors whitespace-nowrap ${sortField === 'client' ? 'text-indigo-700 bg-indigo-50/45' : secondarySortField === 'client' ? 'text-slate-800 bg-slate-100/80' : ''}`}
+                  >
+                    <span className="inline-flex items-center gap-1">{isCa ? 'Client' : 'Cliente'} {renderSortIcon('client')}</span>
+                  </th>
+                  <th
+                    onClick={(e) => handleHeaderClick('title', 'asc', e)}
+                    title={isCa ? 'Clic: 1r criteri · Shift+Clic: 2n criteri' : 'Clic: 1er criterio · Shift+Clic: 2º criterio'}
+                    className={`py-2 px-3 cursor-pointer hover:bg-slate-100 transition-colors whitespace-nowrap ${sortField === 'title' ? 'text-indigo-700 bg-indigo-50/45' : secondarySortField === 'title' ? 'text-slate-800 bg-slate-100/80' : ''}`}
+                  >
+                    <span className="inline-flex items-center gap-1">{isCa ? 'Tasca / Expedient' : 'Tarea / Expediente'} {renderSortIcon('title')}</span>
+                  </th>
+                  <th
+                    onClick={(e) => handleHeaderClick('department', 'asc', e)}
+                    title={isCa ? 'Clic: 1r criteri · Shift+Clic: 2n criteri' : 'Clic: 1er criterio · Shift+Clic: 2º criterio'}
+                    className={`py-2 px-3 cursor-pointer hover:bg-slate-100 transition-colors whitespace-nowrap ${sortField === 'department' ? 'text-indigo-700 bg-indigo-50/45' : secondarySortField === 'department' ? 'text-slate-800 bg-slate-100/80' : ''}`}
+                  >
+                    <span className="inline-flex items-center gap-1">{isCa ? 'Àrea / Tràmit' : 'Área / Trámite'} {renderSortIcon('department')}</span>
+                  </th>
+                  <th className="py-2 px-3 whitespace-nowrap">{isCa ? 'Gestors' : 'Gestores'}</th>
+                  <th
+                    onClick={(e) => handleHeaderClick('dueDate', 'asc', e)}
+                    title={isCa ? 'Clic: 1r criteri · Shift+Clic: 2n criteri' : 'Clic: 1er criterio · Shift+Clic: 2º criterio'}
+                    className={`py-2 px-3 cursor-pointer hover:bg-slate-100 transition-colors whitespace-nowrap ${sortField === 'dueDate' ? 'text-indigo-700 bg-indigo-50/45' : secondarySortField === 'dueDate' ? 'text-slate-800 bg-slate-100/80' : ''}`}
+                  >
+                    <span className="inline-flex items-center gap-1">{isCa ? 'Venciment' : 'Vencimiento'} {renderSortIcon('dueDate')}</span>
+                  </th>
+                  <th
+                    onClick={(e) => handleHeaderClick('createdAt', 'desc', e)}
+                    title={isCa ? 'Clic: 1r criteri · Shift+Clic: 2n criteri' : 'Clic: 1er criterio · Shift+Clic: 2º criterio'}
+                    className={`py-2 px-3 cursor-pointer hover:bg-slate-100 transition-colors whitespace-nowrap ${sortField === 'createdAt' ? 'text-indigo-700 bg-indigo-50/45' : secondarySortField === 'createdAt' ? 'text-slate-800 bg-slate-100/80' : ''}`}
+                  >
+                    <span className="inline-flex items-center gap-1">{isCa ? "Data d'inici" : 'Fecha inicio'} {renderSortIcon('createdAt')}</span>
+                  </th>
+                  <th
+                    onClick={(e) => handleHeaderClick('status', 'asc', e)}
+                    title={isCa ? 'Clic: 1r criteri · Shift+Clic: 2n criteri' : 'Clic: 1er criterio · Shift+Clic: 2º criterio'}
+                    className={`py-2 px-3 cursor-pointer hover:bg-slate-100 transition-colors whitespace-nowrap ${sortField === 'status' ? 'text-indigo-700 bg-indigo-50/45' : secondarySortField === 'status' ? 'text-slate-800 bg-slate-100/80' : ''}`}
+                  >
+                    <span className="inline-flex items-center gap-1">{isCa ? 'Estat' : 'Estado'} {renderSortIcon('status')}</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {sortedTasks.map(task => {
+                  const effectiveStatus = getEffectiveStatus(task);
+                  const normType = translateClassificationName(normalizeType(task.type), 'tramos', tramos, lang);
+                  const normDept = translateClassificationName(normalizeDepartment(task.department), 'areas', areas, lang);
+                  const hasUnreadChat = hasUnreadChatMessage(task, currentUser?.email);
+                  const clientName = task.client || task.clientRazonSocial || (isCa ? 'Client sense especificar' : 'Cliente sin especificar');
+
+                  return (
+                    <tr
+                      key={task.id}
+                      onClick={() => onEdit(task)}
+                      className={`cursor-pointer transition-colors ${
+                        hasUnreadChat ? 'bg-rose-50/50 hover:bg-rose-50' : 'hover:bg-indigo-50/40'
+                      }`}
+                    >
+                      <td className="py-2.5 px-3 font-bold text-slate-900 max-w-[240px]">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <Building2 className={`w-3.5 h-3.5 shrink-0 ${task.isProvisionalClient ? 'text-amber-600' : 'text-indigo-600'}`} />
+                          <span className="truncate">{clientName}</span>
+                          {task.isProvisionalClient && (
+                            <span className="text-[9px] font-bold bg-amber-100 text-amber-900 px-1.5 py-0.2 rounded shrink-0">Prov.</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3 max-w-[280px]">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          {task.recordType === 'variable' && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded bg-teal-50 text-teal-800 border border-teal-200 text-[9px] font-extrabold uppercase shrink-0">
+                              <Zap className="w-2.5 h-2.5" /> Var
+                            </span>
+                          )}
+                          <span className="font-semibold text-indigo-700 truncate">{task.title}</span>
+                          {hasUnreadChat && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (onOpenChat) onOpenChat(task);
+                                else onEdit(task);
+                              }}
+                              className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-rose-600 text-white shrink-0 animate-pulse cursor-pointer"
+                            >
+                              <MessageSquare className="w-2.5 h-2.5" />
+                              {isCa ? 'Xat' : 'Chat'}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap">
+                        <span className="font-semibold text-slate-700">{normDept}</span>
+                        {normType && <span className="block text-[10px] text-slate-400">{normType}</span>}
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-600 max-w-[160px] truncate">
+                        {task.assignees && task.assignees.length > 0
+                          ? task.assignees.map(e => e.split('@')[0]).join(', ')
+                          : (task.assigneeEmail ? task.assigneeEmail.split('@')[0] : '—')}
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap font-semibold text-slate-700">
+                        {formatDateLocal(task.dueDate)}
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap text-slate-500 font-mono text-[11px]">
+                        {formatStartDate(task)}
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap">
+                        <Badge task={task} text={effectiveStatus} size="xs" />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
-      )})}
+      ) : (
+        <div className="space-y-2.5">
+          {sortedTasks.map(task => {
+            const effectiveStatus = getEffectiveStatus(task);
+            const normType = translateClassificationName(normalizeType(task.type), 'tramos', tramos, lang);
+            const normDept = translateClassificationName(normalizeDepartment(task.department), 'areas', areas, lang);
+            const hasUnreadChat = hasUnreadChatMessage(task, currentUser?.email);
+            const clientName = task.client || task.clientRazonSocial || (isCa ? 'Client sense especificar' : 'Cliente sin especificar');
+
+            return (
+              <div 
+                key={task.id} 
+                onClick={() => onEdit(task)} 
+                className={`group hover-card-elevate bg-white/95 backdrop-blur-xs rounded-2xl p-4 sm:p-4.5 border shadow-xs transition-all cursor-pointer relative overflow-hidden ${
+                  hasUnreadChat ? 'border-rose-400 ring-1 ring-rose-200 hover:border-rose-500' : 'border-slate-200/80 hover:border-indigo-200/80'
+                }`}
+              >
+                <div className={`absolute left-0 top-0 bottom-0 w-1.5 transition-colors ${
+                  effectiveStatus === 'Cerrado' ? 'bg-blue-500' : 
+                  effectiveStatus === 'Abierto' ? 'bg-emerald-500' : 
+                  effectiveStatus === 'En Riesgo' ? 'bg-amber-500' : 
+                  effectiveStatus === 'Con Retraso' ? 'bg-rose-500' : 'bg-slate-300'
+                }`}></div>
+
+                <div className="flex flex-col md:flex-row gap-3.5 items-start md:items-center justify-between pl-3">
+                  <div className="flex-1 min-w-0">
+                    {/* TÍTULO PRINCIPAL = NOMBRE DEL CLIENTE */}
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      {task.recordType === 'variable' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-teal-50 text-teal-800 border border-teal-200 shrink-0 uppercase">
+                          <Zap className="w-2.5 h-2.5 text-teal-600" />
+                          Variable
+                        </span>
+                      )}
+                      <h3 className="font-bold text-slate-900 text-sm sm:text-base group-hover:text-indigo-600 transition-colors tracking-tight truncate flex items-center gap-1.5">
+                        <Building2 className={`w-4 h-4 shrink-0 ${task.isProvisionalClient ? 'text-amber-600' : 'text-indigo-600'}`} />
+                        <span className="truncate">{clientName}</span>
+                      </h3>
+                      {task.isProvisionalClient && (
+                        <span className="text-[9px] font-bold bg-amber-200/80 text-amber-900 px-1.5 py-0.5 rounded shrink-0">
+                          {isCa ? 'Provisional' : 'Provisional'}
+                        </span>
+                      )}
+                      {hasUnreadChat && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onOpenChat) onOpenChat(task);
+                            else onEdit(task);
+                          }}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-600 text-white shadow-xs shrink-0 animate-pulse cursor-pointer"
+                          title={task.lastMessagePreview || (isCa ? 'Nou missatge al Xat' : 'Nuevo mensaje en Chat')}
+                        >
+                          <MessageSquare className="w-3 h-3" />
+                          <span>{isCa ? 'Missatge nou al Xat' : 'Mensaje nuevo en Chat'}</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* SUBTÍTULO = TAREA / EXPEDIENTE + ÁREA Y TRAMO */}
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <p className="text-xs sm:text-sm font-semibold text-indigo-700/95 truncate max-w-xl">
+                        {task.title}
+                      </p>
+                      {normDept && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80 shrink-0">
+                          <Briefcase className="w-2.5 h-2.5 text-indigo-600" />
+                          {normDept}
+                        </span>
+                      )}
+                      <Badge text={normType} size="xs" />
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-0.5">
+                      <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200/70 text-slate-600">
+                        <Users className="w-3.5 h-3.5 text-slate-400"/>
+                        {task.assignees && task.assignees.length > 0 ? (
+                          <span className="truncate max-w-[200px]">{task.assignees.join(', ')}</span>
+                        ) : (
+                          <span>{task.assigneeEmail || (isCa ? 'Sense Assessor Assignat' : 'Sin Asesor Asignado')}</span>
+                        )}
+                      </div>
+
+                      {task.dueDate && (
+                        <span className="flex items-center gap-1.5 font-medium text-slate-600">
+                          <Clock className="w-3.5 h-3.5 text-slate-400"/> {isCa ? 'Venciment:' : 'Vencimiento:'} {formatDateLocal(task.dueDate)}
+                        </span>
+                      )}
+                      {task.attachments?.length > 0 && (
+                        <span className="flex items-center gap-1 text-slate-500 font-medium">
+                          <Paperclip className="w-3.5 h-3.5 text-slate-400"/> {task.attachments.length} {isCa ? 'fitxers' : 'archivos'}
+                        </span>
+                      )}
+                      {task.actions?.length > 0 && (
+                        <span className="flex items-center gap-1 text-emerald-600 font-semibold bg-emerald-50/50 px-2 py-0.5 rounded-full border border-emerald-100/60">
+                          <Target className="w-3.5 h-3.5"/> {task.actions.filter(a => a.isCompleted).length}/{task.actions.length} {isCa ? 'passos' : 'pasos'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col sm:items-end gap-1.5 shrink-0 self-end sm:self-center">
+                    <Badge task={task} text={effectiveStatus} />
+                    <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
+                      <CalendarDays className="w-3 h-3 text-slate-400"/> {isCa ? 'Inici:' : 'Inicio:'} {formatStartDate(task)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
@@ -4333,6 +4726,36 @@ const ExpedienteManager = ({ currentUser }) => {
     return localStorage.getItem('gestflow_lang') || 'ca';
   });
 
+  // Ordenación tipo Excel / Access (combinada 1º + 2º criterio) y modo de visualización del listado de expedientes
+  const [listSortField, setListSortField] = useState(() => localStorage.getItem('gestflow_sort_field') || 'createdAt');
+  const [listSortDirection, setListSortDirection] = useState(() => localStorage.getItem('gestflow_sort_dir') || 'desc');
+  const [listSecondarySortField, setListSecondarySortField] = useState(() => localStorage.getItem('gestflow_sort2_field') || '');
+  const [listSecondarySortDirection, setListSecondarySortDirection] = useState(() => localStorage.getItem('gestflow_sort2_dir') || 'asc');
+  const [listDisplayMode, setListDisplayMode] = useState(() => localStorage.getItem('gestflow_list_mode') || 'cards');
+
+  const handleListSortChange = (field, dir) => {
+    setListSortField(field);
+    setListSortDirection(dir);
+    localStorage.setItem('gestflow_sort_field', field);
+    localStorage.setItem('gestflow_sort_dir', dir);
+    if (listSecondarySortField === field) {
+      setListSecondarySortField('');
+      localStorage.setItem('gestflow_sort2_field', '');
+    }
+  };
+
+  const handleListSecondarySortChange = (field, dir = 'asc') => {
+    setListSecondarySortField(field);
+    setListSecondarySortDirection(dir);
+    localStorage.setItem('gestflow_sort2_field', field);
+    localStorage.setItem('gestflow_sort2_dir', dir);
+  };
+
+  const handleListDisplayModeChange = (mode) => {
+    setListDisplayMode(mode);
+    localStorage.setItem('gestflow_list_mode', mode);
+  };
+
   const setLang = (newLang) => {
     const valid = newLang === 'es' ? 'es' : 'ca';
     setLangState(valid);
@@ -4696,21 +5119,31 @@ const ExpedienteManager = ({ currentUser }) => {
   };
   
   const exportToExcel = (dataToExport) => {
-    const rawData = dataToExport && dataToExport.length > 0 ? dataToExport : tasks;
+    const rawData = sortTasksForList(
+      dataToExport && dataToExport.length > 0 ? dataToExport : tasks,
+      listSortField,
+      listSortDirection,
+      lang,
+      areas,
+      tramos,
+      listSecondarySortField,
+      listSecondarySortDirection
+    );
     const formattedData = rawData.map(t => ({
-      Expediente: t.title, 
-      Cliente: t.client || 'No especificado',
+      Cliente: t.client || t.clientRazonSocial || 'No especificado',
+      'Expediente / Tarea': t.title, 
       Área: translateClassificationName(normalizeDepartment(t.department), 'areas', areas, lang), 
       Trámite: translateClassificationName(normalizeType(t.type), 'tramos', tramos, lang), 
       Estado: normalizeStatus(t.status),
       'Vencimiento Fiscal': t.dueDate, 
+      'Fecha Inicio': getTaskStartTimestampMs(t) ? new Date(getTaskStartTimestampMs(t)).toLocaleDateString('es-ES') : '',
       'Creado Por': t.createdBy, 
       'Gestores Asignados': (t.assignees || []).join(', '),
       'Última Nota': t.updates && t.updates.length > 0 ? `${t.updates[0].date}: ${t.updates[0].text}` : '',
       'Pasos GTD': (t.actions || []).map(a => `[${a.isCompleted ? 'X' : ' '}] ${a.text} (${a.assignee})`).join(' | ')
     }));
     const worksheet = XLSX.utils.json_to_sheet(formattedData);
-    const wscols = [{wch: 32}, {wch: 25}, {wch: 20}, {wch: 22}, {wch: 18}, {wch: 16}, {wch: 25}, {wch: 30}, {wch: 40}, {wch: 40}];
+    const wscols = [{wch: 28}, {wch: 32}, {wch: 20}, {wch: 22}, {wch: 18}, {wch: 16}, {wch: 14}, {wch: 25}, {wch: 30}, {wch: 40}, {wch: 40}];
     worksheet['!cols'] = wscols;
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Expedientes Gestoría");
@@ -5288,7 +5721,7 @@ const ExpedienteManager = ({ currentUser }) => {
       </header>
 
       {/* CONTENIDO PRINCIPAL + LATERAL DE RECORDATORIOS PERSONALES */}
-      <div className="max-w-[1620px] mx-auto px-3 sm:px-5 py-5 flex items-start gap-4 lg:gap-5">
+      <div className="max-w-[1620px] mx-auto px-3 sm:px-5 py-2.5 flex items-start gap-4 lg:gap-5">
         <RemindersSidebar
           reminders={reminders}
           currentUser={currentUser}
@@ -5362,8 +5795,8 @@ const ExpedienteManager = ({ currentUser }) => {
              />
         ) : (
           <>
-            {/* BARRA DE FILTROS Y BÚSQUEDA (1 SOLA LÍNEA) */}
-            <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-premium border border-slate-200/80 p-2.5 mb-5 relative z-20">
+            {/* BARRA DE FILTROS Y BÚSQUEDA (1 SOLA LÍNEA COMPACTA) */}
+            <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-premium border border-slate-200/80 px-2.5 py-1.5 mb-2 relative z-20">
               <div className="flex flex-wrap lg:flex-nowrap gap-1.5 justify-between items-center w-full">
                 
                 {/* Ámbito: Solo los administradores pueden ver todos los expedientes */}
@@ -5467,7 +5900,7 @@ const ExpedienteManager = ({ currentUser }) => {
               </div>
 
               {(selectedDepts.length > 0 || selectedTypes.length > 0 || selectedStatus.length > 0 || searchTerm || recordTypeFilter !== 'all') && (
-                <div className="mt-3 flex items-center gap-2 text-xs pt-2.5 border-t border-slate-100">
+                <div className="mt-1.5 flex items-center gap-2 text-xs pt-1.5 border-t border-slate-100">
                   <span className="text-slate-400 font-medium">{t.filters.activeFilters}</span>
                   <button onClick={clearAllFilters} className="text-rose-600 hover:text-rose-700 hover:underline font-bold transition-colors cursor-pointer">{t.filters.clearAll}</button>
                 </div>
@@ -5475,7 +5908,25 @@ const ExpedienteManager = ({ currentUser }) => {
             </div>
 
             {/* VISTAS */}
-            {currentView === 'list' && <ListView tasks={filteredTasks} onEdit={handleOpenEdit} onOpenChat={(t) => handleOpenEdit(t, 'chat')} currentUser={currentUser} lang={lang} areas={areas} tramos={tramos} />}
+            {currentView === 'list' && (
+              <ListView
+                tasks={filteredTasks}
+                onEdit={handleOpenEdit}
+                onOpenChat={(t) => handleOpenEdit(t, 'chat')}
+                currentUser={currentUser}
+                lang={lang}
+                areas={areas}
+                tramos={tramos}
+                sortField={listSortField}
+                sortDirection={listSortDirection}
+                onSortChange={handleListSortChange}
+                secondarySortField={listSecondarySortField}
+                secondarySortDirection={listSecondarySortDirection}
+                onSecondarySortChange={handleListSecondarySortChange}
+                displayMode={listDisplayMode}
+                onDisplayModeChange={handleListDisplayModeChange}
+              />
+            )}
             {currentView === 'plan' && <AnnualPlanView tasks={filteredTasks} currentUser={currentUser} onEdit={handleOpenEdit} lang={lang} areas={areas} tramos={tramos} />}
             {currentView === 'analytics' && <AnalyticsView tasks={filteredTasks} onEdit={handleOpenEdit} lang={lang} areas={areas} tramos={tramos} />}
             {currentView === 'roadmap' && <RoadmapView tasks={filteredTasks} onEdit={handleOpenEdit} lang={lang} areas={areas} tramos={tramos} />}

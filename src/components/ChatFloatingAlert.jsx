@@ -102,8 +102,9 @@ export default function ChatFloatingAlert({
                   >
                     <div className="min-w-0 flex-1 space-y-0.5">
                       <div className="flex items-center gap-1.5">
+                        <Building2 className="w-3.5 h-3.5 shrink-0 text-indigo-600" />
                         <span className="text-xs font-extrabold text-slate-900 truncate">
-                          {task.title}
+                          {task.client || task.clientRazonSocial || '—'}
                         </span>
                         {isCurrentOpen && (
                           <span className="px-1.5 py-0.2 rounded bg-amber-200 text-amber-900 text-[9px] font-extrabold uppercase shrink-0">
@@ -112,9 +113,8 @@ export default function ChatFloatingAlert({
                         )}
                       </div>
 
-                      <p className="text-[11px] font-semibold text-indigo-700 flex items-center gap-1 truncate">
-                        <Building2 className="w-3 h-3 shrink-0 text-indigo-500" />
-                        <span className="truncate">{task.client || '—'}</span>
+                      <p className="text-[11px] font-semibold text-indigo-700 truncate">
+                        {task.title}
                       </p>
 
                       {task.lastMessagePreview && (

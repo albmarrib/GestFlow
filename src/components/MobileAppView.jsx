@@ -32,7 +32,9 @@ import {
   User,
   Users,
   MessageSquare,
-  RefreshCw
+  RefreshCw,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import {
@@ -118,6 +120,8 @@ export default function MobileAppView({
   const [scopeFilter, setScopeFilter] = useState('mine'); // 'mine' | 'all'
   const [typeFilter, setTypeFilter] = useState('all'); // 'all' | 'expediente' | 'variable'
   const [hideClosed, setHideClosed] = useState(true);
+  const [mobileSortField, setMobileSortField] = useState('dueDate'); // 'client' | 'dueDate' | 'createdAt'
+  const [mobileSortDir, setMobileSortDir] = useState('asc'); // 'asc' | 'desc'
 
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [detailInitialTab, setDetailInitialTab] = useState('resum');
@@ -189,14 +193,34 @@ export default function MobileAppView({
         return true;
       })
       .sort((a, b) => {
+        const dir = mobileSortDir === 'asc' ? 1 : -1;
+        if (mobileSortField === 'client') {
+          const aCli = (a.client || a.clientRazonSocial || '').trim();
+          const bCli = (b.client || b.clientRazonSocial || '').trim();
+          if (!aCli && bCli) return 1;
+          if (aCli && !bCli) return -1;
+          const cmp = aCli.localeCompare(bCli, lang, { sensitivity: 'base' });
+          if (cmp !== 0) return cmp * dir;
+          return (a.title || '').localeCompare(b.title || '', lang, { sensitivity: 'base' }) * dir;
+        }
+        if (mobileSortField === 'createdAt') {
+          const getMs = (t) => {
+            if (t?.startDate) return Date.parse(t.startDate) || 0;
+            if (t?.createdAt?.seconds) return t.createdAt.seconds * 1000;
+            if (typeof t?.createdAt?.toMillis === 'function') return t.createdAt.toMillis();
+            if (typeof t?.createdAt === 'string') return Date.parse(t.createdAt) || 0;
+            return 0;
+          };
+          return (getMs(a) - getMs(b)) * dir;
+        }
         const aClosed = getNormalizedStatus(a) === 'Cerrado' ? 1 : 0;
         const bClosed = getNormalizedStatus(b) === 'Cerrado' ? 1 : 0;
-        if (aClosed !== bClosed) return aClosed - bClosed;
-        const aDate = a.dueDate || '9999-12-31';
-        const bDate = b.dueDate || '9999-12-31';
-        return aDate.localeCompare(bDate);
+        if (aClosed !== bClosed && mobileSortDir === 'asc') return aClosed - bClosed;
+        const aDate = a.dueDate || (mobileSortDir === 'asc' ? '9999-12-31' : '0000-01-01');
+        const bDate = b.dueDate || (mobileSortDir === 'asc' ? '9999-12-31' : '0000-01-01');
+        return aDate.localeCompare(bDate) * dir;
       });
-  }, [tasks, scopeFilter, typeFilter, hideClosed, searchTerm, currentUser?.email]);
+  }, [tasks, scopeFilter, typeFilter, hideClosed, searchTerm, currentUser?.email, mobileSortField, mobileSortDir, lang]);
 
   // --- PASOS GTD PENDIENTES ---
   const gtdItems = useMemo(() => {
@@ -558,8 +582,8 @@ export default function MobileAppView({
                             }}
                             className="w-full text-left p-2 rounded-xl border border-rose-200 bg-rose-50/40 active:bg-rose-100 cursor-pointer"
                           >
-                            <p className="text-xs font-extrabold text-slate-900 truncate">{ut.title}</p>
-                            <p className="text-[11px] font-semibold text-rose-700 truncate">{ut.client || '—'}</p>
+                            <p className="text-xs font-extrabold text-slate-900 truncate">{ut.client || ut.clientRazonSocial || '—'}</p>
+                            <p className="text-[11px] font-semibold text-rose-700 truncate">{ut.title}</p>
                             {ut.lastMessagePreview && (
                               <p className="text-[10px] text-slate-600 truncate mt-0.5">
                                 {ut.lastMessagePreview}
@@ -741,14 +765,42 @@ export default function MobileAppView({
               </div>
             </div>
 
-            {/* Contador */}
-            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 px-1">
-              <span>
-                {filteredTasks.length} {isCa ? 'registres' : 'registros'}
+            {/* Barra rápida de ordenación + contador */}
+            <div className="flex items-center justify-between gap-2 px-0.5">
+              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                {[
+                  { id: 'client', label: isCa ? 'Client' : 'Cliente', defaultDir: 'asc' },
+                  { id: 'dueDate', label: isCa ? 'Venciment' : 'Vencimiento', defaultDir: 'asc' },
+                  { id: 'createdAt', label: isCa ? 'Inici' : 'Inicio', defaultDir: 'desc' }
+                ].map(opt => {
+                  const active = mobileSortField === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => {
+                        if (active) {
+                          setMobileSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+                        } else {
+                          setMobileSortField(opt.id);
+                          setMobileSortDir(opt.defaultDir);
+                        }
+                      }}
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10.5px] font-bold border whitespace-nowrap cursor-pointer transition-colors ${
+                        active
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+                          : 'bg-white text-slate-600 border-slate-200'
+                      }`}
+                    >
+                      <span>{opt.label}</span>
+                      {active && (mobileSortDir === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)}
+                    </button>
+                  );
+                })}
+              </div>
+              <span className="text-[11px] font-semibold text-slate-500 shrink-0">
+                {filteredTasks.length} {isCa ? 'reg.' : 'reg.'}
               </span>
-              {scopeFilter === 'mine' && (
-                <span>{currentUser?.email}</span>
-              )}
             </div>
 
             {/* Lista de tarjetas */}
@@ -829,12 +881,12 @@ export default function MobileAppView({
                           </div>
                         </div>
 
-                        <h3 className="text-sm font-bold text-slate-900 leading-snug line-clamp-2">
-                          {task.title}
-                        </h3>
-                        <p className="text-xs font-medium text-slate-500 mt-1 flex items-center gap-1 truncate">
-                          <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <h3 className="text-sm font-bold text-slate-900 leading-snug line-clamp-2 flex items-center gap-1.5">
+                          <Building2 className={`w-3.5 h-3.5 shrink-0 ${task.isProvisionalClient ? 'text-amber-600' : 'text-indigo-600'}`} />
                           <span className="truncate">{task.client || matchedClient?.razonSocial || '—'}</span>
+                        </h3>
+                        <p className="text-xs font-semibold text-indigo-700/90 mt-1 line-clamp-2">
+                          {task.title}
                         </p>
                       </button>
 

@@ -1,0 +1,115 @@
+rules_version = '2';
+
+// ===============================================================
+// Assumed Data Model — GestFlow (gestflow-d6045)
+// ===============================================================
+// - users/{email}: doc ID en minúsculas; campos: email, name, department, role ('admin'|'gestor'), status ('active'|'inactive'), lastSeen
+// - settings/{docId}: documentos 'config' (admins) y 'billing'
+// - audit_logs/{logId}: registro inmutable de auditoría (create por empleados activos; read por admins)
+// - reminders/{reminderId}: recordatorios personales (userEmail == email en minúsculas)
+// - expedientes/{expId} (+ /messages/{msgId}) y tasks/{taskId} (+ /messages/{msgId})
+// - clientes/{clienteId}, areas/{id}, tramos/{id}, estados/{id}, plantillas_tareas/{id}, gtd_assignees/{id}, variables_catalog/{id}
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email != null;
+    }
+
+    function userEmail() {
+      return request.auth.token.email.lower();
+    }
+
+    function userDocPath() {
+      return /databases/$(database)/documents/users/$(userEmail());
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && userEmail() == 'albmarrib@gmail.com';
+    }
+
+    // Solo empleados dados de alta en Admin -> Equipo y no suspendidos
+    function isActiveEmployee() {
+      return isSignedIn() && (
+        isSuperAdmin() ||
+        (exists(userDocPath()) && get(userDocPath()).data.status != 'inactive')
+      );
+    }
+
+    // Solo SuperAdmin o usuarios activos con rol admin
+    function isAdmin() {
+      return isSignedIn() && (
+        isSuperAdmin() ||
+        (isActiveEmployee() && get(userDocPath()).data.role == 'admin')
+      );
+    }
+
+    // Equipo del despacho: solo admins crean, borran o cambian roles/estado.
+    // Cada empleado activo solo puede actualizar su propio campo lastSeen al entrar.
+    match /users/{email} {
+      allow read: if isActiveEmployee();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (
+        isActiveEmployee() &&
+        email == userEmail() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastSeen'])
+      );
+    }
+
+    // Configuración y facturación
+    match /settings/{docId} {
+      allow read: if isActiveEmployee();
+      allow write: if isAdmin();
+    }
+
+    // Auditoría (inmutable: nadie puede editar ni borrar registros históricos)
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isActiveEmployee();
+      allow update, delete: if false;
+    }
+
+    // Recordatorios personales
+    match /reminders/{reminderId} {
+      allow read, delete: if isActiveEmployee() && (
+        resource.data.userEmail == userEmail() || isAdmin()
+      );
+      allow create: if isActiveEmployee() && request.resource.data.userEmail == userEmail();
+      allow update: if isActiveEmployee() && (
+        (resource.data.userEmail == userEmail() && request.resource.data.userEmail == userEmail()) ||
+        isAdmin()
+      );
+    }
+
+    // Expedientes (+ chat) y colección heredada tasks
+    match /expedientes/{expId} {
+      allow read, write: if isActiveEmployee();
+      match /messages/{msgId} {
+        allow read, write: if isActiveEmployee();
+      }
+    }
+
+    match /tasks/{taskId} {
+      allow read, write: if isActiveEmployee();
+      match /messages/{msgId} {
+        allow read, write: if isActiveEmployee();
+      }
+    }
+
+    // Clientes y tablas maestras del despacho
+    match /clientes/{clienteId} { allow read, write: if isActiveEmployee(); }
+    match /areas/{id} { allow read, write: if isActiveEmployee(); }
+    match /tramos/{id} { allow read, write: if isActiveEmployee(); }
+    match /estados/{id} { allow read, write: if isActiveEmployee(); }
+    match /plantillas_tareas/{id} { allow read, write: if isActiveEmployee(); }
+    match /gtd_assignees/{id} { allow read, write: if isActiveEmployee(); }
+    match /variables_catalog/{id} { allow read, write: if isActiveEmployee(); }
+
+    // Denegar cualquier otra ruta por defecto
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
