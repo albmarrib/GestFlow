@@ -1,0 +1,63 @@
+rules_version = '2';
+
+// ===============================================================
+// Reglas de seguridad para Cloud Storage — GestFlow (gestflow-d6045)
+// ===============================================================
+// Comprueba en Firestore que el usuario está autenticado y activo
+// (status != 'inactive') antes de permitir leer, subir o borrar adjuntos.
+// Limita el tamaño de subida a 25 MB por archivo y bloquea rutas no usadas.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email != null;
+    }
+
+    function userEmail() {
+      return request.auth.token.email.lower();
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && userEmail() == 'albmarrib@gmail.com';
+    }
+
+    function isActiveEmployee() {
+      return isSignedIn() && (
+        isSuperAdmin() ||
+        (
+          firestore.exists(/databases/(default)/documents/users/$(userEmail())) &&
+          firestore.get(/databases/(default)/documents/users/$(userEmail())).data.status != 'inactive'
+        )
+      );
+    }
+
+    // Adjuntos de expedientes (escritorio y móvil)
+    match /expedientes/{expId}/{allPaths=**} {
+      allow read, delete: if isActiveEmployee();
+      allow create, update: if isActiveEmployee()
+        && request.resource != null
+        && request.resource.size < 25 * 1024 * 1024;
+    }
+
+    // Justificantes de suplidos y anticipos
+    match /suplidos/{allPaths=**} {
+      allow read, delete: if isActiveEmployee();
+      allow create, update: if isActiveEmployee()
+        && request.resource != null
+        && request.resource.size < 25 * 1024 * 1024;
+    }
+
+    match /anticipos/{allPaths=**} {
+      allow read, delete: if isActiveEmployee();
+      allow create, update: if isActiveEmployee()
+        && request.resource != null
+        && request.resource.size < 25 * 1024 * 1024;
+    }
+
+    // Bloqueo por defecto de cualquier otra ruta
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

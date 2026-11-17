@@ -58,6 +58,8 @@ import BillingSettingsManager from './components/BillingSettingsManager';
 import VariableModal from './components/VariableModal';
 import VariablesCatalogManager from './components/VariablesCatalogManager';
 import RemindersSidebar from './components/RemindersSidebar';
+import AttachmentPreviewModal from './components/AttachmentPreviewModal';
+import { downloadAttachment, withTimeout } from './utils/attachmentUtils';
 import { DEFAULT_BILLING_SETTINGS } from './utils/billingUtils';
 import { classifyReminder, getLocalTodayStr, getEndOfCurrentWeekStr } from './utils/reminderUtils';
 import { getUnreadChatTasks, hasUnreadChatMessage } from './utils/chatUtils';
@@ -3475,6 +3477,7 @@ const ExpedienteModal = ({
   const [modalActionText, setModalActionText] = useState('');
   const [modalActionAssignee, setModalActionAssignee] = useState('');
   const [modalShowSuggestions, setModalShowSuggestions] = useState(false);
+  const [previewAttachment, setPreviewAttachment] = useState(null);
 
   const handleOpenEditActionModal = (action) => {
     setEditingActionItem(action);
@@ -3574,42 +3577,81 @@ const ExpedienteModal = ({
       });
   };
 
-  const processFileUpload = async (file) => {
-    if (!file) return;
+  const processFilesUpload = async (fileListInput) => {
+    const files = Array.from(fileListInput || []).filter(Boolean);
+    if (files.length === 0) return;
     setIsUploading(true);
-    try {
-      const parentId = task?.id || ('nuevo_' + Date.now());
-      const cleanFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const storageRef = ref(storage, `expedientes/${parentId}/${Date.now()}_${cleanFileName}`);
-      await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(storageRef);
-      const newAttachment = { 
-        name: file.name, 
-        url: downloadURL, 
-        path: storageRef.fullPath, 
-        type: 'file', 
-        size: file.size,
-        uploadedAt: new Date().toISOString(), 
-        uploadedBy: currentUser?.email || 'gestor' 
-      };
+    let workingList = [...(task?.attachments || formData.attachments || [])];
+    const maxBytes = 25 * 1024 * 1024;
 
-      const currentList = task?.attachments || formData.attachments || [];
-      const updatedAttachments = [...currentList, newAttachment];
-      
+    try {
+      for (const file of files) {
+        if (!file.name) continue;
+        if (file.size === 0) {
+          alert(`No se puede subir "${file.name}" porque está vacío, es una carpeta o aún no se ha descargado de la nube (OneDrive/Drive).`);
+          continue;
+        }
+        if (file.size >= maxBytes) {
+          alert(`El archivo "${file.name}" supera el límite de 25 MB permitido.`);
+          continue;
+        }
+
+        let fileBytes;
+        try {
+          fileBytes = await file.arrayBuffer();
+        } catch (readErr) {
+          console.error('Error leyendo archivo local:', readErr);
+          alert(`No se pudo leer "${file.name}" desde esa carpeta. Si está abierto en Word/Excel o sincronizándose en OneDrive, ciérralo o guárdalo en local e inténtalo de nuevo.`);
+          continue;
+        }
+
+        const parentId = task?.id || ('nuevo_' + Date.now());
+        const rawClean = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const cleanFileName = rawClean.replace(/^_+/, '') || `archivo_${Date.now()}`;
+        const storageRef = ref(storage, `expedientes/${parentId}/${Date.now()}_${cleanFileName}`);
+
+        await withTimeout(
+          uploadBytes(
+            storageRef,
+            new Uint8Array(fileBytes),
+            file.type ? { contentType: file.type } : undefined
+          ),
+          30000,
+          `Tiempo de espera agotado al subir "${file.name}". Comprueba tu conexión e inténtalo de nuevo.`
+        );
+        const downloadURL = await withTimeout(
+          getDownloadURL(storageRef),
+          12000,
+          `Tiempo de espera agotado al obtener enlace de "${file.name}".`
+        );
+
+        const newAttachment = {
+          name: file.name,
+          url: downloadURL,
+          path: storageRef.fullPath,
+          type: 'file',
+          size: file.size,
+          uploadedAt: new Date().toISOString(),
+          uploadedBy: currentUser?.email || 'gestor'
+        };
+
+        workingList = [...workingList, newAttachment];
+        if (logAction) {
+          logAction('Adjunto Subido', `Archivo: ${file.name} en ${task?.title || formData.title}`);
+        }
+      }
+
       if (task) {
         const docRef = doc(db, 'expedientes', task.id);
-        await updateDoc(docRef, { attachments: updatedAttachments, updatedBy: currentUser.email, lastUpdated: serverTimestamp() }).catch(async () => {
-          await updateDoc(doc(db, 'tasks', task.id), { attachments: updatedAttachments, updatedBy: currentUser.email, lastUpdated: serverTimestamp() });
+        await updateDoc(docRef, { attachments: workingList, updatedBy: currentUser.email, lastUpdated: serverTimestamp() }).catch(async () => {
+          await updateDoc(doc(db, 'tasks', task.id), { attachments: workingList, updatedBy: currentUser.email, lastUpdated: serverTimestamp() });
         });
-        setEditingTask(prev => ({ ...prev, attachments: updatedAttachments }));
+        setEditingTask(prev => (prev ? { ...prev, attachments: workingList } : prev));
       }
-      setFormData(prev => ({ ...prev, attachments: updatedAttachments }));
-      if (logAction) {
-        logAction('Adjunto Subido', `Archivo: ${file.name} en ${task?.title || formData.title}`);
-      }
-    } catch (error) { 
-      console.error(error); 
-      alert("Error al subir el archivo: " + (error.message || error)); 
+      setFormData(prev => ({ ...prev, attachments: workingList }));
+    } catch (error) {
+      console.error('Error subiendo archivo:', error);
+      alert("Error al subir el archivo: " + (error.message || error));
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -3617,8 +3659,10 @@ const ExpedienteModal = ({
   };
 
   const handleFileUpload = (e) => {
-    if (e.target.files && e.target.files.length > 0) {
-      Array.from(e.target.files).forEach(f => processFileUpload(f));
+    const selected = e.target.files ? Array.from(e.target.files) : [];
+    e.target.value = "";
+    if (selected.length > 0) {
+      processFilesUpload(selected);
     }
   };
 
@@ -4371,11 +4415,12 @@ const ExpedienteModal = ({
               onDragOver={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                setIsDraggingFile(true);
+                if (!isDraggingFile) setIsDraggingFile(true);
               }}
               onDragLeave={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget)) return;
                 setIsDraggingFile(false);
               }}
               onDrop={(e) => {
@@ -4383,14 +4428,14 @@ const ExpedienteModal = ({
                 e.stopPropagation();
                 setIsDraggingFile(false);
                 if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                  Array.from(e.dataTransfer.files).forEach(f => processFileUpload(f));
+                  processFilesUpload(e.dataTransfer.files);
                 }
               }}
               className="flex-1 flex flex-col h-full overflow-hidden bg-white p-4 relative"
             >
               {/* Overlay visual cuando se arrastra un archivo encima */}
               {isDraggingFile && (
-                <div className="absolute inset-0 bg-indigo-600/90 backdrop-blur-xs z-30 flex flex-col items-center justify-center text-white border-2 border-dashed border-white m-2 rounded-2xl animate-in fade-in duration-150">
+                <div className="pointer-events-none absolute inset-0 bg-indigo-600/90 backdrop-blur-xs z-30 flex flex-col items-center justify-center text-white border-2 border-dashed border-white m-2 rounded-2xl animate-in fade-in duration-150">
                   <UploadCloud className="w-12 h-12 text-white animate-bounce mb-2" />
                   <p className="font-bold text-sm">{t.attachments.dropZoneOverlay}</p>
                   <p className="text-xs text-indigo-200 mt-1">Se guardarán automáticamente en este expediente</p>
@@ -4470,9 +4515,14 @@ const ExpedienteModal = ({
                         <div className="flex items-center gap-2 truncate flex-1 min-w-0">
                           <Paperclip className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                           <div className="truncate">
-                            <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-slate-800 hover:text-indigo-600 font-semibold truncate block" title={f.name}>
+                            <button
+                              type="button"
+                              onClick={() => setPreviewAttachment(f)}
+                              className="text-slate-800 hover:text-indigo-600 font-semibold truncate block text-left w-full cursor-pointer"
+                              title={f.name}
+                            >
                               {f.name}
-                            </a>
+                            </button>
                             {f.uploadedAt && (
                               <span className="text-[10px] text-slate-400 block mt-0.5">
                                 Subido el {new Date(f.uploadedAt).toLocaleDateString('es-ES')}
@@ -4480,10 +4530,24 @@ const ExpedienteModal = ({
                             )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0 ml-2">
-                          <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-800 text-[11px] font-semibold flex items-center gap-0.5">
-                            <ExternalLink className="w-3 h-3" /> Ver
-                          </a>
+                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewAttachment(f)}
+                            className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-1.5 py-1 rounded text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                            title={lang === 'ca' ? 'Veure document sense descarregar' : 'Ver documento sin descargar'}
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>{lang === 'ca' ? 'Veure' : 'Ver'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => downloadAttachment(f)}
+                            className="text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 p-1 rounded transition-colors cursor-pointer"
+                            title={lang === 'ca' ? 'Descarregar arxiu' : 'Descargar archivo'}
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </button>
                           <button
                             type="button"
                             onClick={() => handleDeleteAttachment(f)}
@@ -4651,6 +4715,12 @@ const ExpedienteModal = ({
           </div>
         </div>
       )}
+
+      <AttachmentPreviewModal
+        attachment={previewAttachment}
+        onClose={() => setPreviewAttachment(null)}
+        lang={lang}
+      />
     </div>
   );
 };

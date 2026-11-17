@@ -19,7 +19,9 @@ import {
   FileText,
   Save,
   Building2,
-  Calendar
+  Calendar,
+  Eye,
+  Download
 } from 'lucide-react';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
@@ -29,6 +31,8 @@ import { translateClassificationName } from '../utils/classificationI18n';
 import { buildTelHref, buildWhatsAppHref } from '../utils/contactUtils';
 import { hasUnreadChatMessage } from '../utils/chatUtils';
 import ExpedienteChatTab from './ExpedienteChatTab';
+import AttachmentPreviewModal from './AttachmentPreviewModal';
+import { downloadAttachment } from '../utils/attachmentUtils';
 
 async function compressImageIfNeeded(file) {
   if (!file || !file.type || !file.type.startsWith('image/')) return file;
@@ -101,6 +105,7 @@ export default function MobileExpedienteDetail({
 }) {
   const isCa = lang === 'ca';
   const [activeTab, setActiveTab] = useState(initialTab); // 'resum' | 'bitacora' | 'gtd' | 'adjunts' | 'chat'
+  const [previewAttachment, setPreviewAttachment] = useState(null);
 
   useEffect(() => {
     if (initialTab) setActiveTab(initialTab);
@@ -1000,37 +1005,53 @@ export default function MobileExpedienteDetail({
                 {fileAttachments.map((att, idx) => (
                   <div key={`file_${idx}`} className="bg-white p-2.5 rounded-2xl border border-slate-200 shadow-2xs flex items-center gap-2.5">
                     {isImageFile(att) ? (
-                      <a href={att.url} target="_blank" rel="noopener noreferrer" className="w-12 h-12 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewAttachment(att)}
+                        className="w-12 h-12 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0 cursor-pointer"
+                      >
                         <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
-                      </a>
+                      </button>
                     ) : (
-                      <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewAttachment(att)}
+                        className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 cursor-pointer"
+                      >
                         <FileText className="w-5 h-5" />
-                      </div>
+                      </button>
                     )}
 
                     <div className="flex-1 min-w-0">
-                      <a
-                        href={att.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs font-bold text-slate-800 hover:text-indigo-600 truncate block"
+                      <button
+                        type="button"
+                        onClick={() => setPreviewAttachment(att)}
+                        className="text-xs font-bold text-slate-800 hover:text-indigo-600 truncate block text-left w-full cursor-pointer"
                       >
                         {att.name}
-                      </a>
+                      </button>
                       <span className="text-[10px] text-slate-400">
                         {att.uploadedAt ? new Date(att.uploadedAt).toLocaleDateString(isCa ? 'ca-ES' : 'es-ES') : ''}
                       </span>
                     </div>
 
-                    <a
-                      href={att.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-2 text-slate-400 hover:text-indigo-600 shrink-0"
+                    <button
+                      type="button"
+                      onClick={() => setPreviewAttachment(att)}
+                      className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-xl shrink-0 cursor-pointer"
+                      title={isCa ? 'Veure document' : 'Ver documento'}
                     >
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
+                      <Eye className="w-4 h-4" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => downloadAttachment(att)}
+                      className="p-2 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-xl shrink-0 cursor-pointer"
+                      title={isCa ? 'Descarregar' : 'Descargar'}
+                    >
+                      <Download className="w-4 h-4" />
+                    </button>
 
                     <button
                       type="button"
@@ -1068,6 +1089,12 @@ export default function MobileExpedienteDetail({
         )}
       </div>
       )}
+
+      <AttachmentPreviewModal
+        attachment={previewAttachment}
+        onClose={() => setPreviewAttachment(null)}
+        lang={lang}
+      />
     </div>
   );
 }
