@@ -2858,7 +2858,7 @@ const compareTasksByField = (a, b, field, dir, locale, areas = [], tramos = [], 
 
 const sortTasksForList = (
   list = [],
-  sortField = 'createdAt',
+  sortField = '',
   sortDirection = 'desc',
   lang = 'ca',
   areas = [],
@@ -2866,15 +2866,16 @@ const sortTasksForList = (
   secondaryField = '',
   secondaryDirection = 'asc'
 ) => {
-  const primaryDir = sortDirection === 'asc' ? 1 : -1;
+  const effectiveField = sortField || 'createdAt';
+  const primaryDir = sortField ? (sortDirection === 'asc' ? 1 : -1) : -1;
   const secondaryDir = secondaryDirection === 'asc' ? 1 : -1;
   const locale = lang === 'ca' ? 'ca' : 'es';
 
   return [...list].sort((a, b) => {
-    const primaryCmp = compareTasksByField(a, b, sortField, primaryDir, locale, areas, tramos, lang);
+    const primaryCmp = compareTasksByField(a, b, effectiveField, primaryDir, locale, areas, tramos, lang);
     if (primaryCmp !== 0) return primaryCmp;
 
-    if (secondaryField && secondaryField !== sortField) {
+    if (secondaryField && secondaryField !== effectiveField) {
       const secondaryCmp = compareTasksByField(a, b, secondaryField, secondaryDir, locale, areas, tramos, lang);
       if (secondaryCmp !== 0) return secondaryCmp;
     }
@@ -2898,12 +2899,13 @@ const ListView = ({
   lang = 'ca',
   areas = [],
   tramos = [],
-  sortField = 'createdAt',
+  sortField = '',
   sortDirection = 'desc',
   onSortChange,
   secondarySortField = '',
   secondarySortDirection = 'asc',
   onSecondarySortChange,
+  onResetSort,
   displayMode = 'cards',
   onDisplayModeChange
 }) => {
@@ -2932,14 +2934,19 @@ const ListView = ({
     { id: 'title', label: isCa ? 'Tasca / Expedient' : 'Tarea / Expediente', defaultDir: 'asc' },
     { id: 'department', label: isCa ? 'Àrea' : 'Área', defaultDir: 'asc' },
     { id: 'dueDate', label: isCa ? 'Venciment' : 'Vencimiento', defaultDir: 'asc' },
-    { id: 'createdAt', label: isCa ? "Data d'inici" : 'Fecha inicio', defaultDir: 'desc' },
-    { id: 'status', label: isCa ? 'Estat' : 'Estado', defaultDir: 'asc' }
+    { id: 'createdAt', label: isCa ? "Data d'inici" : 'Fecha inicio', defaultDir: 'desc' }
   ];
 
+  const isCustomSort = Boolean(sortField) || Boolean(secondarySortField);
+
   const handleHeaderClick = (colId, defaultDir = 'asc', e = null) => {
-    if (e?.shiftKey && onSecondarySortChange && colId !== sortField) {
+    if (e?.shiftKey && onSecondarySortChange && sortField && colId !== sortField) {
       if (secondarySortField === colId) {
-        onSecondarySortChange(colId, secondarySortDirection === 'asc' ? 'desc' : 'asc');
+        if (secondarySortDirection !== defaultDir) {
+          onSecondarySortChange('', 'asc');
+        } else {
+          onSecondarySortChange(colId, secondarySortDirection === 'asc' ? 'desc' : 'asc');
+        }
       } else {
         onSecondarySortChange(colId, defaultDir);
       }
@@ -2947,7 +2954,15 @@ const ListView = ({
     }
     if (!onSortChange) return;
     if (sortField === colId) {
-      onSortChange(colId, sortDirection === 'asc' ? 'desc' : 'asc');
+      if (sortDirection !== defaultDir) {
+        if (onResetSort) {
+          onResetSort();
+        } else {
+          onSortChange('', 'desc');
+        }
+      } else {
+        onSortChange(colId, sortDirection === 'asc' ? 'desc' : 'asc');
+      }
     } else {
       onSortChange(colId, defaultDir);
     }
@@ -3029,7 +3044,7 @@ const ListView = ({
             );
           })}
 
-          {onSecondarySortChange && (
+          {onSecondarySortChange && Boolean(sortField) && (
             <div className="inline-flex items-center gap-1 ml-1 pl-1.5 border-l border-slate-200/90">
               <span className="text-[10px] font-medium text-slate-400 whitespace-nowrap">
                 {isCa ? 'Després:' : 'Luego:'}
@@ -3062,6 +3077,18 @@ const ListView = ({
                 </button>
               )}
             </div>
+          )}
+
+          {isCustomSort && onResetSort && (
+            <button
+              type="button"
+              onClick={onResetSort}
+              title={isCa ? "Restablir ordre per defecte (Data d'inici ↓)" : 'Restablecer orden por defecto (Fecha inicio ↓)'}
+              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-semibold text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors cursor-pointer ml-0.5"
+            >
+              <X className="w-3 h-3" />
+              <span>{isCa ? 'Netejar' : 'Limpiar'}</span>
+            </button>
           )}
         </div>
 
@@ -3145,12 +3172,8 @@ const ListView = ({
                   >
                     <span className="inline-flex items-center gap-1">{isCa ? "Data d'inici" : 'Fecha inicio'} {renderSortIcon('createdAt')}</span>
                   </th>
-                  <th
-                    onClick={(e) => handleHeaderClick('status', 'asc', e)}
-                    title={isCa ? 'Clic: 1r criteri · Shift+Clic: 2n criteri' : 'Clic: 1er criterio · Shift+Clic: 2º criterio'}
-                    className={`py-2 px-3 cursor-pointer hover:bg-slate-100 transition-colors whitespace-nowrap ${sortField === 'status' ? 'text-indigo-700 bg-indigo-50/45' : secondarySortField === 'status' ? 'text-slate-800 bg-slate-100/80' : ''}`}
-                  >
-                    <span className="inline-flex items-center gap-1">{isCa ? 'Estat' : 'Estado'} {renderSortIcon('status')}</span>
+                  <th className="py-2 px-3 whitespace-nowrap">
+                    {isCa ? 'Estat' : 'Estado'}
                   </th>
                 </tr>
               </thead>
@@ -4797,9 +4820,15 @@ const ExpedienteManager = ({ currentUser }) => {
   });
 
   // Ordenación tipo Excel / Access (combinada 1º + 2º criterio) y modo de visualización del listado de expedientes
-  const [listSortField, setListSortField] = useState(() => localStorage.getItem('gestflow_sort_field') || 'createdAt');
+  const [listSortField, setListSortField] = useState(() => {
+    const saved = localStorage.getItem('gestflow_sort_field');
+    return saved && saved !== 'status' ? saved : '';
+  });
   const [listSortDirection, setListSortDirection] = useState(() => localStorage.getItem('gestflow_sort_dir') || 'desc');
-  const [listSecondarySortField, setListSecondarySortField] = useState(() => localStorage.getItem('gestflow_sort2_field') || '');
+  const [listSecondarySortField, setListSecondarySortField] = useState(() => {
+    const saved = localStorage.getItem('gestflow_sort2_field');
+    return saved && saved !== 'status' ? saved : '';
+  });
   const [listSecondarySortDirection, setListSecondarySortDirection] = useState(() => localStorage.getItem('gestflow_sort2_dir') || 'asc');
   const [listDisplayMode, setListDisplayMode] = useState(() => localStorage.getItem('gestflow_list_mode') || 'cards');
 
@@ -4819,6 +4848,17 @@ const ExpedienteManager = ({ currentUser }) => {
     setListSecondarySortDirection(dir);
     localStorage.setItem('gestflow_sort2_field', field);
     localStorage.setItem('gestflow_sort2_dir', dir);
+  };
+
+  const handleResetListSort = () => {
+    setListSortField('');
+    setListSortDirection('desc');
+    setListSecondarySortField('');
+    setListSecondarySortDirection('asc');
+    localStorage.removeItem('gestflow_sort_field');
+    localStorage.removeItem('gestflow_sort_dir');
+    localStorage.removeItem('gestflow_sort2_field');
+    localStorage.removeItem('gestflow_sort2_dir');
   };
 
   const handleListDisplayModeChange = (mode) => {
@@ -5994,6 +6034,7 @@ const ExpedienteManager = ({ currentUser }) => {
                 secondarySortField={listSecondarySortField}
                 secondarySortDirection={listSecondarySortDirection}
                 onSecondarySortChange={handleListSecondarySortChange}
+                onResetSort={handleResetListSort}
                 displayMode={listDisplayMode}
                 onDisplayModeChange={handleListDisplayModeChange}
               />
