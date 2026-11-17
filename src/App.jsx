@@ -4755,7 +4755,7 @@ const ExpedienteManager = ({ currentUser }) => {
   const [selectedTypes, setSelectedTypes] = useState([]);
   const [selectedStatus, setSelectedStatus] = useState([]); 
   const [searchTerm, setSearchTerm] = useState('');
-  const [hideCompleted, setHideCompleted] = useState(false);
+  const [hideCompleted, setHideCompleted] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [showVariableModal, setShowVariableModal] = useState(false);
@@ -5242,7 +5242,8 @@ const ExpedienteManager = ({ currentUser }) => {
     const taskKind = task.recordType === 'variable' ? 'variable' : 'expediente';
 
     if (recordTypeFilter !== 'all' && taskKind !== recordTypeFilter) return false;
-    if (hideCompleted && currentView !== 'analytics' && effectiveStatus === 'Cerrado') return false;
+    const explicitlySelectedClosed = selectedStatus.some(st => ['Tancat', 'Cerrado', 'Completed'].includes(st));
+    if (hideCompleted && !explicitlySelectedClosed && currentView !== 'analytics' && effectiveStatus === 'Cerrado') return false;
     if (selectedDepts.length > 0 && !matchesClassificationFilter(normDept, selectedDepts, 'areas', areas)) return false;
     if (selectedTypes.length > 0 && !matchesClassificationFilter(normType, selectedTypes, 'tramos', tramos)) return false;
     if (selectedStatus.length > 0) {
